@@ -832,7 +832,7 @@ class PGPKeyManager(Gtk.Box):
         self.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
         # Key list
-        scrolled = Gtk.ScrolledWindow(
+        self._scrolled = Gtk.ScrolledWindow(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
             vexpand=True,
@@ -844,8 +844,8 @@ class PGPKeyManager(Gtk.Box):
         )
         self._list_box.connect("row-activated", self._on_row_activated)
 
-        scrolled.set_child(self._list_box)
-        self.append(scrolled)
+        self._scrolled.set_child(self._list_box)
+        self.append(self._scrolled)
 
         # Empty state (shown when no keys)
         self._empty_box = Gtk.Box(
@@ -883,7 +883,7 @@ class PGPKeyManager(Gtk.Box):
         generate_empty_button.connect("clicked", self._on_generate_clicked)
         self._empty_box.append(generate_empty_button)
 
-        scrolled.set_child(self._empty_box)
+        self._scrolled.set_child(self._empty_box)
 
     def _load_sample_keys(self) -> None:
         """Load sample keys for demonstration."""
@@ -988,9 +988,9 @@ class PGPKeyManager(Gtk.Box):
 
         # Show empty state or list
         if not filtered_keys:
-            self._list_box.get_parent().set_child(self._empty_box)
+            self._scrolled.set_child(self._empty_box)
         else:
-            self._list_box.get_parent().set_child(self._list_box)
+            self._scrolled.set_child(self._list_box)
             for key in filtered_keys:
                 row = PGPKeyRow(key)
                 self._list_box.append(row)
