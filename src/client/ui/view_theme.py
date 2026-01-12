@@ -9,6 +9,7 @@ Provides three email view themes:
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import Callable, Optional
 
@@ -18,6 +19,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gio", "2.0")
 
 from gi.repository import Gio, GLib, GObject, Gtk
+
+logger = logging.getLogger(__name__)
 
 
 class ViewTheme(Enum):
@@ -97,7 +100,11 @@ class ViewThemeManager(GObject.Object):
         Args:
             theme: The new view theme to apply
         """
+        logger.info(f"ViewThemeManager.set_theme called with: {theme.value}")
+        logger.info(f"Current theme: {self._current_theme.value}, managed widgets: {len(self._managed_widgets)}")
+
         if theme == self._current_theme:
+            logger.info("Theme unchanged, skipping")
             return
 
         old_theme = self._current_theme
@@ -105,8 +112,8 @@ class ViewThemeManager(GObject.Object):
 
         # Update all managed widgets
         for widget in self._managed_widgets:
-            if widget.get_parent() is not None:  # Still in widget tree
-                self._apply_theme_to_widget(widget, old_theme, theme)
+            logger.info(f"Applying theme to widget: {widget}, has parent: {widget.get_parent() is not None}")
+            self._apply_theme_to_widget(widget, old_theme, theme)
 
         # Save to settings
         if self._settings:
@@ -114,6 +121,7 @@ class ViewThemeManager(GObject.Object):
 
         # Emit signal
         self.emit("theme-changed", theme.value)
+        logger.info(f"Theme changed to: {theme.value}")
 
     def register_widget(self, widget: Gtk.Widget) -> None:
         """
@@ -122,9 +130,11 @@ class ViewThemeManager(GObject.Object):
         Args:
             widget: Widget to manage (typically message list container)
         """
+        logger.info(f"Registering widget: {widget}")
         if widget not in self._managed_widgets:
             self._managed_widgets.append(widget)
             self._apply_theme_to_widget(widget, None, self._current_theme)
+            logger.info(f"Widget registered, applying theme: {self._current_theme.value}")
 
             # Clean up when widget is destroyed
             widget.connect("destroy", self._on_widget_destroyed)
@@ -147,10 +157,14 @@ class ViewThemeManager(GObject.Object):
         """Apply theme CSS class to widget."""
         # Remove old theme class
         if old_theme:
-            widget.remove_css_class(f"view-theme-{old_theme.value}")
+            old_class = f"view-theme-{old_theme.value}"
+            widget.remove_css_class(old_class)
+            logger.info(f"Removed CSS class: {old_class}")
 
         # Add new theme class
-        widget.add_css_class(f"view-theme-{new_theme.value}")
+        new_class = f"view-theme-{new_theme.value}"
+        widget.add_css_class(new_class)
+        logger.info(f"Added CSS class: {new_class}")
 
     def get_theme_names(self) -> list[str]:
         """Get list of available theme names."""

@@ -362,7 +362,6 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Actions section
         actions_section = Gio.Menu()
-        actions_section.append("Settings", "app.settings")
         actions_section.append("About unitMail", "app.about")
         menu.append_section(None, actions_section)
 
@@ -599,6 +598,14 @@ class MainWindow(Adw.ApplicationWindow):
         scrolled.set_child(self._message_list)
 
         message_box.append(scrolled)
+
+        # Register with view theme manager for density changes
+        try:
+            from .view_theme import get_view_theme_manager
+            theme_manager = get_view_theme_manager()
+            theme_manager.register_widget(message_box)
+        except ImportError:
+            pass
 
         return message_box
 
