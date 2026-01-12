@@ -1,0 +1,417 @@
+/*
+ * unitMail GTK CSS Stylesheet
+ *
+ * Provides consistent styling for the unitMail email client,
+ * with support for both light and dark themes.
+ */
+
+/* ============================================
+ * Global Styles
+ * ============================================ */
+
+/* Window styling */
+window.background {
+    background-color: @window_bg_color;
+}
+
+/* ============================================
+ * Header Bar
+ * ============================================ */
+
+headerbar {
+    min-height: 42px;
+}
+
+headerbar button.suggested-action {
+    padding: 6px 12px;
+}
+
+/* Search entry in header */
+headerbar searchentry {
+    min-width: 300px;
+    margin: 4px;
+}
+
+/* ============================================
+ * Folder Pane (Left)
+ * ============================================ */
+
+.folder-pane {
+    background-color: @sidebar_bg_color;
+    border-right: 1px solid @borders;
+    min-width: 150px;
+}
+
+.folder-pane .heading {
+    font-weight: bold;
+    font-size: 0.9em;
+    color: @dim_label_color;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Folder list navigation */
+listview.navigation-sidebar row {
+    padding: 2px 0;
+    border-radius: 6px;
+    margin: 2px 6px;
+}
+
+listview.navigation-sidebar row:selected {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+listview.navigation-sidebar row:hover:not(:selected) {
+    background-color: alpha(@accent_bg_color, 0.1);
+}
+
+/* Unread badge */
+.badge {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 0.8em;
+    font-weight: bold;
+    min-width: 18px;
+}
+
+.badge.numeric {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ============================================
+ * Message List Pane (Center)
+ * ============================================ */
+
+.message-list-pane {
+    background-color: @view_bg_color;
+    border-right: 1px solid @borders;
+    min-width: 250px;
+}
+
+.message-list-pane .toolbar {
+    background-color: @headerbar_bg_color;
+    padding: 4px 8px;
+}
+
+/* Message list */
+listview.message-list {
+    background-color: transparent;
+}
+
+listview.message-list row {
+    padding: 0;
+    border-bottom: 1px solid alpha(@borders, 0.5);
+}
+
+listview.message-list row:selected {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+listview.message-list row:hover:not(:selected) {
+    background-color: alpha(@accent_bg_color, 0.08);
+}
+
+/* Message row styling */
+.message-row {
+    padding: 8px;
+}
+
+.message-row.unread {
+    background-color: alpha(@accent_bg_color, 0.05);
+}
+
+.message-from {
+    font-size: 0.95em;
+}
+
+.message-from.bold {
+    font-weight: 600;
+}
+
+.message-subject {
+    font-size: 0.9em;
+}
+
+.message-subject.bold {
+    font-weight: 600;
+}
+
+.message-preview {
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
+.message-date {
+    font-size: 0.8em;
+}
+
+/* Star button */
+.star-button {
+    padding: 4px;
+    min-width: 24px;
+    min-height: 24px;
+}
+
+.star-button:checked {
+    color: @warning_color;
+}
+
+.star-button:checked image {
+    color: @warning_color;
+}
+
+/* ============================================
+ * Preview Pane (Right)
+ * ============================================ */
+
+.preview-pane {
+    background-color: @view_bg_color;
+    min-width: 300px;
+}
+
+.preview-pane .title-2 {
+    font-weight: bold;
+    font-size: 1.2em;
+    margin-top: 8px;
+}
+
+.preview-content {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 1em;
+    line-height: 1.5;
+}
+
+/* Action buttons in preview header */
+.preview-pane button {
+    padding: 6px;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.preview-pane button.destructive-action {
+    color: @error_color;
+}
+
+.preview-pane button.destructive-action:hover {
+    background-color: alpha(@error_bg_color, 0.2);
+}
+
+/* ============================================
+ * Status Bar
+ * ============================================ */
+
+.statusbar {
+    background-color: @headerbar_bg_color;
+    border-top: 1px solid @borders;
+    min-height: 24px;
+    padding: 4px 12px;
+}
+
+.statusbar label {
+    font-size: 0.85em;
+}
+
+.statusbar image {
+    -gtk-icon-size: 14px;
+}
+
+/* ============================================
+ * Dialogs and Windows
+ * ============================================ */
+
+/* Compose dialog */
+.compose-dialog {
+    min-width: 600px;
+    min-height: 500px;
+}
+
+.compose-dialog entry {
+    margin: 4px 0;
+}
+
+.compose-dialog textview {
+    font-family: system-ui, -apple-system, sans-serif;
+    padding: 12px;
+}
+
+/* Settings dialog */
+.settings-dialog {
+    min-width: 500px;
+    min-height: 400px;
+}
+
+/* ============================================
+ * Common Components
+ * ============================================ */
+
+/* Dim labels (secondary text) */
+.dim-label {
+    opacity: 0.7;
+}
+
+/* Bold text */
+.bold {
+    font-weight: 600;
+}
+
+/* Separator styling */
+separator {
+    background-color: @borders;
+    min-width: 1px;
+    min-height: 1px;
+}
+
+/* ============================================
+ * Paned Separators
+ * ============================================ */
+
+paned > separator {
+    min-width: 5px;
+    min-height: 5px;
+    background-color: transparent;
+}
+
+paned > separator:hover {
+    background-color: alpha(@accent_bg_color, 0.3);
+}
+
+/* ============================================
+ * Scrollbars
+ * ============================================ */
+
+scrollbar {
+    background-color: transparent;
+}
+
+scrollbar slider {
+    min-width: 8px;
+    min-height: 8px;
+    border-radius: 4px;
+    background-color: alpha(@borders, 0.5);
+}
+
+scrollbar slider:hover {
+    background-color: alpha(@borders, 0.8);
+}
+
+scrollbar slider:active {
+    background-color: @accent_bg_color;
+}
+
+/* ============================================
+ * Dark Theme Overrides
+ * ============================================ */
+
+/* These use CSS variables that automatically adapt to the color scheme */
+
+.folder-pane {
+    background-color: @sidebar_bg_color;
+}
+
+/* Unread indicator for dark mode */
+@define-color unread_indicator_light #3584e4;
+@define-color unread_indicator_dark #62a0ea;
+
+/* ============================================
+ * Animations
+ * ============================================ */
+
+/* Smooth transitions for interactive elements */
+row,
+button,
+.star-button {
+    transition: background-color 150ms ease,
+                color 150ms ease,
+                opacity 150ms ease;
+}
+
+/* ============================================
+ * Focus Styles
+ * ============================================ */
+
+*:focus-visible {
+    outline: 2px solid @accent_bg_color;
+    outline-offset: -2px;
+}
+
+button:focus-visible,
+entry:focus-visible,
+textview:focus-visible {
+    outline-offset: 0;
+}
+
+/* ============================================
+ * Loading/Syncing States
+ * ============================================ */
+
+.syncing {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* ============================================
+ * Error States
+ * ============================================ */
+
+.error {
+    color: @error_color;
+}
+
+.error-bg {
+    background-color: alpha(@error_bg_color, 0.2);
+}
+
+/* ============================================
+ * Empty States
+ * ============================================ */
+
+.empty-state {
+    padding: 48px;
+}
+
+.empty-state image {
+    -gtk-icon-size: 64px;
+    opacity: 0.5;
+    margin-bottom: 16px;
+}
+
+.empty-state .title {
+    font-size: 1.3em;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.empty-state .description {
+    opacity: 0.7;
+}
+
+/* ============================================
+ * Print Styles (for message printing)
+ * ============================================ */
+
+@media print {
+    .folder-pane,
+    .message-list-pane,
+    .statusbar,
+    headerbar {
+        display: none;
+    }
+
+    .preview-pane {
+        border: none;
+        background: white;
+        color: black;
+    }
+}
