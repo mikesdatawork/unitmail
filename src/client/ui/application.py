@@ -15,7 +15,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 logger = logging.getLogger(__name__)
 
@@ -198,16 +198,16 @@ class UnitMailApplication(Adw.Application):
                 self._css_provider.load_from_path(str(styles_path))
 
                 # Apply CSS to the default display
-                display = Gtk.Widget.get_default_direction()  # Get display
-                Gtk.StyleContext.add_provider_for_display(
-                    self.get_active_window().get_display() if self.get_active_window()
-                    else Gio.Application.get_default().get_active_window().get_display()
-                    if Gio.Application.get_default() and Gio.Application.get_default().get_active_window()
-                    else None,
-                    self._css_provider,
-                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-                )
-                logger.info(f"Loaded CSS styles from {styles_path}")
+                display = Gdk.Display.get_default()
+                if display:
+                    Gtk.StyleContext.add_provider_for_display(
+                        display,
+                        self._css_provider,
+                        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+                    )
+                    logger.info(f"Loaded CSS styles from {styles_path}")
+                else:
+                    logger.warning("No default display available for CSS")
             except Exception as e:
                 logger.warning(f"Failed to load CSS styles: {e}")
         else:

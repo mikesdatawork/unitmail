@@ -11,9 +11,7 @@
  * ============================================ */
 
 /* Remove all border-radius globally */
-*,
-*:before,
-*:after {
+* {
     border-radius: 0;
 }
 
@@ -186,7 +184,11 @@ listview.message-list row:hover:not(:selected) {
 }
 
 .view-theme-compact .message-preview {
-    display: none;
+    /* Hidden via opacity - GTK4 doesn't support display:none */
+    opacity: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
 }
 
 .view-theme-compact .message-date {
@@ -220,7 +222,6 @@ listview.message-list row:hover:not(:selected) {
     font-size: 0.9em;
     opacity: 0.7;
     margin-top: 6px;
-    max-height: 3em;
 }
 
 .view-theme-comfortable .message-date {
@@ -239,25 +240,18 @@ listview.message-list row:hover:not(:selected) {
 /* --- MINIMAL THEME --- */
 .view-theme-minimal .message-row {
     padding: 2px 8px;
-    flex-direction: row;
-}
-
-.view-theme-minimal .message-row-content {
-    flex-direction: row;
-    align-items: center;
 }
 
 .view-theme-minimal .message-date {
     font-size: 0.8em;
     min-width: 60px;
-    margin-right: 12px;
+    margin-end: 12px;
 }
 
 .view-theme-minimal .message-from {
     font-size: 0.85em;
     min-width: 150px;
-    max-width: 150px;
-    margin-right: 12px;
+    margin-end: 12px;
 }
 
 .view-theme-minimal .message-subject {
@@ -266,11 +260,18 @@ listview.message-list row:hover:not(:selected) {
 }
 
 .view-theme-minimal .message-preview {
-    display: none;
+    /* Hidden via opacity - GTK4 doesn't support display:none */
+    opacity: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
 }
 
 .view-theme-minimal .avatar {
-    display: none;
+    /* Hidden via size reduction */
+    min-width: 0;
+    min-height: 0;
+    opacity: 0;
 }
 
 .view-theme-minimal .star-button {
