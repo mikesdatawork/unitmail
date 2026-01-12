@@ -1,0 +1,18 @@
+[Desktop Entry]
+Name=UnitMail
+GenericName=Email Client
+Comment=Modern email client with encryption support
+Exec=unitmail %u
+Icon=unitmail
+Terminal=false
+Type=Application
+Categories=Network;Email;Office;
+Keywords=email;mail;encryption;gpg;pgp;smtp;
+MimeType=x-scheme-handler/mailto;message/rfc822;
+StartupNotify=true
+StartupWMClass=unitmail
+Actions=Compose;
+
+[Desktop Action Compose]
+Name=Compose New Message
+Exec=unitmail --compose

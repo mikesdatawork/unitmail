@@ -1,0 +1,13 @@
+unitmail (0.1.0-1) stable; urgency=medium
+
+  * Initial release
+  * Modern email client with encryption support
+  * GTK3 graphical user interface
+  * End-to-end encryption with GPG/PGP
+  * Built-in SMTP server and client
+  * Contact management
+  * Folder organization
+  * Search functionality
+  * Backup and restore capabilities
+
+ -- UnitMail Team <noreply@unitmail.io>  Sun, 11 Jan 2026 12:00:00 +0000

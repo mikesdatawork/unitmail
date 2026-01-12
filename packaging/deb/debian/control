@@ -1,0 +1,49 @@
+Source: unitmail
+Section: mail
+Priority: optional
+Maintainer: UnitMail Team <noreply@unitmail.io>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               python3-all (>= 3.11),
+               python3-setuptools,
+               python3-wheel,
+               python3-pip,
+               python3-venv,
+               libgirepository1.0-dev,
+               libcairo2-dev,
+               gir1.2-gtk-3.0,
+               pkg-config
+Standards-Version: 4.6.2
+Homepage: https://github.com/unitmail/unitmail
+Vcs-Browser: https://github.com/unitmail/unitmail
+Vcs-Git: https://github.com/unitmail/unitmail.git
+Rules-Requires-Root: no
+
+Package: unitmail
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3 (>= 3.11),
+         python3-gi,
+         python3-gi-cairo,
+         gir1.2-gtk-3.0,
+         gir1.2-glib-2.0,
+         gnupg2,
+         ca-certificates
+Recommends: python3-pip,
+            python3-venv
+Suggests: python3-doc
+Description: Modern email client with encryption support
+ UnitMail is a modern email client that provides end-to-end encryption
+ support using GPG/PGP. It features a GTK-based graphical interface,
+ integrated SMTP server capabilities, and seamless encryption/decryption
+ of messages.
+ .
+ Features:
+  - End-to-end encryption with GPG/PGP
+  - Modern GTK3 user interface
+  - Built-in SMTP server and client
+  - Contact management
+  - Folder organization
+  - Search functionality
+  - Backup and restore capabilities

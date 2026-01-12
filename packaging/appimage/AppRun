@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# AppRun script for UnitMail AppImage
+# This script is executed when the AppImage is run
+#
+
+# Get the directory where the AppImage is mounted
+APPDIR="$(dirname "$(readlink -f "$0")")"
+
+# Set up environment variables
+export PATH="$APPDIR/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+export PYTHONPATH="$APPDIR/usr/lib/python3/site-packages:$PYTHONPATH"
+export PYTHONHOME="$APPDIR/usr"
+
+# Set GTK/GI paths
+export GI_TYPELIB_PATH="$APPDIR/usr/lib/girepository-1.0:$APPDIR/usr/lib/x86_64-linux-gnu/girepository-1.0:$GI_TYPELIB_PATH"
+export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# Set SSL certificates path (for HTTPS requests)
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-$SSL_CERT_FILE}"
+
+# Set GnuPG home if not set
+export GNUPGHOME="${GNUPGHOME:-$HOME/.gnupg}"
+
+# Run the application
+exec "$APPDIR/usr/bin/python3" -m unitmail "$@"
