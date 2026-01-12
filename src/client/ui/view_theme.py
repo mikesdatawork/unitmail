@@ -27,7 +27,6 @@ class ViewTheme(Enum):
     """Available view themes for email list."""
     STANDARD = "standard"
     COMPACT = "compact"
-    COMFORTABLE = "comfortable"
     MINIMAL = "minimal"
 
 
@@ -35,8 +34,7 @@ class ViewTheme(Enum):
 THEME_DESCRIPTIONS = {
     ViewTheme.STANDARD: "Balanced view with moderate spacing",
     ViewTheme.COMPACT: "Dense view for power users",
-    ViewTheme.COMFORTABLE: "Spacious view with larger text",
-    ViewTheme.MINIMAL: "Single line: time, from, subject",
+    ViewTheme.MINIMAL: "Single line: date | from | subject",
 }
 
 

@@ -478,24 +478,10 @@ class SettingsWindow(Adw.PreferencesWindow):
         compact_row.set_activatable_widget(self._density_buttons["compact"])
         density_group.add(compact_row)
 
-        # Comfortable density
-        comfortable_row = Adw.ActionRow(
-            title="Comfortable",
-            subtitle="Spacious view with larger text",
-            activatable=True,
-        )
-        comfortable_row.add_prefix(Gtk.Image(icon_name="view-paged-symbolic"))
-        self._density_buttons["comfortable"] = Gtk.CheckButton()
-        self._density_buttons["comfortable"].set_group(self._density_buttons["standard"])
-        self._density_buttons["comfortable"].connect("toggled", self._on_density_toggled, "comfortable")
-        comfortable_row.add_suffix(self._density_buttons["comfortable"])
-        comfortable_row.set_activatable_widget(self._density_buttons["comfortable"])
-        density_group.add(comfortable_row)
-
         # Minimal density
         minimal_row = Adw.ActionRow(
             title="Minimal",
-            subtitle="Single line: time | sender | subject",
+            subtitle="Single line: date | from | subject",
             activatable=True,
         )
         minimal_row.add_prefix(Gtk.Image(icon_name="view-continuous-symbolic"))
@@ -1104,7 +1090,6 @@ class SettingsWindow(Adw.PreferencesWindow):
                 theme_map = {
                     "standard": ViewTheme.STANDARD,
                     "compact": ViewTheme.COMPACT,
-                    "comfortable": ViewTheme.COMFORTABLE,
                     "minimal": ViewTheme.MINIMAL,
                 }
                 if density in theme_map:

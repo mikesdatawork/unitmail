@@ -204,74 +204,15 @@ listview.message-list row:hover:not(:selected) {
     min-height: 32px;
 }
 
-/* --- COMFORTABLE THEME --- */
-.view-theme-comfortable .message-row {
-    padding: 16px 16px;
-}
-
-.view-theme-comfortable .message-from {
-    font-size: 1.0em;
-}
-
-.view-theme-comfortable .message-subject {
-    font-size: 0.95em;
-    margin-top: 4px;
-}
-
-.view-theme-comfortable .message-preview {
-    font-size: 0.9em;
-    opacity: 0.7;
-    margin-top: 6px;
-}
-
-.view-theme-comfortable .message-date {
-    font-size: 0.85em;
-}
-
-.view-theme-comfortable .avatar {
-    min-width: 48px;
-    min-height: 48px;
-}
-
-.view-theme-comfortable listview.message-list row {
-    min-height: 80px;
-}
-
 /* --- MINIMAL THEME --- */
+/* Single line: date | from | subject */
 .view-theme-minimal .message-row {
-    padding: 2px 8px;
-}
-
-.view-theme-minimal .message-date {
-    font-size: 0.8em;
-    min-width: 60px;
-    margin-right: 12px;
+    padding: 4px 8px;
 }
 
 .view-theme-minimal .message-from {
-    font-size: 0.85em;
-    min-width: 150px;
-    margin-right: 12px;
-}
-
-.view-theme-minimal .message-subject {
-    font-size: 0.85em;
-    margin-top: 0;
-}
-
-.view-theme-minimal .message-preview {
-    /* Hidden via opacity - GTK4 doesn't support display:none */
-    opacity: 0;
-    min-height: 0;
-    margin: 0;
-    padding: 0;
-}
-
-.view-theme-minimal .avatar {
-    /* Hidden via size reduction */
-    min-width: 0;
-    min-height: 0;
-    opacity: 0;
+    font-size: 0.9em;
+    font-family: monospace;
 }
 
 .view-theme-minimal .star-button {
@@ -281,7 +222,7 @@ listview.message-list row:hover:not(:selected) {
 }
 
 .view-theme-minimal listview.message-list row {
-    min-height: 24px;
+    min-height: 28px;
 }
 
 /* ============================================

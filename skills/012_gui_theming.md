@@ -16,22 +16,23 @@ CSS applies `border-radius: 0` globally.
 
 ## Email View Themes
 
-Four view themes for message list density:
+Three view themes for message list density:
 
 | Theme | Description | Row Height |
 |-------|-------------|------------|
 | **standard** | Balanced spacing (default) | ~48px |
 | **compact** | Dense, no preview | ~32px |
-| **comfortable** | Spacious, larger fonts | ~80px |
-| **minimal** | Single line: time, from, subject | ~24px |
+| **minimal** | Single line: date \| from \| subject | ~28px |
 
 ### Theme Classes
 ```css
 .view-theme-standard
 .view-theme-compact
-.view-theme-comfortable
 .view-theme-minimal
 ```
+
+### Minimal View Format
+Single line display: `2026/12/01   friend@domain.com   what do you want for lunch today?`
 
 ## Usage
 
@@ -87,13 +88,10 @@ settings_box.append(theme_selector)
 - Hides: preview
 - Best for: Power users, large mailboxes
 
-### Comfortable
-- Shows: large avatar, from, subject, extended preview, date
-- Best for: Casual reading, accessibility
-
 ### Minimal
-- Shows: single line with time | from | subject
-- Hides: avatar, preview
+- Shows: single line with date | from | subject
+- Hides: avatar, preview, separate date/subject rows
+- Format: `2026/12/01   user@example.com   Email subject here`
 - Best for: Maximum density, keyboard navigation
 
 ## Settings UI
@@ -114,7 +112,6 @@ Visual radio button selectors for:
 **Message List Density:**
 - Standard (default)
 - Compact
-- Comfortable
 - Minimal
 
 Each option shows:

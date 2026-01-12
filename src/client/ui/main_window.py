@@ -334,10 +334,6 @@ class MainWindow(Adw.ApplicationWindow):
         settings_button.set_action_name("app.settings")
         header_bar.pack_end(settings_button)
 
-        # Right side: Menu button
-        menu_button = self._create_menu_button()
-        header_bar.pack_end(menu_button)
-
         return header_bar
 
     def _create_menu_button(self) -> Gtk.MenuButton:
@@ -604,10 +600,22 @@ class MainWindow(Adw.ApplicationWindow):
             from .view_theme import get_view_theme_manager
             theme_manager = get_view_theme_manager()
             theme_manager.register_widget(message_box)
+            # Refresh message list when theme changes
+            theme_manager.connect("theme-changed", self._on_view_theme_changed)
         except ImportError:
             pass
 
         return message_box
+
+    def _on_view_theme_changed(self, manager, theme_name: str) -> None:
+        """Handle view theme change - refresh message list."""
+        logger.info(f"View theme changed to: {theme_name}, refreshing message list")
+        # Force rebind of all visible items by invalidating the model
+        if hasattr(self, '_message_store') and self._message_store:
+            # Trigger items-changed to rebind all items
+            n_items = self._message_store.get_n_items()
+            if n_items > 0:
+                self._message_store.items_changed(0, n_items, n_items)
 
     def _create_message_list(self) -> Gtk.ListView:
         """
@@ -763,11 +771,30 @@ class MainWindow(Adw.ApplicationWindow):
 
         from_label, date_label = header_children
 
-        # Set values
-        from_label.set_label(item.from_address)
-        date_label.set_label(item.date_string)
-        subject_label.set_label(item.subject or "(No subject)")
-        preview_label.set_label(item.preview or "")
+        # Check if minimal view is active
+        try:
+            from .view_theme import ViewTheme, get_view_theme_manager
+            theme_manager = get_view_theme_manager()
+            is_minimal = theme_manager.current_theme == ViewTheme.MINIMAL
+        except ImportError:
+            is_minimal = False
+
+        if is_minimal:
+            # Minimal view: single line "date   from   subject"
+            minimal_text = f"{item.date_string}   {item.from_address}   {item.subject or '(No subject)'}"
+            from_label.set_label(minimal_text)
+            date_label.set_visible(False)
+            subject_label.set_visible(False)
+            preview_label.set_visible(False)
+        else:
+            # Standard/Compact view: normal layout
+            from_label.set_label(item.from_address)
+            date_label.set_label(item.date_string)
+            date_label.set_visible(True)
+            subject_label.set_label(item.subject or "(No subject)")
+            subject_label.set_visible(True)
+            preview_label.set_label(item.preview or "")
+            preview_label.set_visible(True)
 
         # Apply unread styling
         if not item.is_read:
