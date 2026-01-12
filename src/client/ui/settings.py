@@ -1111,8 +1111,7 @@ class SettingsWindow(Adw.PreferencesWindow):
                     manager.set_theme(theme_map[density])
             except ImportError:
                 pass
-            # Also save to settings
-            self._settings.update_appearance(view_density=density)
+            # Note: view_density is managed by ViewThemeManager, not SettingsService
 
     def _on_appearance_changed(self, *args) -> None:
         """Handle appearance settings changes."""
