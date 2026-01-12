@@ -171,3 +171,4 @@ config/*.local.yaml
 *.pem
 *.key
 secrets/
+.github/workflows/
