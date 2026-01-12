@@ -1,0 +1,132 @@
+# unitMail JWT Configuration File
+# Copy this file to jwt.toml and update the values
+# IMPORTANT: Never commit jwt.toml with real secrets to version control!
+
+[jwt]
+# JWT signing secret key
+# CRITICAL: Change this to a strong, random string in production!
+# Generate a secure secret with: python -c "import secrets; print(secrets.token_hex(32))"
+# Minimum recommended length: 32 characters
+secret = "change-me-use-a-long-random-string-at-least-32-chars"
+
+# JWT signing algorithm
+# Supported algorithms:
+#   - HS256: HMAC with SHA-256 (default, recommended for single-server deployments)
+#   - HS384: HMAC with SHA-384
+#   - HS512: HMAC with SHA-512
+#   - RS256: RSA with SHA-256 (recommended for distributed systems)
+#   - RS384: RSA with SHA-384
+#   - RS512: RSA with SHA-512
+#   - ES256: ECDSA with SHA-256
+#   - ES384: ECDSA with SHA-384
+#   - ES512: ECDSA with SHA-512
+algorithm = "HS256"
+
+# Access token expiration time in seconds
+# Default: 3600 (1 hour)
+# Shorter times are more secure but require more frequent refreshes
+# Recommended: 900 (15 minutes) to 3600 (1 hour)
+access_token_expiry = 3600
+
+# Refresh token expiration time in seconds
+# Default: 604800 (7 days)
+# Users will need to re-authenticate after this time
+# Recommended: 86400 (1 day) to 2592000 (30 days)
+refresh_token_expiry = 604800
+
+# Token issuer claim (iss)
+# Should match your domain or application name
+issuer = "unitmail"
+
+# Token audience claim (aud)
+# Can be used to restrict tokens to specific services
+audience = "unitmail-api"
+
+
+[jwt.rsa]
+# RSA key configuration (only needed if using RS256/RS384/RS512)
+# Leave commented if using HMAC algorithms (HS256/HS384/HS512)
+
+# Path to RSA private key file (PEM format)
+# Used for signing tokens
+# private_key_path = "/etc/unitmail/keys/jwt-private.pem"
+
+# Path to RSA public key file (PEM format)
+# Used for verifying tokens
+# public_key_path = "/etc/unitmail/keys/jwt-public.pem"
+
+
+[jwt.security]
+# Additional security settings
+
+# Require HTTPS for token transmission
+# Set to true in production!
+require_https = false
+
+# Allow tokens in query string (less secure, not recommended)
+allow_query_string = false
+
+# Token blacklist settings
+# Enable token revocation support
+enable_blacklist = true
+
+# Cleanup expired blacklist entries interval in seconds
+# Default: 3600 (1 hour)
+blacklist_cleanup_interval = 3600
+
+
+[jwt.claims]
+# Custom claims to include in all tokens
+
+# Include user's email in token (increases token size)
+include_email = false
+
+# Include user's roles in token
+include_roles = true
+
+# Include user's permissions in token (can make tokens large)
+include_permissions = false
+
+
+[jwt.refresh]
+# Refresh token specific settings
+
+# Rotate refresh tokens on use (more secure but more complex)
+# When true, a new refresh token is issued with each access token refresh
+rotate_on_use = true
+
+# Maximum number of refresh tokens per user
+# Set to 0 for unlimited
+max_tokens_per_user = 5
+
+# Revoke all refresh tokens on password change
+revoke_on_password_change = true
+
+# Revoke all refresh tokens on logout from any device
+revoke_on_logout = false
+
+
+[jwt.cookie]
+# Cookie settings for storing tokens (if using cookie-based auth)
+
+# Cookie name for access token
+access_token_cookie = "unitmail_access_token"
+
+# Cookie name for refresh token
+refresh_token_cookie = "unitmail_refresh_token"
+
+# Secure flag (requires HTTPS)
+# Set to true in production!
+secure = false
+
+# HttpOnly flag (prevents JavaScript access)
+http_only = true
+
+# SameSite attribute: "Strict", "Lax", or "None"
+same_site = "Lax"
+
+# Cookie domain (leave empty for current domain)
+# domain = ".yourdomain.com"
+
+# Cookie path
+path = "/"
