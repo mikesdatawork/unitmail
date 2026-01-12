@@ -245,13 +245,13 @@ listview.message-list row:hover:not(:selected) {
 .view-theme-minimal .message-date {
     font-size: 0.8em;
     min-width: 60px;
-    margin-end: 12px;
+    margin-right: 12px;
 }
 
 .view-theme-minimal .message-from {
     font-size: 0.85em;
     min-width: 150px;
-    margin-end: 12px;
+    margin-right: 12px;
 }
 
 .view-theme-minimal .message-subject {
