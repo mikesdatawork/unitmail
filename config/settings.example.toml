@@ -1,0 +1,146 @@
+# unitMail Configuration File
+# Copy this file to settings.toml and update the values
+
+[app]
+# Application name
+app_name = "unitMail"
+
+# Environment: development, staging, production
+environment = "development"
+
+# Enable debug mode (disable in production)
+debug = true
+
+
+[database]
+# Supabase project URL
+# Get this from your Supabase project settings
+url = "https://your-project-id.supabase.co"
+
+# Supabase API key (anon/public key for client-side operations)
+# Get this from your Supabase project settings > API
+key = "your-anon-key-here"
+
+# Supabase service role key (for server-side admin operations)
+# WARNING: Keep this secret! Never expose in client-side code
+# service_role_key = "your-service-role-key-here"
+
+
+[smtp]
+# SMTP server bind address
+host = "0.0.0.0"
+
+# SMTP port (25 for standard, requires root or capabilities)
+port = 25
+
+# SMTP over TLS port (implicit TLS)
+tls_port = 465
+
+# SMTP submission port (STARTTLS)
+submission_port = 587
+
+# Server hostname for HELO/EHLO
+hostname = "mail.yourdomain.com"
+
+# Maximum message size in bytes (default: 25MB)
+max_message_size = 26214400
+
+# Connection timeout in seconds
+timeout = 300
+
+# Require authentication for sending mail
+require_auth = true
+
+# TLS certificate and key paths (required for TLS support)
+# tls_cert_file = "/etc/unitmail/certs/fullchain.pem"
+# tls_key_file = "/etc/unitmail/certs/privkey.pem"
+
+
+[api]
+# API server bind address
+host = "0.0.0.0"
+
+# API server port
+port = 8000
+
+# Enable debug mode for API (shows detailed errors)
+debug = false
+
+# Allowed CORS origins (comma-separated or list)
+cors_origins = ["http://localhost:3000", "http://localhost:5173"]
+
+# Rate limit: requests per minute per IP
+rate_limit = 100
+
+# JWT configuration
+# IMPORTANT: Change this in production!
+jwt_secret = "change-me-in-production-use-a-long-random-string"
+jwt_algorithm = "HS256"
+jwt_expiration = 3600  # Token expiration in seconds (1 hour)
+
+
+[dns]
+# DNS resolver to use for lookups
+resolver = "8.8.8.8"
+
+# DNS query timeout in seconds
+timeout = 5
+
+# DNS cache TTL in seconds
+cache_ttl = 300
+
+# DKIM configuration
+dkim_selector = "unitmail"
+# dkim_private_key_path = "/etc/unitmail/keys/dkim.private"
+
+
+[mesh]
+# Enable mesh networking for distributed mail delivery
+enabled = false
+
+# Unique identifier for this node
+# node_id = "node-001"
+
+# Port to listen for mesh connections
+listen_port = 9000
+
+# Initial peers to connect to (comma-separated or list)
+bootstrap_peers = []
+
+# Maximum number of peer connections
+max_peers = 50
+
+# Heartbeat interval in seconds
+heartbeat_interval = 30
+
+# Peer timeout in seconds (mark offline after this)
+peer_timeout = 120
+
+
+[crypto]
+# RSA key size for generated keys
+key_size = 2048
+
+# Hash algorithm for signatures
+hash_algorithm = "sha256"
+
+# Symmetric encryption algorithm
+encryption_algorithm = "aes-256-gcm"
+
+# Server key paths (for signing and encryption)
+# private_key_path = "/etc/unitmail/keys/server.key"
+# public_key_path = "/etc/unitmail/keys/server.pub"
+
+
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = "INFO"
+
+# Log format string
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Log file path (leave empty for stdout only)
+# file = "/var/log/unitmail/unitmail.log"
+
+# Use JSON format for structured logging
+json = false
