@@ -19,6 +19,13 @@ from .settings import (
     PasswordChangeDialog,
     create_settings_window,
 )
+from .view_theme import (
+    ViewTheme,
+    ViewThemeManager,
+    ViewThemeSelector,
+    get_view_theme_manager,
+    THEME_DESCRIPTIONS,
+)
 from .widgets import (
     RecipientEntry,
     AttachmentPanel,
@@ -118,4 +125,10 @@ __all__ = [
     'KeyTrustLevel',
     'KeyGenerationDialog',
     'KeyDetailsDialog',
+    # View themes
+    'ViewTheme',
+    'ViewThemeManager',
+    'ViewThemeSelector',
+    'get_view_theme_manager',
+    'THEME_DESCRIPTIONS',
 ]

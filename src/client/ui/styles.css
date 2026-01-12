@@ -3,15 +3,30 @@
  *
  * Provides consistent styling for the unitMail email client,
  * with support for both light and dark themes.
+ * Design: No rounded corners, clean sharp edges
  */
 
 /* ============================================
- * Global Styles
+ * Global Styles - No Rounded Corners
  * ============================================ */
+
+/* Remove all border-radius globally */
+*,
+*:before,
+*:after {
+    border-radius: 0;
+}
 
 /* Window styling */
 window.background {
     background-color: @window_bg_color;
+}
+
+window,
+dialog,
+popover,
+menu {
+    border-radius: 0;
 }
 
 /* ============================================
@@ -20,16 +35,23 @@ window.background {
 
 headerbar {
     min-height: 42px;
+    border-radius: 0;
+}
+
+headerbar button {
+    border-radius: 0;
 }
 
 headerbar button.suggested-action {
     padding: 6px 12px;
+    border-radius: 0;
 }
 
 /* Search entry in header */
 headerbar searchentry {
     min-width: 300px;
     margin: 4px;
+    border-radius: 0;
 }
 
 /* ============================================
@@ -53,7 +75,7 @@ headerbar searchentry {
 /* Folder list navigation */
 listview.navigation-sidebar row {
     padding: 2px 0;
-    border-radius: 6px;
+    border-radius: 0;
     margin: 2px 6px;
 }
 
@@ -66,11 +88,11 @@ listview.navigation-sidebar row:hover:not(:selected) {
     background-color: alpha(@accent_bg_color, 0.1);
 }
 
-/* Unread badge */
+/* Unread badge - sharp corners */
 .badge {
     background-color: @accent_bg_color;
     color: @accent_fg_color;
-    border-radius: 10px;
+    border-radius: 0;
     padding: 2px 8px;
     font-size: 0.8em;
     font-weight: bold;
@@ -104,6 +126,7 @@ listview.message-list {
 listview.message-list row {
     padding: 0;
     border-bottom: 1px solid alpha(@borders, 0.5);
+    border-radius: 0;
 }
 
 listview.message-list row:selected {
@@ -115,9 +138,157 @@ listview.message-list row:hover:not(:selected) {
     background-color: alpha(@accent_bg_color, 0.08);
 }
 
-/* Message row styling */
+/* ============================================
+ * EMAIL VIEW THEMES
+ * ============================================ */
+
+/* --- STANDARD THEME (Default) --- */
+.view-theme-standard .message-row {
+    padding: 10px 12px;
+}
+
+.view-theme-standard .message-from {
+    font-size: 0.95em;
+}
+
+.view-theme-standard .message-subject {
+    font-size: 0.9em;
+    margin-top: 2px;
+}
+
+.view-theme-standard .message-preview {
+    font-size: 0.85em;
+    opacity: 0.7;
+    margin-top: 4px;
+}
+
+.view-theme-standard .message-date {
+    font-size: 0.8em;
+}
+
+.view-theme-standard .avatar {
+    min-width: 36px;
+    min-height: 36px;
+}
+
+/* --- COMPACT THEME --- */
+.view-theme-compact .message-row {
+    padding: 4px 8px;
+}
+
+.view-theme-compact .message-from {
+    font-size: 0.85em;
+}
+
+.view-theme-compact .message-subject {
+    font-size: 0.85em;
+    margin-top: 0;
+}
+
+.view-theme-compact .message-preview {
+    display: none;
+}
+
+.view-theme-compact .message-date {
+    font-size: 0.75em;
+}
+
+.view-theme-compact .avatar {
+    min-width: 24px;
+    min-height: 24px;
+}
+
+.view-theme-compact listview.message-list row {
+    min-height: 32px;
+}
+
+/* --- COMFORTABLE THEME --- */
+.view-theme-comfortable .message-row {
+    padding: 16px 16px;
+}
+
+.view-theme-comfortable .message-from {
+    font-size: 1.0em;
+}
+
+.view-theme-comfortable .message-subject {
+    font-size: 0.95em;
+    margin-top: 4px;
+}
+
+.view-theme-comfortable .message-preview {
+    font-size: 0.9em;
+    opacity: 0.7;
+    margin-top: 6px;
+    max-height: 3em;
+}
+
+.view-theme-comfortable .message-date {
+    font-size: 0.85em;
+}
+
+.view-theme-comfortable .avatar {
+    min-width: 48px;
+    min-height: 48px;
+}
+
+.view-theme-comfortable listview.message-list row {
+    min-height: 80px;
+}
+
+/* --- MINIMAL THEME --- */
+.view-theme-minimal .message-row {
+    padding: 2px 8px;
+    flex-direction: row;
+}
+
+.view-theme-minimal .message-row-content {
+    flex-direction: row;
+    align-items: center;
+}
+
+.view-theme-minimal .message-date {
+    font-size: 0.8em;
+    min-width: 60px;
+    margin-right: 12px;
+}
+
+.view-theme-minimal .message-from {
+    font-size: 0.85em;
+    min-width: 150px;
+    max-width: 150px;
+    margin-right: 12px;
+}
+
+.view-theme-minimal .message-subject {
+    font-size: 0.85em;
+    margin-top: 0;
+}
+
+.view-theme-minimal .message-preview {
+    display: none;
+}
+
+.view-theme-minimal .avatar {
+    display: none;
+}
+
+.view-theme-minimal .star-button {
+    min-width: 20px;
+    min-height: 20px;
+    padding: 2px;
+}
+
+.view-theme-minimal listview.message-list row {
+    min-height: 24px;
+}
+
+/* ============================================
+ * Message Row Base Styling
+ * ============================================ */
+
 .message-row {
-    padding: 8px;
+    padding: 10px 12px;
 }
 
 .message-row.unread {
@@ -154,6 +325,7 @@ listview.message-list row:hover:not(:selected) {
     padding: 4px;
     min-width: 24px;
     min-height: 24px;
+    border-radius: 0;
 }
 
 .star-button:checked {
@@ -190,6 +362,7 @@ listview.message-list row:hover:not(:selected) {
     padding: 6px;
     min-width: 32px;
     min-height: 32px;
+    border-radius: 0;
 }
 
 .preview-pane button.destructive-action {
@@ -231,6 +404,7 @@ listview.message-list row:hover:not(:selected) {
 
 .compose-dialog entry {
     margin: 4px 0;
+    border-radius: 0;
 }
 
 .compose-dialog textview {
@@ -245,8 +419,18 @@ listview.message-list row:hover:not(:selected) {
 }
 
 /* ============================================
- * Common Components
+ * Common Components - Sharp Edges
  * ============================================ */
+
+/* All buttons sharp */
+button {
+    border-radius: 0;
+}
+
+/* All entries sharp */
+entry {
+    border-radius: 0;
+}
 
 /* Dim labels (secondary text) */
 .dim-label {
@@ -280,7 +464,7 @@ paned > separator:hover {
 }
 
 /* ============================================
- * Scrollbars
+ * Scrollbars - Sharp
  * ============================================ */
 
 scrollbar {
@@ -290,7 +474,7 @@ scrollbar {
 scrollbar slider {
     min-width: 8px;
     min-height: 8px;
-    border-radius: 4px;
+    border-radius: 0;
     background-color: alpha(@borders, 0.5);
 }
 
@@ -306,13 +490,10 @@ scrollbar slider:active {
  * Dark Theme Overrides
  * ============================================ */
 
-/* These use CSS variables that automatically adapt to the color scheme */
-
 .folder-pane {
     background-color: @sidebar_bg_color;
 }
 
-/* Unread indicator for dark mode */
 @define-color unread_indicator_light #3584e4;
 @define-color unread_indicator_dark #62a0ea;
 
@@ -320,7 +501,6 @@ scrollbar slider:active {
  * Animations
  * ============================================ */
 
-/* Smooth transitions for interactive elements */
 row,
 button,
 .star-button {
@@ -330,7 +510,7 @@ button,
 }
 
 /* ============================================
- * Focus Styles
+ * Focus Styles - Sharp
  * ============================================ */
 
 *:focus-visible {
@@ -352,13 +532,9 @@ textview:focus-visible {
     animation: pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
+/* Pulse animation using opacity only (GTK4 compatible) */
+.syncing {
+    opacity: 0.7;
 }
 
 /* ============================================
@@ -398,20 +574,32 @@ textview:focus-visible {
 }
 
 /* ============================================
- * Print Styles (for message printing)
+ * Popovers and Menus - Sharp
  * ============================================ */
 
-@media print {
-    .folder-pane,
-    .message-list-pane,
-    .statusbar,
-    headerbar {
-        display: none;
-    }
+popover,
+popover > contents {
+    border-radius: 0;
+}
 
-    .preview-pane {
-        border: none;
-        background: white;
-        color: black;
-    }
+menu,
+menuitem {
+    border-radius: 0;
+}
+
+/* ============================================
+ * Checkboxes and Switches - Sharp
+ * ============================================ */
+
+checkbutton,
+check {
+    border-radius: 0;
+}
+
+switch {
+    border-radius: 0;
+}
+
+switch slider {
+    border-radius: 0;
 }

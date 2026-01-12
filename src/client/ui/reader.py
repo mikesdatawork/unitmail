@@ -36,8 +36,8 @@ except (ValueError, ImportError):
     except (ValueError, ImportError):
         HAS_WEBKIT = False
 
-from unitmail.client.ui.widgets.attachment_list import Attachment, AttachmentList
-from unitmail.client.ui.widgets.message_header import MessageHeader
+from .widgets.attachment_list import Attachment, AttachmentList
+from .widgets.message_header import MessageHeader
 
 
 # HTML sanitization patterns
@@ -971,7 +971,7 @@ class MessageViewer(Gtk.Box):
         attachment: Attachment,
     ) -> None:
         """Handle attachment preview request."""
-        from unitmail.client.ui.widgets.attachment_list import AttachmentPreviewDialog
+        from .widgets.attachment_list import AttachmentPreviewDialog
 
         dialog = AttachmentPreviewDialog(
             parent=self.get_root(),
