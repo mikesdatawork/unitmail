@@ -6,6 +6,19 @@ from .composer import ComposerWindow, ComposerMode, EmailMessage, create_compose
 from .application import UnitMailApplication, run_application
 from .main_window import MainWindow, FolderItem, MessageItem
 from .reader import MessageViewer, MessageBodyView, sanitize_html, plain_text_to_html
+from .folders import FolderManagerDialog, FolderListItem
+from .search import SearchDialog, SearchPopover
+from .contacts import (
+    ContactsWindow,
+    Contact,
+    ContactGroup,
+    ContactListItem,
+)
+from .settings import (
+    SettingsWindow,
+    PasswordChangeDialog,
+    create_settings_window,
+)
 from .widgets import (
     RecipientEntry,
     AttachmentPanel,
@@ -23,6 +36,21 @@ from .widgets import (
     get_avatar_color,
     get_initials,
     get_attachment_type_from_filename,
+    FolderTree,
+    FolderTreeItem,
+    FolderData,
+    FolderType,
+    SYSTEM_FOLDERS,
+    FOLDER_ICONS,
+    SearchBar,
+    SearchSuggestionItem,
+    ExpandableSearchBar,
+    PGPKeyManager,
+    PGPKey,
+    PGPKeyRow,
+    KeyTrustLevel,
+    KeyGenerationDialog,
+    KeyDetailsDialog,
 )
 
 __all__ = [
@@ -42,6 +70,20 @@ __all__ = [
     'MessageBodyView',
     'sanitize_html',
     'plain_text_to_html',
+    # Folder Management
+    'FolderManagerDialog',
+    'FolderListItem',
+    'FolderTree',
+    'FolderTreeItem',
+    'FolderData',
+    'FolderType',
+    'SYSTEM_FOLDERS',
+    'FOLDER_ICONS',
+    # Contacts
+    'ContactsWindow',
+    'Contact',
+    'ContactGroup',
+    'ContactListItem',
     # Widgets
     'RecipientEntry',
     'AttachmentPanel',
@@ -59,4 +101,21 @@ __all__ = [
     'get_avatar_color',
     'get_initials',
     'get_attachment_type_from_filename',
+    # Search
+    'SearchDialog',
+    'SearchPopover',
+    'SearchBar',
+    'SearchSuggestionItem',
+    'ExpandableSearchBar',
+    # Settings
+    'SettingsWindow',
+    'PasswordChangeDialog',
+    'create_settings_window',
+    # PGP key manager
+    'PGPKeyManager',
+    'PGPKey',
+    'PGPKeyRow',
+    'KeyTrustLevel',
+    'KeyGenerationDialog',
+    'KeyDetailsDialog',
 ]

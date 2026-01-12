@@ -22,6 +22,27 @@ from .message_header import (
     get_avatar_color,
     get_initials,
 )
+from .folder_tree import (
+    FolderTree,
+    FolderTreeItem,
+    FolderData,
+    FolderType,
+    SYSTEM_FOLDERS,
+    FOLDER_ICONS,
+)
+from .search_bar import (
+    SearchBar,
+    SearchSuggestionItem,
+    ExpandableSearchBar,
+)
+from .pgp_key_manager import (
+    PGPKeyManager,
+    PGPKey,
+    PGPKeyRow,
+    KeyTrustLevel,
+    KeyGenerationDialog,
+    KeyDetailsDialog,
+)
 
 __all__ = [
     # Existing widgets
@@ -43,4 +64,22 @@ __all__ = [
     'format_email_address',
     'get_avatar_color',
     'get_initials',
+    # Folder tree widget
+    'FolderTree',
+    'FolderTreeItem',
+    'FolderData',
+    'FolderType',
+    'SYSTEM_FOLDERS',
+    'FOLDER_ICONS',
+    # Search widgets
+    'SearchBar',
+    'SearchSuggestionItem',
+    'ExpandableSearchBar',
+    # PGP key manager
+    'PGPKeyManager',
+    'PGPKey',
+    'PGPKeyRow',
+    'KeyTrustLevel',
+    'KeyGenerationDialog',
+    'KeyDetailsDialog',
 ]
