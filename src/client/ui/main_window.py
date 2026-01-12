@@ -326,6 +326,14 @@ class MainWindow(Adw.ApplicationWindow):
         self._search_entry.connect("activate", self._on_search_activated)
         header_bar.set_title_widget(self._search_entry)
 
+        # Right side: Settings button (direct access)
+        settings_button = Gtk.Button(
+            icon_name="emblem-system-symbolic",
+            tooltip_text="Settings (Ctrl+,)",
+        )
+        settings_button.set_action_name("app.settings")
+        header_bar.pack_end(settings_button)
+
         # Right side: Menu button
         menu_button = self._create_menu_button()
         header_bar.pack_end(menu_button)
@@ -1278,7 +1286,9 @@ class MainWindow(Adw.ApplicationWindow):
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""
         logger.info("Opening settings dialog")
-        # TODO: Create and show settings dialog
+        from .settings import SettingsWindow
+        settings_window = SettingsWindow(parent=self)
+        settings_window.present()
 
     def refresh_messages(self) -> None:
         """Refresh the message list from server."""

@@ -1,7 +1,7 @@
 # Skill: GUI Theming and View Modes
 
 ## What This Skill Does
-Implements GUI styling with sharp corners design and multiple email view themes.
+Implements GUI styling with sharp corners design, multiple email view themes, and intuitive settings UI.
 
 ## Design Principles
 
@@ -95,3 +95,30 @@ settings_box.append(theme_selector)
 - Shows: single line with time | from | subject
 - Hides: avatar, preview
 - Best for: Maximum density, keyboard navigation
+
+## Settings UI
+
+### Access
+- Gear icon button in header bar (direct access)
+- Menu > Settings
+- Keyboard: Ctrl+,
+
+### Appearance Page
+Visual radio button selectors for:
+
+**Color Scheme:**
+- System (follows OS preference)
+- Light (always light)
+- Dark (always dark)
+
+**Message List Density:**
+- Standard (default)
+- Compact
+- Comfortable
+- Minimal
+
+Each option shows:
+- Icon prefix
+- Title
+- Descriptive subtitle
+- Radio button for selection

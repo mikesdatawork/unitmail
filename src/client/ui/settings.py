@@ -389,23 +389,124 @@ class SettingsWindow(Adw.PreferencesWindow):
             icon_name="applications-graphics-symbolic",
         )
 
-        # Theme group
+        # Theme group with visual selector
         theme_group = Adw.PreferencesGroup(
-            title="Theme",
+            title="Color Scheme",
+            description="Choose how unitMail looks",
         )
 
-        # Theme selection
-        theme_items = ["System", "Light", "Dark"]
-        theme_model = Gtk.StringList.new(theme_items)
-        self._theme_row = Adw.ComboRow(
-            title="Color Scheme",
-            subtitle="Choose your preferred theme",
-            model=theme_model,
+        # Visual theme selector using ActionRow with radio buttons
+        self._theme_buttons = {}
+
+        # System theme
+        system_row = Adw.ActionRow(
+            title="System",
+            subtitle="Follow system dark/light preference",
+            activatable=True,
         )
-        self._theme_row.connect("notify::selected", self._on_theme_changed)
-        theme_group.add(self._theme_row)
+        system_row.add_prefix(Gtk.Image(icon_name="preferences-desktop-appearance-symbolic"))
+        self._theme_buttons["system"] = Gtk.CheckButton()
+        self._theme_buttons["system"].set_active(True)
+        self._theme_buttons["system"].connect("toggled", self._on_theme_radio_toggled, "system")
+        system_row.add_suffix(self._theme_buttons["system"])
+        system_row.set_activatable_widget(self._theme_buttons["system"])
+        theme_group.add(system_row)
+
+        # Light theme
+        light_row = Adw.ActionRow(
+            title="Light",
+            subtitle="Always use light colors",
+            activatable=True,
+        )
+        light_row.add_prefix(Gtk.Image(icon_name="weather-clear-symbolic"))
+        self._theme_buttons["light"] = Gtk.CheckButton()
+        self._theme_buttons["light"].set_group(self._theme_buttons["system"])
+        self._theme_buttons["light"].connect("toggled", self._on_theme_radio_toggled, "light")
+        light_row.add_suffix(self._theme_buttons["light"])
+        light_row.set_activatable_widget(self._theme_buttons["light"])
+        theme_group.add(light_row)
+
+        # Dark theme
+        dark_row = Adw.ActionRow(
+            title="Dark",
+            subtitle="Always use dark colors",
+            activatable=True,
+        )
+        dark_row.add_prefix(Gtk.Image(icon_name="weather-clear-night-symbolic"))
+        self._theme_buttons["dark"] = Gtk.CheckButton()
+        self._theme_buttons["dark"].set_group(self._theme_buttons["system"])
+        self._theme_buttons["dark"].connect("toggled", self._on_theme_radio_toggled, "dark")
+        dark_row.add_suffix(self._theme_buttons["dark"])
+        dark_row.set_activatable_widget(self._theme_buttons["dark"])
+        theme_group.add(dark_row)
 
         page.add(theme_group)
+
+        # Message List Density group
+        density_group = Adw.PreferencesGroup(
+            title="Message List Density",
+            description="How messages appear in the list",
+        )
+
+        self._density_buttons = {}
+
+        # Standard density
+        standard_row = Adw.ActionRow(
+            title="Standard",
+            subtitle="Balanced view with sender, subject, preview",
+            activatable=True,
+        )
+        standard_row.add_prefix(Gtk.Image(icon_name="view-list-symbolic"))
+        self._density_buttons["standard"] = Gtk.CheckButton()
+        self._density_buttons["standard"].set_active(True)
+        self._density_buttons["standard"].connect("toggled", self._on_density_toggled, "standard")
+        standard_row.add_suffix(self._density_buttons["standard"])
+        standard_row.set_activatable_widget(self._density_buttons["standard"])
+        density_group.add(standard_row)
+
+        # Compact density
+        compact_row = Adw.ActionRow(
+            title="Compact",
+            subtitle="Dense view, no preview text",
+            activatable=True,
+        )
+        compact_row.add_prefix(Gtk.Image(icon_name="view-compact-symbolic"))
+        self._density_buttons["compact"] = Gtk.CheckButton()
+        self._density_buttons["compact"].set_group(self._density_buttons["standard"])
+        self._density_buttons["compact"].connect("toggled", self._on_density_toggled, "compact")
+        compact_row.add_suffix(self._density_buttons["compact"])
+        compact_row.set_activatable_widget(self._density_buttons["compact"])
+        density_group.add(compact_row)
+
+        # Comfortable density
+        comfortable_row = Adw.ActionRow(
+            title="Comfortable",
+            subtitle="Spacious view with larger text",
+            activatable=True,
+        )
+        comfortable_row.add_prefix(Gtk.Image(icon_name="view-paged-symbolic"))
+        self._density_buttons["comfortable"] = Gtk.CheckButton()
+        self._density_buttons["comfortable"].set_group(self._density_buttons["standard"])
+        self._density_buttons["comfortable"].connect("toggled", self._on_density_toggled, "comfortable")
+        comfortable_row.add_suffix(self._density_buttons["comfortable"])
+        comfortable_row.set_activatable_widget(self._density_buttons["comfortable"])
+        density_group.add(comfortable_row)
+
+        # Minimal density
+        minimal_row = Adw.ActionRow(
+            title="Minimal",
+            subtitle="Single line: time | sender | subject",
+            activatable=True,
+        )
+        minimal_row.add_prefix(Gtk.Image(icon_name="view-continuous-symbolic"))
+        self._density_buttons["minimal"] = Gtk.CheckButton()
+        self._density_buttons["minimal"].set_group(self._density_buttons["standard"])
+        self._density_buttons["minimal"].connect("toggled", self._on_density_toggled, "minimal")
+        minimal_row.add_suffix(self._density_buttons["minimal"])
+        minimal_row.set_activatable_widget(self._density_buttons["minimal"])
+        density_group.add(minimal_row)
+
+        page.add(density_group)
 
         # Text group
         text_group = Adw.PreferencesGroup(
@@ -432,16 +533,8 @@ class SettingsWindow(Adw.PreferencesWindow):
 
         # Layout group
         layout_group = Adw.PreferencesGroup(
-            title="Layout",
+            title="Layout Options",
         )
-
-        # Compact mode
-        self._compact_mode_row = Adw.SwitchRow(
-            title="Compact Mode",
-            subtitle="Reduce spacing for more content",
-        )
-        self._compact_mode_row.connect("notify::active", self._on_appearance_changed)
-        layout_group.add(self._compact_mode_row)
 
         # Show avatars
         self._show_avatars_row = Adw.SwitchRow(
@@ -754,12 +847,18 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._remember_passphrase_row.set_active(settings.security.remember_passphrase)
         self._passphrase_timeout_row.set_value(settings.security.passphrase_timeout)
 
-        # Appearance
-        theme_map = {"system": 0, "light": 1, "dark": 2}
-        self._theme_row.set_selected(theme_map.get(settings.appearance.theme_mode, 0))
+        # Appearance - Theme
+        theme_mode = getattr(settings.appearance, 'theme_mode', 'system')
+        if theme_mode in self._theme_buttons:
+            self._theme_buttons[theme_mode].set_active(True)
+
+        # Appearance - Density
+        view_density = getattr(settings.appearance, 'view_density', 'standard')
+        if view_density in self._density_buttons:
+            self._density_buttons[view_density].set_active(True)
+
         self._font_size_row.set_value(settings.appearance.font_size)
         self._preview_lines_row.set_value(settings.appearance.message_preview_lines)
-        self._compact_mode_row.set_active(settings.appearance.compact_mode)
         self._show_avatars_row.set_active(settings.appearance.show_avatars)
 
         # Notifications
@@ -980,21 +1079,45 @@ class SettingsWindow(Adw.PreferencesWindow):
         dialog = PasswordChangeDialog(self)
         dialog.present()
 
-    def _on_theme_changed(
+    def _on_theme_radio_toggled(
         self,
-        row: Adw.ComboRow,
-        param: GObject.ParamSpec,
+        button: Gtk.CheckButton,
+        theme: str,
     ) -> None:
-        """Handle theme selection change."""
-        theme_map = {0: "system", 1: "light", 2: "dark"}
-        theme = theme_map.get(row.get_selected(), "system")
-        self._settings.set_theme(theme)
+        """Handle theme radio button toggle."""
+        if button.get_active():
+            logger.info(f"Theme changed to: {theme}")
+            self._settings.set_theme(theme)
+
+    def _on_density_toggled(
+        self,
+        button: Gtk.CheckButton,
+        density: str,
+    ) -> None:
+        """Handle density radio button toggle."""
+        if button.get_active():
+            logger.info(f"Density changed to: {density}")
+            # Update view theme manager
+            try:
+                from .view_theme import ViewTheme, get_view_theme_manager
+                manager = get_view_theme_manager()
+                theme_map = {
+                    "standard": ViewTheme.STANDARD,
+                    "compact": ViewTheme.COMPACT,
+                    "comfortable": ViewTheme.COMFORTABLE,
+                    "minimal": ViewTheme.MINIMAL,
+                }
+                if density in theme_map:
+                    manager.set_theme(theme_map[density])
+            except ImportError:
+                pass
+            # Also save to settings
+            self._settings.update_appearance(view_density=density)
 
     def _on_appearance_changed(self, *args) -> None:
         """Handle appearance settings changes."""
         self._settings.update_appearance(
             font_size=int(self._font_size_row.get_value()),
-            compact_mode=self._compact_mode_row.get_active(),
             show_avatars=self._show_avatars_row.get_active(),
             message_preview_lines=int(self._preview_lines_row.get_value()),
         )
