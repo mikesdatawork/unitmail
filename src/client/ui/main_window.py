@@ -582,6 +582,58 @@ class MainWindow(Adw.ApplicationWindow):
         # Separator
         message_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
+        # Column headers for minimal view (hidden by default)
+        self._column_headers = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=0,
+            margin_start=8,
+            margin_end=8,
+            margin_top=4,
+            margin_bottom=4,
+            css_classes=["column-headers"],
+        )
+        self._column_headers.set_visible(False)
+
+        # Checkbox spacer
+        header_spacer = Gtk.Box()
+        header_spacer.set_size_request(24, -1)
+        self._column_headers.append(header_spacer)
+
+        # Star spacer
+        star_spacer = Gtk.Box()
+        star_spacer.set_size_request(28, -1)
+        self._column_headers.append(star_spacer)
+
+        # Received column header
+        received_header = Gtk.Label(
+            label="Received",
+            xalign=0,
+            css_classes=["dim-label", "column-header"],
+        )
+        received_header.set_size_request(120, -1)
+        self._column_headers.append(received_header)
+
+        # From column header
+        from_header = Gtk.Label(
+            label="From",
+            xalign=0,
+            hexpand=True,
+            css_classes=["dim-label", "column-header"],
+        )
+        from_header.set_size_request(250, -1)
+        self._column_headers.append(from_header)
+
+        # Subject column header
+        subject_header = Gtk.Label(
+            label="Subject",
+            xalign=0,
+            hexpand=True,
+            css_classes=["dim-label", "column-header"],
+        )
+        self._column_headers.append(subject_header)
+
+        message_box.append(self._column_headers)
+
         # Scrolled window for message list
         scrolled = Gtk.ScrolledWindow(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
@@ -610,6 +662,11 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_view_theme_changed(self, manager, theme_name: str) -> None:
         """Handle view theme change - refresh message list."""
         logger.info(f"View theme changed to: {theme_name}, refreshing message list")
+
+        # Show/hide column headers for minimal view
+        if hasattr(self, '_column_headers'):
+            self._column_headers.set_visible(theme_name == "minimal")
+
         # Force rebind of all visible items by invalidating the model
         if hasattr(self, '_message_store') and self._message_store:
             # Trigger items-changed to rebind all items
@@ -771,21 +828,32 @@ class MainWindow(Adw.ApplicationWindow):
 
         from_label, date_label = header_children
 
-        # Check if minimal view is active
+        # Check current view theme
         try:
             from .view_theme import ViewTheme, get_view_theme_manager
             theme_manager = get_view_theme_manager()
-            is_minimal = theme_manager.current_theme == ViewTheme.MINIMAL
+            current_theme = theme_manager.current_theme
         except ImportError:
-            is_minimal = False
+            current_theme = None
 
-        if is_minimal:
-            # Minimal view: single line "date   from   subject"
-            minimal_text = f"{item.date_string}   {item.from_address}   {item.subject or '(No subject)'}"
-            from_label.set_label(minimal_text)
+        if current_theme == ViewTheme.MINIMAL:
+            # Minimal view: columnar layout - date | from | subject
+            # Format date with fixed width padding
+            date_str = f"{item.date_string:<12}"
+            from_str = item.from_address
+            # Truncate from address if too long
+            if len(from_str) > 35:
+                from_str = from_str[:32] + "..."
+            from_str = f"{from_str:<38}"
+            subj_str = item.subject or "(No subject)"
+
+            from_label.set_label(f"{date_str}{from_str}{subj_str}")
             date_label.set_visible(False)
             subject_label.set_visible(False)
             preview_label.set_visible(False)
+            # Reduce row padding for minimal
+            row_box.set_margin_top(2)
+            row_box.set_margin_bottom(2)
         else:
             # Standard/Compact view: normal layout
             from_label.set_label(item.from_address)
@@ -794,7 +862,10 @@ class MainWindow(Adw.ApplicationWindow):
             subject_label.set_label(item.subject or "(No subject)")
             subject_label.set_visible(True)
             preview_label.set_label(item.preview or "")
-            preview_label.set_visible(True)
+            preview_label.set_visible(current_theme != ViewTheme.COMPACT)
+            # Normal row padding
+            row_box.set_margin_top(8)
+            row_box.set_margin_bottom(8)
 
         # Apply unread styling
         if not item.is_read:

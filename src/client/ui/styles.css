@@ -201,11 +201,23 @@ listview.message-list row:hover:not(:selected) {
 }
 
 .view-theme-compact listview.message-list row {
-    min-height: 32px;
+    min-height: 48px;
 }
 
 /* --- MINIMAL THEME --- */
-/* Single line: date | from | subject */
+/* Columnar layout: Received | From | Subject */
+
+/* Column headers */
+.column-headers {
+    border-bottom: 1px solid @borders;
+    padding: 4px 8px;
+}
+
+.column-header {
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
 .view-theme-minimal .message-row {
     padding: 4px 8px;
 }
