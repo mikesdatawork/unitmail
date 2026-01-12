@@ -26,14 +26,12 @@ logger = logging.getLogger(__name__)
 class ViewTheme(Enum):
     """Available view themes for email list."""
     STANDARD = "standard"
-    COMPACT = "compact"
     MINIMAL = "minimal"
 
 
 # Theme descriptions for UI
 THEME_DESCRIPTIONS = {
-    ViewTheme.STANDARD: "Balanced view with moderate spacing",
-    ViewTheme.COMPACT: "Dense view for power users",
+    ViewTheme.STANDARD: "Balanced view with sender, subject, and preview",
     ViewTheme.MINIMAL: "Single line: date | from | subject",
 }
 
@@ -99,11 +97,16 @@ class ViewThemeManager(GObject.Object):
             theme: The new view theme to apply
         """
         logger.info(f"ViewThemeManager.set_theme called with: {theme.value}")
-        logger.info(f"Current theme: {self._current_theme.value}, managed widgets: {len(self._managed_widgets)}")
+        current_value = self._current_theme.value if self._current_theme else "None"
+        logger.info(f"Current theme: {current_value}, managed widgets: {len(self._managed_widgets)}")
 
         if theme == self._current_theme:
             logger.info("Theme unchanged, skipping")
             return
+
+        # Initialize if None (recovery from corrupted state)
+        if self._current_theme is None:
+            self._current_theme = ViewTheme.STANDARD
 
         old_theme = self._current_theme
         self._current_theme = theme

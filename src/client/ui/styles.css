@@ -228,13 +228,74 @@ listview.message-list row:hover:not(:selected) {
 }
 
 .view-theme-minimal .star-button {
-    min-width: 20px;
-    min-height: 20px;
-    padding: 2px;
+    min-width: 16px;
+    min-height: 16px;
+    padding: 0;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.view-theme-minimal .star-button image {
+    -gtk-icon-size: 12px;
 }
 
 .view-theme-minimal listview.message-list row {
-    min-height: 28px;
+    min-height: 26px;
+    border-bottom: 1px solid alpha(@borders, 0.3);
+}
+
+/* Grid lines for minimal view */
+.view-theme-minimal .column-headers {
+    border-bottom: 1px solid @borders;
+}
+
+/* Hide checkbox and star button in minimal view */
+.view-theme-minimal .message-row checkbutton {
+    opacity: 0;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.view-theme-minimal .star-button {
+    opacity: 0;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+/* Minimal view message row - tighter spacing */
+.view-theme-minimal .message-row {
+    margin-left: 4px;
+    margin-right: 4px;
+    padding: 4px 8px;
+}
+
+/* Favorite indicator - left border for minimal view */
+.view-theme-minimal .message-row.starred {
+    border-left: 3px solid @warning_color;
+}
+
+.view-theme-minimal .message-row:not(.starred) {
+    border-left: 3px solid transparent;
+}
+
+/* Sortable column header buttons */
+.column-header-btn {
+    padding: 2px 8px;
+    font-size: 0.85em;
+    font-weight: 600;
+    border-radius: 0;
+    background: transparent;
+}
+
+.column-header-btn:hover {
+    background-color: alpha(@accent_bg_color, 0.1);
+}
+
+.column-header-btn image {
+    -gtk-icon-size: 10px;
+    opacity: 0.7;
 }
 
 /* ============================================

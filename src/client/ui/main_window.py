@@ -237,11 +237,39 @@ class MainWindow(Adw.ApplicationWindow):
         self._build_ui()
         self._connect_signals()
         self._load_sample_data()
+        self._apply_saved_view_density()
 
         # Apply CSS after window is realized
         self.connect("realize", self._on_realize)
 
         logger.info("Main window initialized")
+
+    def _apply_saved_view_density(self) -> None:
+        """Apply the saved view density from settings."""
+        try:
+            from client.services.settings_service import get_settings_service
+            from .view_theme import ViewTheme, get_view_theme_manager
+
+            settings = get_settings_service()
+            saved_density = getattr(settings.appearance, 'view_density', 'standard')
+
+            theme_map = {
+                "standard": ViewTheme.STANDARD,
+                "minimal": ViewTheme.MINIMAL,
+            }
+
+            if saved_density in theme_map:
+                target_theme = theme_map[saved_density]
+                manager = get_view_theme_manager()
+
+                # If saved density differs from current, apply it
+                if manager.current_theme != target_theme:
+                    manager.set_theme(target_theme)
+                    logger.info(f"Applied saved view density: {saved_density}")
+                else:
+                    logger.info(f"View density already set to: {saved_density}")
+        except Exception as e:
+            logger.warning(f"Could not apply saved view density: {e}")
 
     def _on_realize(self, widget: Gtk.Widget) -> None:
         """Handle window realization."""
@@ -259,10 +287,18 @@ class MainWindow(Adw.ApplicationWindow):
             "reply-all": self._on_reply_all,
             "forward": self._on_forward,
             "mark-read": self._on_mark_read,
+            "mark-unread": self._on_mark_unread,
             "mark-starred": self._on_mark_starred,
+            "unstar-message": self._on_unstar_message,
             "search": self._on_search_focus,
             "next-message": self._on_next_message,
             "previous-message": self._on_previous_message,
+            "move-to-archive": self._on_move_to_archive,
+            "move-to-spam": self._on_move_to_spam,
+            "move-to-trash": self._on_move_to_trash,
+            "folder-mark-all-read": self._on_folder_mark_all_read,
+            "folder-refresh": self._on_folder_refresh,
+            "folder-empty": self._on_folder_empty,
         }
 
         for name, callback in actions.items():
@@ -472,7 +508,38 @@ class MainWindow(Adw.ApplicationWindow):
             css_classes=["navigation-sidebar"],
         )
 
+        # Add right-click context menu for folders
+        self._setup_folder_context_menu(list_view)
+
         return list_view
+
+    def _setup_folder_context_menu(self, list_view: Gtk.ListView) -> None:
+        """Set up right-click context menu for folders."""
+        # Create menu model
+        menu = Gio.Menu()
+
+        # Folder actions section
+        folder_section = Gio.Menu()
+        folder_section.append("Mark All as Read", "win.folder-mark-all-read")
+        folder_section.append("Refresh", "win.folder-refresh")
+        menu.append_section(None, folder_section)
+
+        # Empty folder section (for Trash/Spam)
+        empty_section = Gio.Menu()
+        empty_section.append("Empty Folder", "win.folder-empty")
+        menu.append_section(None, empty_section)
+
+        # Create popover menu
+        self._folder_context_menu = Gtk.PopoverMenu(
+            menu_model=menu,
+            has_arrow=False,
+        )
+        self._folder_context_menu.set_parent(list_view)
+
+        # Add right-click gesture
+        click_gesture = Gtk.GestureClick(button=3)  # Right click
+        click_gesture.connect("pressed", self._on_folder_right_click)
+        list_view.add_controller(click_gesture)
 
     def _on_folder_item_setup(
         self,
@@ -601,36 +668,53 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Star spacer
         star_spacer = Gtk.Box()
-        star_spacer.set_size_request(28, -1)
+        star_spacer.set_size_request(20, -1)
         self._column_headers.append(star_spacer)
 
-        # Received column header
-        received_header = Gtk.Label(
-            label="Received",
-            xalign=0,
-            css_classes=["dim-label", "column-header"],
-        )
-        received_header.set_size_request(120, -1)
-        self._column_headers.append(received_header)
+        # Track current sort column and direction
+        self._sort_column = "date"
+        self._sort_ascending = False
 
-        # From column header
-        from_header = Gtk.Label(
-            label="From",
-            xalign=0,
-            hexpand=True,
-            css_classes=["dim-label", "column-header"],
+        # Received column header (sortable)
+        self._received_header_btn = Gtk.Button(
+            css_classes=["flat", "column-header-btn"],
         )
-        from_header.set_size_request(250, -1)
-        self._column_headers.append(from_header)
+        received_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        received_box.append(Gtk.Label(label="Received", xalign=0))
+        self._received_sort_icon = Gtk.Image(icon_name="pan-down-symbolic")
+        received_box.append(self._received_sort_icon)
+        self._received_header_btn.set_child(received_box)
+        self._received_header_btn.set_size_request(120, -1)
+        self._received_header_btn.connect("clicked", self._on_column_header_clicked, "date")
+        self._column_headers.append(self._received_header_btn)
 
-        # Subject column header
-        subject_header = Gtk.Label(
-            label="Subject",
-            xalign=0,
-            hexpand=True,
-            css_classes=["dim-label", "column-header"],
+        # From column header (sortable)
+        self._from_header_btn = Gtk.Button(
+            css_classes=["flat", "column-header-btn"],
         )
-        self._column_headers.append(subject_header)
+        from_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        from_box.append(Gtk.Label(label="From", xalign=0, hexpand=True))
+        self._from_sort_icon = Gtk.Image(icon_name="pan-down-symbolic")
+        self._from_sort_icon.set_visible(False)
+        from_box.append(self._from_sort_icon)
+        self._from_header_btn.set_child(from_box)
+        self._from_header_btn.set_size_request(250, -1)
+        self._from_header_btn.connect("clicked", self._on_column_header_clicked, "from")
+        self._column_headers.append(self._from_header_btn)
+
+        # Subject column header (sortable)
+        self._subject_header_btn = Gtk.Button(
+            css_classes=["flat", "column-header-btn"],
+            hexpand=True,
+        )
+        subject_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        subject_box.append(Gtk.Label(label="Subject", xalign=0, hexpand=True))
+        self._subject_sort_icon = Gtk.Image(icon_name="pan-down-symbolic")
+        self._subject_sort_icon.set_visible(False)
+        subject_box.append(self._subject_sort_icon)
+        self._subject_header_btn.set_child(subject_box)
+        self._subject_header_btn.connect("clicked", self._on_column_header_clicked, "subject")
+        self._column_headers.append(self._subject_header_btn)
 
         message_box.append(self._column_headers)
 
@@ -667,12 +751,82 @@ class MainWindow(Adw.ApplicationWindow):
         if hasattr(self, '_column_headers'):
             self._column_headers.set_visible(theme_name == "minimal")
 
-        # Force rebind of all visible items by invalidating the model
-        if hasattr(self, '_message_store') and self._message_store:
-            # Trigger items-changed to rebind all items
-            n_items = self._message_store.get_n_items()
-            if n_items > 0:
-                self._message_store.items_changed(0, n_items, n_items)
+        # Force complete rebind by temporarily replacing the model
+        if hasattr(self, '_message_list') and self._message_list:
+            selection_model = self._message_list.get_model()
+            if selection_model and hasattr(selection_model, 'get_model'):
+                # Get the current store
+                store = selection_model.get_model()
+                if store and store.get_n_items() > 0:
+                    # Save current selection
+                    selected_idx = selection_model.get_selected()
+
+                    # Collect all items
+                    items = []
+                    for i in range(store.get_n_items()):
+                        items.append(store.get_item(i))
+
+                    # Clear and re-add to force complete rebind
+                    store.remove_all()
+                    for item in items:
+                        store.append(item)
+
+                    # Restore selection if valid
+                    if selected_idx < len(items):
+                        selection_model.set_selected(selected_idx)
+
+    def _on_column_header_clicked(self, button: Gtk.Button, column: str) -> None:
+        """Handle column header click for sorting."""
+        logger.info(f"Sort by column: {column}")
+
+        # Toggle direction if same column, otherwise set new column
+        if self._sort_column == column:
+            self._sort_ascending = not self._sort_ascending
+        else:
+            self._sort_column = column
+            self._sort_ascending = True
+
+        # Update sort icons
+        self._received_sort_icon.set_visible(column == "date")
+        self._from_sort_icon.set_visible(column == "from")
+        self._subject_sort_icon.set_visible(column == "subject")
+
+        # Update icon direction
+        icon_name = "pan-up-symbolic" if self._sort_ascending else "pan-down-symbolic"
+        if column == "date":
+            self._received_sort_icon.set_from_icon_name(icon_name)
+        elif column == "from":
+            self._from_sort_icon.set_from_icon_name(icon_name)
+        elif column == "subject":
+            self._subject_sort_icon.set_from_icon_name(icon_name)
+
+        # Sort the message store
+        self._sort_messages(column, self._sort_ascending)
+
+    def _sort_messages(self, column: str, ascending: bool) -> None:
+        """Sort messages by the specified column."""
+        if not hasattr(self, '_message_store') or not self._message_store:
+            return
+
+        # Get all items
+        items = []
+        for i in range(self._message_store.get_n_items()):
+            items.append(self._message_store.get_item(i))
+
+        # Sort based on column
+        if column == "date":
+            items.sort(key=lambda x: x._date, reverse=not ascending)
+        elif column == "from":
+            items.sort(key=lambda x: x.from_address.lower(), reverse=not ascending)
+        elif column == "subject":
+            items.sort(key=lambda x: (x.subject or "").lower(), reverse=not ascending)
+
+        # Clear and repopulate store
+        self._message_store.remove_all()
+        for item in items:
+            self._message_store.append(item)
+
+        logger.info(f"Sorted {len(items)} messages by {column} ({'asc' if ascending else 'desc'})")
 
     def _create_message_list(self) -> Gtk.ListView:
         """
@@ -697,7 +851,60 @@ class MainWindow(Adw.ApplicationWindow):
             css_classes=["message-list"],
         )
 
+        # Add right-click context menu
+        self._setup_message_context_menu(list_view)
+
         return list_view
+
+    def _setup_message_context_menu(self, list_view: Gtk.ListView) -> None:
+        """Set up right-click context menu for messages."""
+        # Create menu model
+        menu = Gio.Menu()
+
+        # Read/unread section
+        read_section = Gio.Menu()
+        read_section.append("Mark as Read", "win.mark-read")
+        read_section.append("Mark as Unread", "win.mark-unread")
+        menu.append_section(None, read_section)
+
+        # Star section
+        star_section = Gio.Menu()
+        star_section.append("Star Message", "win.mark-starred")
+        star_section.append("Remove Star", "win.unstar-message")
+        menu.append_section(None, star_section)
+
+        # Actions section
+        action_section = Gio.Menu()
+        action_section.append("Reply", "win.reply")
+        action_section.append("Reply All", "win.reply-all")
+        action_section.append("Forward", "win.forward")
+        menu.append_section(None, action_section)
+
+        # Move section
+        move_section = Gio.Menu()
+        move_submenu = Gio.Menu()
+        move_submenu.append("Archive", "win.move-to-archive")
+        move_submenu.append("Spam", "win.move-to-spam")
+        move_submenu.append("Trash", "win.move-to-trash")
+        move_section.append_submenu("Move to...", move_submenu)
+        menu.append_section(None, move_section)
+
+        # Delete section
+        delete_section = Gio.Menu()
+        delete_section.append("Delete", "win.delete-message")
+        menu.append_section(None, delete_section)
+
+        # Create popover menu
+        self._message_context_menu = Gtk.PopoverMenu(
+            menu_model=menu,
+            has_arrow=False,
+        )
+        self._message_context_menu.set_parent(list_view)
+
+        # Add right-click gesture
+        click_gesture = Gtk.GestureClick(button=3)  # Right click
+        click_gesture.connect("pressed", self._on_message_right_click)
+        list_view.add_controller(click_gesture)
 
     def _on_message_item_setup(
         self,
@@ -855,14 +1062,14 @@ class MainWindow(Adw.ApplicationWindow):
             row_box.set_margin_top(2)
             row_box.set_margin_bottom(2)
         else:
-            # Standard/Compact view: normal layout
+            # Standard view: normal layout with preview
             from_label.set_label(item.from_address)
             date_label.set_label(item.date_string)
             date_label.set_visible(True)
             subject_label.set_label(item.subject or "(No subject)")
             subject_label.set_visible(True)
             preview_label.set_label(item.preview or "")
-            preview_label.set_visible(current_theme != ViewTheme.COMPACT)
+            preview_label.set_visible(True)
             # Normal row padding
             row_box.set_margin_top(8)
             row_box.set_margin_bottom(8)
@@ -876,6 +1083,12 @@ class MainWindow(Adw.ApplicationWindow):
             row_box.remove_css_class("unread")
             from_label.remove_css_class("bold")
             subject_label.remove_css_class("bold")
+
+        # Apply starred styling (left border in minimal view via CSS)
+        if item.is_starred:
+            row_box.add_css_class("starred")
+        else:
+            row_box.remove_css_class("starred")
 
         # Show/hide attachment icon
         attachment_icon.set_visible(item.has_attachments)
@@ -971,6 +1184,16 @@ class MainWindow(Adw.ApplicationWindow):
 
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
+        # Star button
+        star_button = Gtk.Button(
+            icon_name="starred-symbolic",
+            tooltip_text="Star/Unstar message",
+        )
+        star_button.set_action_name("win.mark-starred")
+        action_bar.append(star_button)
+
+        action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
         delete_button = Gtk.Button(
             icon_name="user-trash-symbolic",
             tooltip_text="Delete (Delete)",
@@ -984,9 +1207,27 @@ class MainWindow(Adw.ApplicationWindow):
         action_bar.append(spacer)
 
         # More actions menu
+        more_menu = Gio.Menu()
+
+        # Read/unread section
+        read_section = Gio.Menu()
+        read_section.append("Mark as Read", "win.mark-read")
+        read_section.append("Mark as Unread", "win.mark-unread")
+        more_menu.append_section(None, read_section)
+
+        # Move section
+        move_section = Gio.Menu()
+        move_submenu = Gio.Menu()
+        move_submenu.append("Archive", "win.move-to-archive")
+        move_submenu.append("Spam", "win.move-to-spam")
+        move_submenu.append("Trash", "win.move-to-trash")
+        move_section.append_submenu("Move to...", move_submenu)
+        more_menu.append_section(None, move_section)
+
         more_button = Gtk.MenuButton(
             icon_name="view-more-symbolic",
             tooltip_text="More actions",
+            menu_model=more_menu,
         )
         action_bar.append(more_button)
 
@@ -1216,7 +1457,105 @@ class MainWindow(Adw.ApplicationWindow):
         if selected:
             self._selected_folder_id = selected.folder_id
             logger.info(f"Selected folder: {selected.name}")
-            # TODO: Load messages for this folder
+            # Load messages for this folder
+            self._load_folder_messages(selected.name)
+
+    def _load_folder_messages(self, folder_name: str) -> None:
+        """Load messages for a specific folder."""
+        self._message_store.remove_all()
+
+        # Sample data for each folder type
+        folder_messages = {
+            "Inbox": [
+                MessageItem(
+                    "msg1", "alice@example.com", "Meeting tomorrow",
+                    "Hi, just wanted to confirm our meeting tomorrow at 2pm...",
+                    datetime(2026, 1, 11, 14, 30), is_read=False, has_attachments=True,
+                ),
+                MessageItem(
+                    "msg2", "bob@example.com", "Re: Project update",
+                    "Thanks for the update. I've reviewed the changes and...",
+                    datetime(2026, 1, 11, 10, 15), is_read=True,
+                ),
+                MessageItem(
+                    "msg3", "newsletter@company.com", "Weekly Newsletter",
+                    "This week's highlights include new features and...",
+                    datetime(2026, 1, 10, 9, 0), is_read=False,
+                ),
+                MessageItem(
+                    "msg4", "support@service.com", "Your ticket has been updated",
+                    "We've made progress on your support ticket #12345...",
+                    datetime(2026, 1, 9, 16, 45), is_read=True, is_starred=True,
+                ),
+            ],
+            "Sent": [
+                MessageItem(
+                    "sent1", "me@example.com → alice@example.com", "Re: Meeting tomorrow",
+                    "Yes, 2pm works for me. See you then!",
+                    datetime(2026, 1, 11, 15, 0), is_read=True,
+                ),
+                MessageItem(
+                    "sent2", "me@example.com → team@company.com", "Weekly Report",
+                    "Here's my weekly progress report...",
+                    datetime(2026, 1, 10, 17, 30), is_read=True,
+                ),
+            ],
+            "Drafts": [
+                MessageItem(
+                    "draft1", "me@example.com", "[Draft] Proposal",
+                    "I wanted to propose a new approach to...",
+                    datetime(2026, 1, 11, 12, 0), is_read=True,
+                ),
+                MessageItem(
+                    "draft2", "me@example.com", "[Draft] Follow-up",
+                    "Following up on our discussion...",
+                    datetime(2026, 1, 10, 14, 0), is_read=True,
+                ),
+            ],
+            "Trash": [
+                MessageItem(
+                    "trash1", "spam@marketing.com", "Limited time offer!",
+                    "Don't miss out on this amazing deal...",
+                    datetime(2026, 1, 8, 10, 0), is_read=True,
+                ),
+                MessageItem(
+                    "trash2", "old@contact.com", "Old message",
+                    "This is an old message that was deleted...",
+                    datetime(2026, 1, 5, 9, 0), is_read=True,
+                ),
+            ],
+            "Spam": [
+                MessageItem(
+                    "spam1", "winner@lottery.fake", "You've won $1,000,000!!!",
+                    "Congratulations! Click here to claim your prize...",
+                    datetime(2026, 1, 11, 8, 0), is_read=False,
+                ),
+                MessageItem(
+                    "spam2", "prince@nigeria.fake", "Urgent business proposal",
+                    "I am a Nigerian prince seeking your assistance...",
+                    datetime(2026, 1, 10, 6, 0), is_read=False,
+                ),
+            ],
+            "Archive": [
+                MessageItem(
+                    "arch1", "hr@company.com", "Welcome to the team!",
+                    "We're excited to have you join our team...",
+                    datetime(2025, 6, 1, 9, 0), is_read=True,
+                ),
+                MessageItem(
+                    "arch2", "project@client.com", "Project Complete",
+                    "Thank you for completing the project successfully...",
+                    datetime(2025, 8, 15, 14, 0), is_read=True, is_starred=True,
+                ),
+            ],
+        }
+
+        messages = folder_messages.get(folder_name, [])
+        for message in messages:
+            self._message_store.append(message)
+
+        self._update_message_count()
+        self._show_preview_placeholder()
 
     def _on_message_selected(
         self,
@@ -1339,8 +1678,168 @@ class MainWindow(Adw.ApplicationWindow):
     ) -> None:
         """Handle mark starred action."""
         if self._selected_message_id:
-            logger.info(f"Toggle starred: {self._selected_message_id}")
-            # TODO: Implement star toggle
+            logger.info(f"Star message: {self._selected_message_id}")
+            self._set_message_starred(self._selected_message_id, True)
+
+    def _on_unstar_message(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle unstar message action."""
+        if self._selected_message_id:
+            logger.info(f"Unstar message: {self._selected_message_id}")
+            self._set_message_starred(self._selected_message_id, False)
+
+    def _on_mark_unread(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle mark unread action."""
+        if self._selected_message_id:
+            logger.info(f"Mark unread: {self._selected_message_id}")
+            self._set_message_read(self._selected_message_id, False)
+
+    def _on_move_to_archive(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle move to archive action."""
+        if self._selected_message_id:
+            logger.info(f"Move to archive: {self._selected_message_id}")
+            self._move_message_to_folder(self._selected_message_id, "Archive")
+
+    def _on_move_to_spam(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle move to spam action."""
+        if self._selected_message_id:
+            logger.info(f"Move to spam: {self._selected_message_id}")
+            self._move_message_to_folder(self._selected_message_id, "Spam")
+
+    def _on_move_to_trash(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle move to trash action."""
+        if self._selected_message_id:
+            logger.info(f"Move to trash: {self._selected_message_id}")
+            self._move_message_to_folder(self._selected_message_id, "Trash")
+
+    def _on_message_right_click(
+        self,
+        gesture: Gtk.GestureClick,
+        n_press: int,
+        x: float,
+        y: float,
+    ) -> None:
+        """Handle right-click on message list."""
+        # Position and show the context menu
+        rect = Gdk.Rectangle()
+        rect.x = int(x)
+        rect.y = int(y)
+        rect.width = 1
+        rect.height = 1
+        self._message_context_menu.set_pointing_to(rect)
+        self._message_context_menu.popup()
+
+    def _set_message_starred(self, message_id: str, starred: bool) -> None:
+        """Set starred status for a message."""
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item.message_id == message_id:
+                item.is_starred = starred
+                # Force refresh
+                self._message_store.items_changed(i, 1, 1)
+                break
+
+    def _set_message_read(self, message_id: str, is_read: bool) -> None:
+        """Set read status for a message."""
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item.message_id == message_id:
+                item.is_read = is_read
+                # Force refresh
+                self._message_store.items_changed(i, 1, 1)
+                break
+
+    def _move_message_to_folder(self, message_id: str, folder: str) -> None:
+        """Move a message to a folder."""
+        # Remove from current list (in real app, would update database)
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item.message_id == message_id:
+                self._message_store.remove(i)
+                logger.info(f"Moved message {message_id} to {folder}")
+                break
+
+    def _on_folder_right_click(
+        self,
+        gesture: Gtk.GestureClick,
+        n_press: int,
+        x: float,
+        y: float,
+    ) -> None:
+        """Handle right-click on folder list."""
+        # Position and show the context menu
+        rect = Gdk.Rectangle()
+        rect.x = int(x)
+        rect.y = int(y)
+        rect.width = 1
+        rect.height = 1
+        self._folder_context_menu.set_pointing_to(rect)
+        self._folder_context_menu.popup()
+
+    def _on_folder_mark_all_read(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle mark all as read for current folder."""
+        folder = self._get_selected_folder_name()
+        logger.info(f"Mark all as read in folder: {folder}")
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            item.is_read = True
+        self._message_store.items_changed(0, self._message_store.get_n_items(), self._message_store.get_n_items())
+
+    def _on_folder_refresh(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle folder refresh."""
+        folder = self._get_selected_folder_name()
+        logger.info(f"Refresh folder: {folder}")
+        # In real app, would re-fetch from server
+
+    def _on_folder_empty(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle empty folder (for Trash/Spam)."""
+        folder = self._get_selected_folder_name()
+        if folder in ("Trash", "Spam"):
+            logger.info(f"Empty folder: {folder}")
+            self._message_store.remove_all()
+        else:
+            logger.warning(f"Cannot empty folder: {folder}")
+
+    def _get_selected_folder_name(self) -> str:
+        """Get the name of the currently selected folder."""
+        selection = self._folder_list.get_model()
+        if isinstance(selection, Gtk.SingleSelection):
+            idx = selection.get_selected()
+            if idx < self._folder_store.get_n_items():
+                item = self._folder_store.get_item(idx)
+                return item.name
+        return "Inbox"
 
     def _on_search_focus(
         self,

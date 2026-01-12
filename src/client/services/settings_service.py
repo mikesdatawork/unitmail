@@ -73,6 +73,7 @@ class AppearanceSettings:
     """Appearance-related settings."""
 
     theme_mode: str = "system"  # system, light, dark
+    view_density: str = "standard"  # standard, compact, minimal
     font_size: int = 12
     compact_mode: bool = False
     show_avatars: bool = True
@@ -399,6 +400,7 @@ class SettingsService(GObject.Object):
     def update_appearance(
         self,
         theme_mode: Optional[str] = None,
+        view_density: Optional[str] = None,
         font_size: Optional[int] = None,
         compact_mode: Optional[bool] = None,
         show_avatars: Optional[bool] = None,
@@ -410,6 +412,8 @@ class SettingsService(GObject.Object):
         if theme_mode is not None and theme_mode != self._settings.appearance.theme_mode:
             self._settings.appearance.theme_mode = theme_mode
             theme_changed = True
+        if view_density is not None:
+            self._settings.appearance.view_density = view_density
         if font_size is not None:
             self._settings.appearance.font_size = font_size
         if compact_mode is not None:

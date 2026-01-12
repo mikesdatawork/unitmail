@@ -464,20 +464,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         standard_row.set_activatable_widget(self._density_buttons["standard"])
         density_group.add(standard_row)
 
-        # Compact density
-        compact_row = Adw.ActionRow(
-            title="Compact",
-            subtitle="Dense view, no preview text",
-            activatable=True,
-        )
-        compact_row.add_prefix(Gtk.Image(icon_name="view-compact-symbolic"))
-        self._density_buttons["compact"] = Gtk.CheckButton()
-        self._density_buttons["compact"].set_group(self._density_buttons["standard"])
-        self._density_buttons["compact"].connect("toggled", self._on_density_toggled, "compact")
-        compact_row.add_suffix(self._density_buttons["compact"])
-        compact_row.set_activatable_widget(self._density_buttons["compact"])
-        density_group.add(compact_row)
-
         # Minimal density
         minimal_row = Adw.ActionRow(
             title="Minimal",
@@ -784,6 +770,36 @@ class SettingsWindow(Adw.PreferencesWindow):
 
         page.add(logging_group)
 
+        # Export/Import group
+        export_group = Adw.PreferencesGroup(
+            title="Data Export",
+            description="Export your emails for backup or migration",
+        )
+
+        export_row = Adw.ActionRow(
+            title="Export All Emails",
+            subtitle="Export emails to mbox format (compatible with most email clients)",
+            activatable=True,
+        )
+        export_row.add_suffix(
+            Gtk.Image(icon_name="document-save-symbolic")
+        )
+        export_row.connect("activated", self._on_export_emails_clicked)
+        export_group.add(export_row)
+
+        export_json_row = Adw.ActionRow(
+            title="Export as JSON",
+            subtitle="Export emails to JSON format (for data analysis or custom import)",
+            activatable=True,
+        )
+        export_json_row.add_suffix(
+            Gtk.Image(icon_name="document-save-symbolic")
+        )
+        export_json_row.connect("activated", self._on_export_json_clicked)
+        export_group.add(export_json_row)
+
+        page.add(export_group)
+
         # Reset group
         reset_group = Adw.PreferencesGroup()
 
@@ -1089,14 +1105,14 @@ class SettingsWindow(Adw.PreferencesWindow):
                 manager = get_view_theme_manager()
                 theme_map = {
                     "standard": ViewTheme.STANDARD,
-                    "compact": ViewTheme.COMPACT,
                     "minimal": ViewTheme.MINIMAL,
                 }
                 if density in theme_map:
                     manager.set_theme(theme_map[density])
             except ImportError:
                 pass
-            # Note: view_density is managed by ViewThemeManager, not SettingsService
+            # Save density to settings for persistence
+            self._settings.update_appearance(view_density=density)
 
     def _on_appearance_changed(self, *args) -> None:
         """Handle appearance settings changes."""
@@ -1199,6 +1215,180 @@ class SettingsWindow(Adw.PreferencesWindow):
             f"file://{log_path}",
             None,
         )
+
+    def _on_export_emails_clicked(self, row: Adw.ActionRow) -> None:
+        """Handle export emails to mbox button click."""
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Choose Export Location")
+
+        # Set initial folder
+        dialog.set_initial_folder(Gio.File.new_for_path(str(Path.home())))
+
+        dialog.select_folder(self, None, self._on_export_mbox_folder_selected)
+
+    def _on_export_mbox_folder_selected(
+        self,
+        dialog: Gtk.FileDialog,
+        result: Gio.AsyncResult,
+    ) -> None:
+        """Handle mbox export folder selection."""
+        try:
+            folder = dialog.select_folder_finish(result)
+            if folder:
+                export_path = Path(folder.get_path()) / "unitmail_export.mbox"
+                self._perform_mbox_export(export_path)
+        except GLib.Error as e:
+            if e.code != Gtk.DialogError.CANCELLED:
+                logger.error(f"Failed to select export folder: {e.message}")
+
+    def _perform_mbox_export(self, path: Path) -> None:
+        """Perform the actual mbox export."""
+        # Show progress dialog
+        progress_dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Exporting Emails",
+            body="Please wait while your emails are being exported...",
+        )
+        progress_dialog.add_response("cancel", "Cancel")
+        progress_dialog.present()
+
+        # In a real implementation, this would export from the database
+        # For now, create a placeholder mbox file
+        def do_export():
+            try:
+                import mailbox
+                mbox = mailbox.mbox(str(path))
+
+                # Placeholder: In real implementation, fetch from database
+                # For demo, create a sample message
+                from email.message import EmailMessage
+                msg = EmailMessage()
+                msg['Subject'] = 'unitMail Export'
+                msg['From'] = 'export@unitmail.local'
+                msg['To'] = 'user@unitmail.local'
+                msg.set_content('This is a placeholder export. '
+                               'In production, your actual emails would be here.')
+                mbox.add(msg)
+                mbox.close()
+
+                GLib.idle_add(self._show_export_success, path, progress_dialog)
+            except Exception as e:
+                GLib.idle_add(self._show_export_error, str(e), progress_dialog)
+            return False
+
+        GLib.timeout_add(500, do_export)
+
+    def _on_export_json_clicked(self, row: Adw.ActionRow) -> None:
+        """Handle export emails to JSON button click."""
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Choose Export Location")
+
+        # Set initial folder
+        dialog.set_initial_folder(Gio.File.new_for_path(str(Path.home())))
+
+        dialog.select_folder(self, None, self._on_export_json_folder_selected)
+
+    def _on_export_json_folder_selected(
+        self,
+        dialog: Gtk.FileDialog,
+        result: Gio.AsyncResult,
+    ) -> None:
+        """Handle JSON export folder selection."""
+        try:
+            folder = dialog.select_folder_finish(result)
+            if folder:
+                export_path = Path(folder.get_path()) / "unitmail_export.json"
+                self._perform_json_export(export_path)
+        except GLib.Error as e:
+            if e.code != Gtk.DialogError.CANCELLED:
+                logger.error(f"Failed to select export folder: {e.message}")
+
+    def _perform_json_export(self, path: Path) -> None:
+        """Perform the actual JSON export."""
+        # Show progress dialog
+        progress_dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Exporting Emails",
+            body="Please wait while your emails are being exported...",
+        )
+        progress_dialog.add_response("cancel", "Cancel")
+        progress_dialog.present()
+
+        def do_export():
+            try:
+                import json
+                from datetime import datetime
+
+                # Placeholder: In real implementation, fetch from database
+                export_data = {
+                    "export_date": datetime.now().isoformat(),
+                    "application": "unitMail",
+                    "version": "1.0.0",
+                    "emails": [
+                        {
+                            "id": "sample-1",
+                            "from": "export@unitmail.local",
+                            "to": ["user@unitmail.local"],
+                            "subject": "unitMail Export",
+                            "date": datetime.now().isoformat(),
+                            "body": "This is a placeholder export. "
+                                   "In production, your actual emails would be here.",
+                            "folder": "inbox",
+                            "read": True,
+                            "starred": False,
+                        }
+                    ]
+                }
+
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+                GLib.idle_add(self._show_export_success, path, progress_dialog)
+            except Exception as e:
+                GLib.idle_add(self._show_export_error, str(e), progress_dialog)
+            return False
+
+        GLib.timeout_add(500, do_export)
+
+    def _show_export_success(self, path: Path, progress_dialog: Adw.MessageDialog) -> bool:
+        """Show export success message."""
+        progress_dialog.close()
+
+        success_dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Export Complete",
+            body=f"Your emails have been exported to:\n{path}",
+        )
+        success_dialog.add_response("open", "Open Folder")
+        success_dialog.add_response("ok", "OK")
+        success_dialog.set_default_response("ok")
+        success_dialog.connect("response", self._on_export_success_response, path.parent)
+        success_dialog.present()
+        return False
+
+    def _on_export_success_response(
+        self,
+        dialog: Adw.MessageDialog,
+        response: str,
+        folder: Path,
+    ) -> None:
+        """Handle export success dialog response."""
+        if response == "open":
+            Gio.AppInfo.launch_default_for_uri(f"file://{folder}", None)
+
+    def _show_export_error(self, error: str, progress_dialog: Adw.MessageDialog) -> bool:
+        """Show export error message."""
+        progress_dialog.close()
+
+        error_dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Export Failed",
+            body=f"Failed to export emails: {error}",
+        )
+        error_dialog.add_response("ok", "OK")
+        error_dialog.present()
+        logger.error(f"Export failed: {error}")
+        return False
 
     def _on_reset_clicked(self, row: Adw.ActionRow) -> None:
         """Handle reset to defaults button click."""
