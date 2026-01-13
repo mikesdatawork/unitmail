@@ -34,7 +34,7 @@ class FolderType(Enum):
     TRASH = "trash"
     SPAM = "spam"
     ARCHIVE = "archive"
-    STARRED = "starred"
+    FAVORITES = "favorites"
     ALL_MAIL = "all_mail"
     CUSTOM = "custom"
 
@@ -56,7 +56,7 @@ FOLDER_ICONS: dict[FolderType, str] = {
     FolderType.TRASH: "user-trash-symbolic",
     FolderType.SPAM: "mail-mark-junk-symbolic",
     FolderType.ARCHIVE: "folder-documents-symbolic",
-    FolderType.STARRED: "starred-symbolic",
+    FolderType.FAVORITES: "starred-symbolic",
     FolderType.ALL_MAIL: "mail-read-symbolic",
     FolderType.CUSTOM: "folder-symbolic",
 }

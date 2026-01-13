@@ -335,10 +335,10 @@ class SearchDialog(Adw.Window):
         )
         status_group.add(self._attachments_row)
 
-        # Is starred
+        # Is favorite
         self._starred_row = Adw.SwitchRow(
-            title="Starred",
-            subtitle="Only starred messages",
+            title="Favorites",
+            subtitle="Only favorite messages",
         )
         status_group.add(self._starred_row)
 
@@ -1090,7 +1090,7 @@ class SearchDialog(Adw.Window):
         if criteria.get("has_attachments"):
             parts.append("has:attachment")
         if criteria.get("is_starred"):
-            parts.append("is:starred")
+            parts.append("is:favorite")
         if criteria.get("is_unread"):
             parts.append("is:unread")
 
@@ -1163,7 +1163,7 @@ class SearchPopover(Gtk.Popover):
         filters_box.append(self._unread_btn)
 
         self._starred_btn = Gtk.ToggleButton(
-            label="Starred",
+            label="Favorites",
             css_classes=["flat"],
         )
         filters_box.append(self._starred_btn)

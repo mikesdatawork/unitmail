@@ -682,13 +682,13 @@ class MessageViewer(Gtk.Box):
         separator1.set_margin_end(8)
         self._toolbar.append(separator1)
 
-        # Star button
-        self._star_button = Gtk.ToggleButton()
-        self._star_button.set_icon_name("non-starred-symbolic")
-        self._star_button.set_tooltip_text("Star")
-        self._star_button.add_css_class("flat")
-        self._star_button.connect("toggled", self._on_star_toggled)
-        self._toolbar.append(self._star_button)
+        # Favorite button
+        self._favorite_button = Gtk.ToggleButton()
+        self._favorite_button.set_icon_name("non-starred-symbolic")
+        self._favorite_button.set_tooltip_text("Add to favorites")
+        self._favorite_button.add_css_class("flat")
+        self._favorite_button.connect("toggled", self._on_favorite_toggled)
+        self._toolbar.append(self._favorite_button)
 
         # Move to folder button
         self._move_button = Gtk.MenuButton()
@@ -864,7 +864,7 @@ class MessageViewer(Gtk.Box):
             # It's a Message model
             self._header.set_from_message_model(message)
             self._is_starred = message.is_starred
-            self._star_button.set_active(self._is_starred)
+            self._favorite_button.set_active(self._is_starred)
 
             # Update body
             self._body.set_content(
@@ -896,7 +896,7 @@ class MessageViewer(Gtk.Box):
             )
 
             self._is_starred = message.get("is_starred", False)
-            self._star_button.set_active(self._is_starred)
+            self._favorite_button.set_active(self._is_starred)
 
             self._body.set_content(
                 html_content=message.get("body_html"),
@@ -910,7 +910,7 @@ class MessageViewer(Gtk.Box):
                 self._attachments.clear()
                 self._attachments.set_visible(False)
 
-        self._update_star_button()
+        self._update_favorite_button()
 
     def _show_empty_state(self) -> None:
         """Show the empty state."""
@@ -918,14 +918,14 @@ class MessageViewer(Gtk.Box):
         self._toolbar.set_visible(False)
         self._empty_box.set_visible(True)
 
-    def _update_star_button(self) -> None:
-        """Update the star button appearance."""
+    def _update_favorite_button(self) -> None:
+        """Update the favorite button appearance."""
         if self._is_starred:
-            self._star_button.set_icon_name("starred-symbolic")
-            self._star_button.set_tooltip_text("Unstar")
+            self._favorite_button.set_icon_name("starred-symbolic")
+            self._favorite_button.set_tooltip_text("Remove from favorites")
         else:
-            self._star_button.set_icon_name("non-starred-symbolic")
-            self._star_button.set_tooltip_text("Star")
+            self._favorite_button.set_icon_name("non-starred-symbolic")
+            self._favorite_button.set_tooltip_text("Add to favorites")
 
     def set_folders(self, folders: list[tuple[str, str]]) -> None:
         """Set the available folders for move menu.
@@ -983,10 +983,10 @@ class MessageViewer(Gtk.Box):
         if self._forward_callback:
             self._forward_callback()
 
-    def _on_star_toggled(self, button: Gtk.ToggleButton) -> None:
-        """Handle star button toggle."""
+    def _on_favorite_toggled(self, button: Gtk.ToggleButton) -> None:
+        """Handle favorite button toggle."""
         self._is_starred = button.get_active()
-        self._update_star_button()
+        self._update_favorite_button()
         self.emit("star-toggled", self._is_starred)
 
     def _on_delete_clicked(self, button: Gtk.Button) -> None:

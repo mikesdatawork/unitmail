@@ -783,26 +783,17 @@ class MainWindow(Adw.ApplicationWindow):
         message_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
         # Column headers for minimal view (hidden by default)
+        # Use same margin as message rows for alignment
         self._column_headers = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=0,
-            margin_start=8,
+            margin_start=12,  # Match message row margin (4px + 8px padding)
             margin_end=8,
             margin_top=4,
             margin_bottom=4,
             css_classes=["column-headers"],
         )
         self._column_headers.set_visible(False)
-
-        # Checkbox spacer
-        header_spacer = Gtk.Box()
-        header_spacer.set_size_request(24, -1)
-        self._column_headers.append(header_spacer)
-
-        # Star spacer
-        star_spacer = Gtk.Box()
-        star_spacer.set_size_request(20, -1)
-        self._column_headers.append(star_spacer)
 
         # Track current sort column and direction
         self._sort_column = "date"
@@ -1036,11 +1027,11 @@ class MainWindow(Adw.ApplicationWindow):
         read_section.append("Mark as Unread", "win.mark-unread")
         menu.append_section(None, read_section)
 
-        # Star section
-        star_section = Gio.Menu()
-        star_section.append("Star Message", "win.mark-starred")
-        star_section.append("Remove Star", "win.unstar-message")
-        menu.append_section(None, star_section)
+        # Favorite section
+        favorite_section = Gio.Menu()
+        favorite_section.append("Add to Favorites", "win.mark-starred")
+        favorite_section.append("Remove from Favorites", "win.unstar-message")
+        menu.append_section(None, favorite_section)
 
         # Actions section
         action_section = Gio.Menu()
@@ -1075,6 +1066,11 @@ class MainWindow(Adw.ApplicationWindow):
         click_gesture.connect("pressed", self._on_message_right_click)
         list_view.add_controller(click_gesture)
 
+        # Add double-click gesture for message pop-out
+        double_click_gesture = Gtk.GestureClick(button=1)  # Left click
+        double_click_gesture.connect("released", self._on_message_double_click)
+        list_view.add_controller(double_click_gesture)
+
     def _on_message_item_setup(
         self,
         factory: Gtk.SignalListItemFactory,
@@ -1096,13 +1092,13 @@ class MainWindow(Adw.ApplicationWindow):
         check = Gtk.CheckButton()
         row_box.append(check)
 
-        # Star button
-        star_button = Gtk.ToggleButton(
+        # Favorite button
+        favorite_button = Gtk.ToggleButton(
             icon_name="starred-symbolic",
-            css_classes=["flat", "star-button"],
-            tooltip_text="Star message",
+            css_classes=["flat", "favorite-button"],
+            tooltip_text="Toggle favorite",
         )
-        row_box.append(star_button)
+        row_box.append(favorite_button)
 
         # Content container
         content_box = Gtk.Box(
@@ -1186,7 +1182,7 @@ class MainWindow(Adw.ApplicationWindow):
             children.append(child)
             child = child.get_next_sibling()
 
-        check, star_button, content_box, attachment_box = (
+        check, favorite_button, content_box, attachment_box = (
             children[0],
             children[1],
             children[2],
@@ -1202,8 +1198,8 @@ class MainWindow(Adw.ApplicationWindow):
             pass  # No previous handler
         check.connect("toggled", self._on_message_check_toggled, item.message_id)
 
-        # Star button
-        star_button.set_active(item.is_starred)
+        # Favorite button
+        favorite_button.set_active(item.is_starred)
 
         # Get content children
         content_children = []
@@ -1246,9 +1242,9 @@ class MainWindow(Adw.ApplicationWindow):
             date_label.set_visible(False)
             subject_label.set_visible(False)
             preview_label.set_visible(False)
-            # Hide checkbox and star button in minimal view (proper GTK4 visibility)
+            # Hide checkbox and favorite button in minimal view (proper GTK4 visibility)
             check.set_visible(False)
-            star_button.set_visible(False)
+            favorite_button.set_visible(False)
             # Reduce row padding for minimal
             row_box.set_margin_top(2)
             row_box.set_margin_bottom(2)
@@ -1261,9 +1257,9 @@ class MainWindow(Adw.ApplicationWindow):
             subject_label.set_visible(True)
             preview_label.set_label(item.preview or "")
             preview_label.set_visible(True)
-            # Show checkbox and star button in standard view
+            # Show checkbox and favorite button in standard view
             check.set_visible(True)
-            star_button.set_visible(True)
+            favorite_button.set_visible(True)
             # Normal row padding
             row_box.set_margin_top(8)
             row_box.set_margin_bottom(8)
@@ -1278,11 +1274,11 @@ class MainWindow(Adw.ApplicationWindow):
             from_label.remove_css_class("bold")
             subject_label.remove_css_class("bold")
 
-        # Apply starred styling (left border in minimal view via CSS)
+        # Apply favorite styling (left border in minimal view via CSS)
         if item.is_starred:
-            row_box.add_css_class("starred")
+            row_box.add_css_class("favorite")
         else:
-            row_box.remove_css_class("starred")
+            row_box.remove_css_class("favorite")
 
         # Show/hide attachment indicator with count
         if item.has_attachments:
@@ -1388,13 +1384,13 @@ class MainWindow(Adw.ApplicationWindow):
 
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
-        # Star button
-        star_button = Gtk.Button(
+        # Favorite button
+        favorite_button = Gtk.Button(
             icon_name="starred-symbolic",
-            tooltip_text="Star/Unstar message",
+            tooltip_text="Add/Remove favorite",
         )
-        star_button.set_action_name("win.mark-starred")
-        action_bar.append(star_button)
+        favorite_button.set_action_name("win.mark-starred")
+        action_bar.append(favorite_button)
 
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
@@ -1594,7 +1590,7 @@ class MainWindow(Adw.ApplicationWindow):
         for folder in folders:
             self._folder_store.append(folder)
 
-        # Sample messages
+        # Sample messages with threaded conversation
         messages = [
             MessageItem(
                 "msg1",
@@ -1606,13 +1602,49 @@ class MainWindow(Adw.ApplicationWindow):
                 has_attachments=True,
                 attachment_count=2,
             ),
+            # Threaded conversation: Project Planning Discussion
             MessageItem(
-                "msg2",
-                "bob@example.com",
-                "Re: Project update",
-                "Thanks for the update. I've reviewed the changes and...",
-                datetime(2026, 1, 11, 10, 15),
+                "thread1-1",
+                "sarah@company.com",
+                "Project Planning - Q1 Goals",
+                "Team, I'd like to discuss our Q1 goals. We need to finalize the roadmap by Friday...",
+                datetime(2026, 1, 11, 9, 0),
                 is_read=True,
+            ),
+            MessageItem(
+                "thread1-2",
+                "mike@company.com",
+                "Re: Project Planning - Q1 Goals",
+                "Sarah, I think we should prioritize the API refactor first. Here's my reasoning...",
+                datetime(2026, 1, 11, 10, 30),
+                is_read=True,
+            ),
+            MessageItem(
+                "thread1-3",
+                "lisa@company.com",
+                "Re: Project Planning - Q1 Goals",
+                "I agree with Mike. Also, we should consider the infrastructure upgrades mentioned in...",
+                datetime(2026, 1, 11, 11, 15),
+                is_read=True,
+            ),
+            MessageItem(
+                "thread1-4",
+                "sarah@company.com",
+                "Re: Project Planning - Q1 Goals",
+                "Great points everyone! Let's schedule a call for tomorrow to finalize. I've attached...",
+                datetime(2026, 1, 11, 14, 0),
+                is_read=False,
+                has_attachments=True,
+                attachment_count=1,
+                is_starred=True,
+            ),
+            MessageItem(
+                "thread1-5",
+                "mike@company.com",
+                "Re: Project Planning - Q1 Goals",
+                "Works for me! I've blocked 2pm on my calendar. Should we invite the stakeholders?",
+                datetime(2026, 1, 11, 15, 30),
+                is_read=False,
             ),
             MessageItem(
                 "msg3",
@@ -1676,7 +1708,8 @@ class MainWindow(Adw.ApplicationWindow):
             return
 
         # Determine empty state type based on folder
-        folder_name = getattr(self, '_selected_folder_id', 'inbox').lower()
+        folder_id = getattr(self, '_selected_folder_id', 'inbox')
+        folder_name = (folder_id or 'inbox').lower()
 
         # Map folder names to empty state configs
         folder_to_state = {
@@ -1737,10 +1770,31 @@ class MainWindow(Adw.ApplicationWindow):
                     "Hi, just wanted to confirm our meeting tomorrow at 2pm...",
                     datetime(2026, 1, 11, 14, 30), is_read=False, has_attachments=True, attachment_count=3,
                 ),
+                # Threaded conversation: Project Planning Discussion
                 MessageItem(
-                    "msg2", "bob@example.com", "Re: Project update",
-                    "Thanks for the update. I've reviewed the changes and...",
-                    datetime(2026, 1, 11, 10, 15), is_read=True,
+                    "thread1-1", "sarah@company.com", "Project Planning - Q1 Goals",
+                    "Team, I'd like to discuss our Q1 goals. We need to finalize the roadmap by Friday...",
+                    datetime(2026, 1, 11, 9, 0), is_read=True,
+                ),
+                MessageItem(
+                    "thread1-2", "mike@company.com", "Re: Project Planning - Q1 Goals",
+                    "Sarah, I think we should prioritize the API refactor first. Here's my reasoning...",
+                    datetime(2026, 1, 11, 10, 30), is_read=True,
+                ),
+                MessageItem(
+                    "thread1-3", "lisa@company.com", "Re: Project Planning - Q1 Goals",
+                    "I agree with Mike. Also, we should consider the infrastructure upgrades mentioned in...",
+                    datetime(2026, 1, 11, 11, 15), is_read=True,
+                ),
+                MessageItem(
+                    "thread1-4", "sarah@company.com", "Re: Project Planning - Q1 Goals",
+                    "Great points everyone! Let's schedule a call for tomorrow to finalize. I've attached...",
+                    datetime(2026, 1, 11, 14, 0), is_read=False, has_attachments=True, attachment_count=1, is_starred=True,
+                ),
+                MessageItem(
+                    "thread1-5", "mike@company.com", "Re: Project Planning - Q1 Goals",
+                    "Works for me! I've blocked 2pm on my calendar. Should we invite the stakeholders?",
+                    datetime(2026, 1, 11, 15, 30), is_read=False,
                 ),
                 MessageItem(
                     "msg3", "newsletter@company.com", "Weekly Newsletter",
@@ -1971,7 +2025,16 @@ class MainWindow(Adw.ApplicationWindow):
         """Handle delete message action."""
         if self._selected_message_id:
             logger.info(f"Delete message: {self._selected_message_id}")
-            # TODO: Implement delete
+            # Remove the message from the store
+            for i in range(self._message_store.get_n_items()):
+                item = self._message_store.get_item(i)
+                if item.message_id == self._selected_message_id:
+                    self._message_store.remove(i)
+                    # Clear selection and preview
+                    self._selected_message_id = None
+                    self._show_preview_placeholder()
+                    logger.info(f"Deleted message at index {i}")
+                    break
 
     def _get_selected_message(self) -> Optional[MessageItem]:
         """Get the currently selected message item."""
@@ -2127,6 +2190,102 @@ class MainWindow(Adw.ApplicationWindow):
         rect.height = 1
         self._message_context_menu.set_pointing_to(rect)
         self._message_context_menu.popup()
+
+    def _on_message_double_click(
+        self,
+        gesture: Gtk.GestureClick,
+        n_press: int,
+        x: float,
+        y: float,
+    ) -> None:
+        """Handle double-click on message list to pop out message."""
+        if n_press == 2 and self._selected_message_id:
+            # Find the selected message
+            message_item = None
+            for i in range(self._message_store.get_n_items()):
+                item = self._message_store.get_item(i)
+                if item.message_id == self._selected_message_id:
+                    message_item = item
+                    break
+
+            if message_item:
+                self._open_message_popout(message_item)
+
+    def _open_message_popout(self, message_item: "MessageItem") -> None:
+        """Open a message in a separate pop-out window."""
+        # Create a new window for the message
+        popout_window = Adw.Window(
+            title=message_item.subject or "(No subject)",
+            default_width=700,
+            default_height=600,
+            transient_for=self,
+        )
+
+        # Main content box
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
+        # Header bar
+        header_bar = Adw.HeaderBar()
+        header_bar.set_title_widget(
+            Gtk.Label(
+                label=message_item.subject or "(No subject)",
+                ellipsize=Pango.EllipsizeMode.END,
+            )
+        )
+        main_box.append(header_bar)
+
+        # Message info box
+        info_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=4,
+            margin_start=16,
+            margin_end=16,
+            margin_top=12,
+            margin_bottom=12,
+        )
+
+        from_label = Gtk.Label(
+            label=f"From: {message_item.from_address}",
+            xalign=0,
+            css_classes=["heading"],
+        )
+        info_box.append(from_label)
+
+        date_label = Gtk.Label(
+            label=f"Date: {message_item.date_string}",
+            xalign=0,
+            css_classes=["dim-label"],
+        )
+        info_box.append(date_label)
+
+        main_box.append(info_box)
+        main_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
+        # Scrollable message body
+        scrolled = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            vexpand=True,
+        )
+
+        body_label = Gtk.Label(
+            label=message_item.preview or "(No content)",
+            xalign=0,
+            yalign=0,
+            wrap=True,
+            wrap_mode=Pango.WrapMode.WORD_CHAR,
+            margin_start=16,
+            margin_end=16,
+            margin_top=12,
+            margin_bottom=12,
+            selectable=True,
+        )
+        scrolled.set_child(body_label)
+        main_box.append(scrolled)
+
+        popout_window.set_content(main_box)
+        popout_window.present()
+        logger.info(f"Opened message pop-out for: {message_item.message_id}")
 
     def _set_message_starred(self, message_id: str, starred: bool) -> None:
         """Set starred status for a message."""

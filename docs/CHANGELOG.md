@@ -21,13 +21,36 @@ Each release section includes the following categories:
 ## [Unreleased]
 
 ### Added
-- Placeholder for upcoming features
+- Multi-agent orchestration system with 10 specialized agents
+- Email threading support with sample threaded conversations
+- Double-click message pop-out window feature
+- Attachment count display in message list
+- Empty state widgets with call-to-action buttons
+- Security status indicators (encryption/signing) in message header
+- nh3 HTML sanitization (Rust-based, replaces bleach)
+- db-email-integrator agent for PostgreSQL database integration
+- email-client-expert agent for comprehensive feature review
+- Comprehensive test automation with 21 test cases
 
 ### Changed
-- Placeholder for upcoming changes
+- Renamed "starred" to "favorite" throughout UI
+- Improved focus indicators for WCAG 2.1 AA compliance
+- Replaced opacity-based contrast with proper themed colors
+- Column headers now left-aligned with message content
+- Passphrase timeout UX changed from seconds to minutes
+- Replaced CSS opacity:0 hacks with proper set_visible(False)
 
 ### Fixed
-- Placeholder for upcoming fixes
+- Delete button now functional (removes messages)
+- Circular import in settings.py resolved
+- Search blue outline issue fixed
+- Header alignment in minimal view
+- Sample PGP key expiry dates updated to future values
+
+### Security
+- Added encryption/signing status indicators
+- HTML sanitization using nh3 (faster, Rust-based)
+- Accessibility labels added to avatar buttons
 
 ---
 

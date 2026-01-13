@@ -139,8 +139,8 @@ listview.message-list row.unread:selected {
     box-shadow: inset 4px 0 0 0 @warning_color;
 }
 
-/* Starred message selected - star color indicator */
-listview.message-list row.starred:selected {
+/* Favorite message selected - indicator color */
+listview.message-list row.favorite:selected {
     box-shadow: inset 3px 0 0 0 @warning_color;
 }
 
@@ -234,12 +234,19 @@ listview.message-list row:selected checkbutton {
 /* Column headers */
 .column-headers {
     border-bottom: 1px solid @borders;
-    padding: 4px 8px;
+    padding: 4px 0;
 }
 
 .column-header {
     font-size: 0.85em;
     font-weight: 600;
+}
+
+/* Column header buttons - ensure left alignment */
+.column-header-btn {
+}
+
+.column-header-btn label {
 }
 
 .view-theme-minimal .message-row {
@@ -251,7 +258,7 @@ listview.message-list row:selected checkbutton {
     font-family: monospace;
 }
 
-.view-theme-minimal .star-button {
+.view-theme-minimal .favorite-button {
     min-width: 16px;
     min-height: 16px;
     padding: 0;
@@ -259,7 +266,7 @@ listview.message-list row:selected checkbutton {
     margin-bottom: 2px;
 }
 
-.view-theme-minimal .star-button image {
+.view-theme-minimal .favorite-button image {
     -gtk-icon-size: 12px;
 }
 
@@ -273,7 +280,7 @@ listview.message-list row:selected checkbutton {
     border-bottom: 1px solid @borders;
 }
 
-/* Checkbox and star button hidden via set_visible(False) in minimal view */
+/* Checkbox and favorite button hidden via set_visible(False) in minimal view */
 /* CSS ensures proper collapse when hidden */
 .view-theme-minimal .message-row checkbutton {
     min-width: 0;
@@ -281,7 +288,7 @@ listview.message-list row:selected checkbutton {
     margin: 0;
 }
 
-.view-theme-minimal .star-button {
+.view-theme-minimal .favorite-button {
     min-width: 0;
     padding: 0;
     margin: 0;
@@ -295,11 +302,11 @@ listview.message-list row:selected checkbutton {
 }
 
 /* Favorite indicator - left border for minimal view */
-.view-theme-minimal .message-row.starred {
+.view-theme-minimal .message-row.favorite {
     border-left: 3px solid @warning_color;
 }
 
-.view-theme-minimal .message-row:not(.starred) {
+.view-theme-minimal .message-row:not(.favorite) {
     border-left: 3px solid transparent;
 }
 
@@ -319,6 +326,12 @@ listview.message-list row:selected checkbutton {
 .column-header-btn image {
     -gtk-icon-size: 10px;
     color: @dim_label_color;
+}
+
+.column-header-btn box {
+}
+
+.column-header-btn box label {
 }
 
 /* ============================================
@@ -358,19 +371,19 @@ listview.message-list row:selected checkbutton {
     font-size: 0.8em;
 }
 
-/* Star button */
-.star-button {
+/* Favorite button */
+.favorite-button {
     padding: 4px;
     min-width: 24px;
     min-height: 24px;
     border-radius: 0;
 }
 
-.star-button:checked {
+.favorite-button:checked {
     color: @warning_color;
 }
 
-.star-button:checked image {
+.favorite-button:checked image {
     color: @warning_color;
 }
 
@@ -553,7 +566,7 @@ scrollbar slider:active {
 
 row,
 button,
-.star-button {
+.favorite-button {
     transition: background-color 150ms ease,
                 color 150ms ease,
                 opacity 150ms ease;
@@ -564,21 +577,24 @@ button,
  * ============================================ */
 
 /* Enhanced focus indicators for accessibility */
-*:focus-visible {
-    outline: 3px solid @accent_bg_color;
-    outline-offset: 2px;
-}
+/* Note: Removed universal *:focus-visible to prevent blue outline
+   on all container boundaries. Use specific selectors instead. */
 
-/* Interactive elements get additional focus styling */
+/* Interactive elements get focus styling */
 button:focus-visible {
+    outline: 2px solid @accent_bg_color;
     outline-offset: 0;
-    box-shadow: inset 0 0 0 2px @accent_fg_color;
 }
 
-entry:focus-visible,
-textview:focus-visible {
-    outline-offset: 0;
+/* Entry and textview focus */
+entry:focus-visible {
+    outline: none;
     border-color: @accent_bg_color;
+}
+
+textview:focus-visible {
+    outline: 2px solid @accent_bg_color;
+    outline-offset: -2px;
 }
 
 /* List row focus - high visibility */
@@ -592,6 +608,16 @@ listbox row:focus-visible {
 listview.navigation-sidebar row:focus-visible {
     outline: 2px solid @accent_fg_color;
     outline-offset: -2px;
+}
+
+/* Search entry focus - suppress outline, use border instead */
+.search-entry:focus-visible {
+    outline: none;
+}
+
+.search-bar-box:focus-within {
+    outline: none;
+    border-color: @accent_bg_color;
 }
 
 /* ============================================
