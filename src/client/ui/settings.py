@@ -21,7 +21,7 @@ from client.services.settings_service import (
     SettingsService,
     get_settings_service,
 )
-from client.ui.widgets.pgp_key_manager import PGPKeyManager
+from .widgets.pgp_key_manager import PGPKeyManager
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +135,10 @@ class SettingsWindow(Adw.PreferencesWindow):
             valign=Gtk.Align.CENTER,
             tooltip_text="Choose avatar",
         )
+        change_avatar_button.set_accessible_role(Gtk.AccessibleRole.BUTTON)
+        change_avatar_button.update_property(
+            [Gtk.AccessibleProperty.LABEL], ["Choose avatar image"]
+        )
         change_avatar_button.connect("clicked", self._on_change_avatar_clicked)
         avatar_row.add_suffix(change_avatar_button)
 
@@ -142,6 +146,10 @@ class SettingsWindow(Adw.PreferencesWindow):
             icon_name="edit-clear-symbolic",
             valign=Gtk.Align.CENTER,
             tooltip_text="Clear avatar",
+        )
+        clear_avatar_button.set_accessible_role(Gtk.AccessibleRole.BUTTON)
+        clear_avatar_button.update_property(
+            [Gtk.AccessibleProperty.LABEL], ["Clear avatar image"]
         )
         clear_avatar_button.connect("clicked", self._on_clear_avatar_clicked)
         avatar_row.add_suffix(clear_avatar_button)
@@ -339,10 +347,10 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._remember_passphrase_row.connect("notify::active", self._on_security_changed)
         pgp_settings_group.add(self._remember_passphrase_row)
 
-        self._passphrase_timeout_row = Adw.SpinRow.new_with_range(60, 3600, 60)
+        self._passphrase_timeout_row = Adw.SpinRow.new_with_range(1, 60, 1)
         self._passphrase_timeout_row.set_title("Passphrase Timeout")
-        self._passphrase_timeout_row.set_subtitle("Seconds to remember passphrase")
-        self._passphrase_timeout_row.set_value(300)
+        self._passphrase_timeout_row.set_subtitle("Minutes to remember passphrase")
+        self._passphrase_timeout_row.set_value(5)  # 5 minutes default
         self._passphrase_timeout_row.connect("notify::value", self._on_security_changed)
         pgp_settings_group.add(self._passphrase_timeout_row)
 
@@ -847,7 +855,8 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._auto_encrypt_row.set_active(settings.security.auto_encrypt)
         self._auto_sign_row.set_active(settings.security.auto_sign)
         self._remember_passphrase_row.set_active(settings.security.remember_passphrase)
-        self._passphrase_timeout_row.set_value(settings.security.passphrase_timeout)
+        # Convert seconds to minutes for display
+        self._passphrase_timeout_row.set_value(settings.security.passphrase_timeout // 60)
 
         # Appearance - Theme
         theme_mode = getattr(settings.appearance, 'theme_mode', 'system')
@@ -1044,7 +1053,7 @@ class SettingsWindow(Adw.PreferencesWindow):
             auto_encrypt=self._auto_encrypt_row.get_active(),
             auto_sign=self._auto_sign_row.get_active(),
             remember_passphrase=self._remember_passphrase_row.get_active(),
-            passphrase_timeout=int(self._passphrase_timeout_row.get_value()),
+            passphrase_timeout=int(self._passphrase_timeout_row.get_value()) * 60,  # Convert minutes to seconds
         )
 
     def _on_2fa_toggled(self, row: Adw.SwitchRow, *args) -> None:

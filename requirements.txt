@@ -29,6 +29,7 @@ PyJWT==2.8.0
 cryptography==41.0.7
 cffi==1.16.0
 pycparser==2.21
+nh3==0.3.2  # Fast Rust-based HTML sanitizer
 
 # SMTP server
 aiosmtpd==1.4.4.post2

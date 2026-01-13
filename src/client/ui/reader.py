@@ -36,11 +36,42 @@ except (ValueError, ImportError):
     except (ValueError, ImportError):
         HAS_WEBKIT = False
 
+# Try to import nh3 for secure HTML sanitization (Rust-based, fast)
+try:
+    import nh3
+    HAS_NH3 = True
+except ImportError:
+    HAS_NH3 = False
+
 from .widgets.attachment_list import Attachment, AttachmentList
 from .widgets.message_header import MessageHeader
 
 
-# HTML sanitization patterns
+# Allowed HTML tags for nh3 sanitization
+ALLOWED_TAGS = {
+    'a', 'abbr', 'acronym', 'address', 'b', 'big', 'blockquote', 'br',
+    'center', 'cite', 'code', 'col', 'colgroup', 'dd', 'del', 'dfn',
+    'dir', 'div', 'dl', 'dt', 'em', 'font', 'h1', 'h2', 'h3', 'h4',
+    'h5', 'h6', 'hr', 'i', 'img', 'ins', 'kbd', 'li', 'ol', 'p', 'pre',
+    'q', 's', 'samp', 'small', 'span', 'strike', 'strong', 'sub', 'sup',
+    'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'tt', 'u', 'ul',
+    'var', 'style',
+}
+
+# Allowed attributes per tag for nh3 sanitization
+ALLOWED_ATTRIBUTES = {
+    '*': {'class', 'id', 'style', 'title', 'dir', 'lang'},
+    'a': {'href', 'name', 'target', 'rel'},
+    'img': {'src', 'alt', 'width', 'height'},
+    'table': {'border', 'cellpadding', 'cellspacing', 'width'},
+    'td': {'colspan', 'rowspan', 'width', 'valign', 'align'},
+    'th': {'colspan', 'rowspan', 'width', 'valign', 'align'},
+    'col': {'width', 'span'},
+    'colgroup': {'span'},
+    'font': {'color', 'face', 'size'},
+}
+
+# Fallback regex patterns for when nh3 is not available
 SCRIPT_PATTERN = re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
 STYLE_PATTERN = re.compile(r"<style[^>]*>.*?</style>", re.IGNORECASE | re.DOTALL)
 EVENT_HANDLER_PATTERN = re.compile(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', re.IGNORECASE)
@@ -53,8 +84,8 @@ FORM_PATTERN = re.compile(r"<form[^>]*>.*?</form>", re.IGNORECASE | re.DOTALL)
 META_REFRESH_PATTERN = re.compile(r'<meta[^>]+http-equiv\s*=\s*["\']refresh["\'][^>]*>', re.IGNORECASE)
 
 
-def sanitize_html(html_content: str) -> str:
-    """Sanitize HTML content by removing potentially dangerous elements.
+def _sanitize_html_with_nh3(html_content: str) -> str:
+    """Sanitize HTML content using nh3 library (Rust-based, fast).
 
     Args:
         html_content: Raw HTML content.
@@ -62,24 +93,32 @@ def sanitize_html(html_content: str) -> str:
     Returns:
         Sanitized HTML content.
     """
-    if not html_content:
-        return ""
+    return nh3.clean(
+        html_content,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES,
+        strip_comments=True,
+        link_rel="noopener noreferrer",
+    )
 
+
+def _sanitize_html_with_regex(html_content: str) -> str:
+    """Sanitize HTML content using regex patterns (fallback).
+
+    Args:
+        html_content: Raw HTML content.
+
+    Returns:
+        Sanitized HTML content.
+    """
     # Remove script tags and content
     html_content = SCRIPT_PATTERN.sub("", html_content)
-
-    # Remove style tags and content (optional, can be kept for styling)
-    # html_content = STYLE_PATTERN.sub("", html_content)
 
     # Remove event handlers (onclick, onload, etc.)
     html_content = EVENT_HANDLER_PATTERN.sub("", html_content)
 
     # Remove javascript: URLs
     html_content = JAVASCRIPT_URL_PATTERN.sub('href="#"', html_content)
-
-    # Remove data: URLs in src attributes (can be used for XSS)
-    # Note: This may break inline images, so we're lenient here
-    # html_content = DATA_URL_PATTERN.sub('src=""', html_content)
 
     # Remove iframes
     html_content = IFRAME_PATTERN.sub("", html_content)
@@ -97,6 +136,27 @@ def sanitize_html(html_content: str) -> str:
     html_content = META_REFRESH_PATTERN.sub("", html_content)
 
     return html_content
+
+
+def sanitize_html(html_content: str) -> str:
+    """Sanitize HTML content by removing potentially dangerous elements.
+
+    Uses nh3 library if available for robust, fast sanitization (Rust-based),
+    falls back to regex-based sanitization otherwise.
+
+    Args:
+        html_content: Raw HTML content.
+
+    Returns:
+        Sanitized HTML content.
+    """
+    if not html_content:
+        return ""
+
+    if HAS_NH3:
+        return _sanitize_html_with_nh3(html_content)
+    else:
+        return _sanitize_html_with_regex(html_content)
 
 
 def plain_text_to_html(text: str) -> str:

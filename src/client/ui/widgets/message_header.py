@@ -298,6 +298,10 @@ class MessageHeader(Gtk.Box):
         self._attachment_count: int = 0
         self._headers: dict[str, str] = {}
         self._expanded: bool = False
+        # Security status
+        self._is_encrypted: bool = False
+        self._is_signed: bool = False
+        self._signature_valid: Optional[bool] = None
 
         self._setup_ui()
 
@@ -423,6 +427,44 @@ class MessageHeader(Gtk.Box):
 
         info_box.append(self._attachment_box)
 
+        # Security status indicators (encryption/signing)
+        self._security_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
+        )
+        self._security_box.set_visible(False)
+
+        # Encryption indicator
+        self._encryption_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=4,
+        )
+        self._encryption_box.set_visible(False)
+        self._encryption_icon = Gtk.Image.new_from_icon_name("channel-secure-symbolic")
+        self._encryption_icon.set_pixel_size(16)
+        self._encryption_box.append(self._encryption_icon)
+        self._encryption_label = Gtk.Label(label="Encrypted")
+        self._encryption_label.add_css_class("security-indicator")
+        self._encryption_label.add_css_class("encrypted")
+        self._encryption_box.append(self._encryption_label)
+        self._security_box.append(self._encryption_box)
+
+        # Signature indicator
+        self._signature_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=4,
+        )
+        self._signature_box.set_visible(False)
+        self._signature_icon = Gtk.Image.new_from_icon_name("security-high-symbolic")
+        self._signature_icon.set_pixel_size(16)
+        self._signature_box.append(self._signature_icon)
+        self._signature_label = Gtk.Label(label="Signed")
+        self._signature_label.add_css_class("security-indicator")
+        self._signature_box.append(self._signature_label)
+        self._security_box.append(self._signature_box)
+
+        info_box.append(self._security_box)
+
         main_header.append(info_box)
         self.append(main_header)
 
@@ -461,6 +503,9 @@ class MessageHeader(Gtk.Box):
         from_name: Optional[str] = None,
         attachment_count: int = 0,
         headers: Optional[dict[str, str]] = None,
+        is_encrypted: bool = False,
+        is_signed: bool = False,
+        signature_valid: Optional[bool] = None,
     ) -> None:
         """Set the message data to display.
 
@@ -473,6 +518,9 @@ class MessageHeader(Gtk.Box):
             from_name: Optional sender display name.
             attachment_count: Number of attachments.
             headers: Optional dict of all headers.
+            is_encrypted: Whether the message is encrypted.
+            is_signed: Whether the message is digitally signed.
+            signature_valid: Whether the signature is valid (None if not verified).
         """
         self._from_address = from_address
         self._from_name = from_name
@@ -481,6 +529,9 @@ class MessageHeader(Gtk.Box):
         self._subject = subject
         self._attachment_count = attachment_count
         self._headers = headers or {}
+        self._is_encrypted = is_encrypted
+        self._is_signed = is_signed
+        self._signature_valid = signature_valid
 
         if isinstance(date, str):
             try:
@@ -562,8 +613,54 @@ class MessageHeader(Gtk.Box):
         else:
             self._attachment_box.set_visible(False)
 
+        # Update security status indicators
+        self._update_security_indicators()
+
         # Update expanded headers
         self._update_expanded_headers()
+
+    def _update_security_indicators(self) -> None:
+        """Update encryption and signature status indicators."""
+        show_security = self._is_encrypted or self._is_signed
+
+        if show_security:
+            self._security_box.set_visible(True)
+
+            # Encryption indicator
+            if self._is_encrypted:
+                self._encryption_box.set_visible(True)
+                self._encryption_icon.set_from_icon_name("channel-secure-symbolic")
+                self._encryption_label.set_label("Encrypted")
+                self._encryption_box.remove_css_class("security-warning")
+                self._encryption_box.add_css_class("security-success")
+            else:
+                self._encryption_box.set_visible(False)
+
+            # Signature indicator
+            if self._is_signed:
+                self._signature_box.set_visible(True)
+                if self._signature_valid is True:
+                    self._signature_icon.set_from_icon_name("security-high-symbolic")
+                    self._signature_label.set_label("Verified signature")
+                    self._signature_box.remove_css_class("security-warning")
+                    self._signature_box.remove_css_class("security-error")
+                    self._signature_box.add_css_class("security-success")
+                elif self._signature_valid is False:
+                    self._signature_icon.set_from_icon_name("security-low-symbolic")
+                    self._signature_label.set_label("Invalid signature")
+                    self._signature_box.remove_css_class("security-success")
+                    self._signature_box.remove_css_class("security-warning")
+                    self._signature_box.add_css_class("security-error")
+                else:
+                    self._signature_icon.set_from_icon_name("security-medium-symbolic")
+                    self._signature_label.set_label("Signed (unverified)")
+                    self._signature_box.remove_css_class("security-success")
+                    self._signature_box.remove_css_class("security-error")
+                    self._signature_box.add_css_class("security-warning")
+            else:
+                self._signature_box.set_visible(False)
+        else:
+            self._security_box.set_visible(False)
 
     def _clear_flow_box(self, flow_box: Gtk.FlowBox) -> None:
         """Clear all children from a flow box.

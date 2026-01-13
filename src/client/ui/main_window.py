@@ -22,6 +22,127 @@ from .composer import ComposerWindow, ComposerMode, EmailMessage
 logger = logging.getLogger(__name__)
 
 
+class EmptyStateWidget(Gtk.Box):
+    """Empty state widget with icon, title, description, and optional CTA button."""
+
+    __gtype_name__ = "EmptyStateWidget"
+
+    def __init__(
+        self,
+        icon_name: str,
+        title: str,
+        description: str,
+        cta_label: Optional[str] = None,
+        cta_action: Optional[str] = None,
+    ) -> None:
+        """Initialize the empty state widget.
+
+        Args:
+            icon_name: Icon name to display.
+            title: Main title text.
+            description: Descriptive text below the title.
+            cta_label: Optional label for the CTA button.
+            cta_action: Optional action name for the CTA button.
+        """
+        super().__init__(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16,
+            valign=Gtk.Align.CENTER,
+            halign=Gtk.Align.CENTER,
+            vexpand=True,
+            hexpand=True,
+            css_classes=["empty-state"],
+        )
+
+        # Icon
+        icon = Gtk.Image(
+            icon_name=icon_name,
+            pixel_size=64,
+            css_classes=["empty-state-icon"],
+        )
+        self.append(icon)
+
+        # Title
+        title_label = Gtk.Label(
+            label=title,
+            css_classes=["empty-state-title", "title-2"],
+        )
+        self.append(title_label)
+
+        # Description
+        desc_label = Gtk.Label(
+            label=description,
+            css_classes=["empty-state-description", "dim-label"],
+            wrap=True,
+            max_width_chars=40,
+            justify=Gtk.Justification.CENTER,
+        )
+        self.append(desc_label)
+
+        # CTA Button (optional)
+        if cta_label and cta_action:
+            cta_button = Gtk.Button(
+                label=cta_label,
+                css_classes=["suggested-action", "pill"],
+            )
+            cta_button.set_action_name(cta_action)
+            self.append(cta_button)
+
+
+# Empty state configurations for different contexts
+EMPTY_STATES = {
+    "inbox": {
+        "icon": "mail-inbox-symbolic",
+        "title": "Your inbox is empty",
+        "description": "New messages will appear here. Check back soon!",
+        "cta_label": "Compose New Email",
+        "cta_action": "app.compose",
+    },
+    "search_no_results": {
+        "icon": "edit-find-symbolic",
+        "title": "No messages found",
+        "description": "Try different search terms or check your spelling",
+        "cta_label": "Clear Search",
+        "cta_action": "win.clear-search",
+    },
+    "folder_empty": {
+        "icon": "folder-symbolic",
+        "title": "This folder is empty",
+        "description": "Messages moved here will appear in this folder",
+        "cta_label": None,
+        "cta_action": None,
+    },
+    "drafts_empty": {
+        "icon": "mail-drafts-symbolic",
+        "title": "No drafts",
+        "description": "Draft messages will be saved here automatically",
+        "cta_label": "Compose New Email",
+        "cta_action": "app.compose",
+    },
+    "sent_empty": {
+        "icon": "mail-send-symbolic",
+        "title": "No sent messages",
+        "description": "Messages you send will appear here",
+        "cta_label": "Compose New Email",
+        "cta_action": "app.compose",
+    },
+    "trash_empty": {
+        "icon": "user-trash-symbolic",
+        "title": "Trash is empty",
+        "description": "Deleted messages will appear here",
+        "cta_label": None,
+        "cta_action": None,
+    },
+    "spam_empty": {
+        "icon": "mail-mark-junk-symbolic",
+        "title": "No spam",
+        "description": "Messages marked as spam will appear here",
+        "cta_label": None,
+        "cta_action": None,
+    },
+}
+
+
 class FolderItem(GObject.Object):
     """
     GObject wrapper for folder data.
@@ -114,6 +235,7 @@ class MessageItem(GObject.Object):
         is_read: bool = False,
         is_starred: bool = False,
         has_attachments: bool = False,
+        attachment_count: int = 0,
     ) -> None:
         """
         Initialize a message item.
@@ -127,6 +249,7 @@ class MessageItem(GObject.Object):
             is_read: Whether the message has been read.
             is_starred: Whether the message is starred.
             has_attachments: Whether the message has attachments.
+            attachment_count: Number of attachments.
         """
         super().__init__()
         self._message_id = message_id
@@ -137,6 +260,7 @@ class MessageItem(GObject.Object):
         self._is_read = is_read
         self._is_starred = is_starred
         self._has_attachments = has_attachments
+        self._attachment_count = attachment_count
 
     @GObject.Property(type=str)
     def message_id(self) -> str:
@@ -193,6 +317,11 @@ class MessageItem(GObject.Object):
     def has_attachments(self) -> bool:
         """Get attachments status."""
         return self._has_attachments
+
+    @GObject.Property(type=int, default=0)
+    def attachment_count(self) -> int:
+        """Get number of attachments."""
+        return self._attachment_count
 
 
 class MainWindow(Adw.ApplicationWindow):
@@ -722,6 +851,13 @@ class MainWindow(Adw.ApplicationWindow):
 
         message_box.append(self._column_headers)
 
+        # Stack for switching between message list and empty state
+        self._message_list_stack = Gtk.Stack(
+            transition_type=Gtk.StackTransitionType.CROSSFADE,
+            transition_duration=200,
+            vexpand=True,
+        )
+
         # Scrolled window for message list
         scrolled = Gtk.ScrolledWindow(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
@@ -733,7 +869,19 @@ class MainWindow(Adw.ApplicationWindow):
         self._message_list = self._create_message_list()
         scrolled.set_child(self._message_list)
 
-        message_box.append(scrolled)
+        self._message_list_stack.add_named(scrolled, "message-list")
+
+        # Create default empty state (inbox)
+        self._empty_state = EmptyStateWidget(
+            icon_name=EMPTY_STATES["inbox"]["icon"],
+            title=EMPTY_STATES["inbox"]["title"],
+            description=EMPTY_STATES["inbox"]["description"],
+            cta_label=EMPTY_STATES["inbox"]["cta_label"],
+            cta_action=EMPTY_STATES["inbox"]["cta_action"],
+        )
+        self._message_list_stack.add_named(self._empty_state, "empty-state")
+
+        message_box.append(self._message_list_stack)
 
         # Register with view theme manager for density changes
         try:
@@ -1003,12 +1151,22 @@ class MainWindow(Adw.ApplicationWindow):
 
         row_box.append(content_box)
 
-        # Attachment icon
+        # Attachment indicator (icon + count)
+        attachment_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=2,
+            css_classes=["attachment-indicator"],
+        )
         attachment_icon = Gtk.Image(
             icon_name="mail-attachment-symbolic",
             css_classes=["dim-label"],
         )
-        row_box.append(attachment_icon)
+        attachment_box.append(attachment_icon)
+        attachment_count_label = Gtk.Label(
+            css_classes=["dim-label", "attachment-count"],
+        )
+        attachment_box.append(attachment_count_label)
+        row_box.append(attachment_box)
 
         list_item.set_child(row_box)
 
@@ -1028,7 +1186,7 @@ class MainWindow(Adw.ApplicationWindow):
             children.append(child)
             child = child.get_next_sibling()
 
-        check, star_button, content_box, attachment_icon = (
+        check, star_button, content_box, attachment_box = (
             children[0],
             children[1],
             children[2],
@@ -1088,6 +1246,9 @@ class MainWindow(Adw.ApplicationWindow):
             date_label.set_visible(False)
             subject_label.set_visible(False)
             preview_label.set_visible(False)
+            # Hide checkbox and star button in minimal view (proper GTK4 visibility)
+            check.set_visible(False)
+            star_button.set_visible(False)
             # Reduce row padding for minimal
             row_box.set_margin_top(2)
             row_box.set_margin_bottom(2)
@@ -1100,6 +1261,9 @@ class MainWindow(Adw.ApplicationWindow):
             subject_label.set_visible(True)
             preview_label.set_label(item.preview or "")
             preview_label.set_visible(True)
+            # Show checkbox and star button in standard view
+            check.set_visible(True)
+            star_button.set_visible(True)
             # Normal row padding
             row_box.set_margin_top(8)
             row_box.set_margin_bottom(8)
@@ -1120,8 +1284,18 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             row_box.remove_css_class("starred")
 
-        # Show/hide attachment icon
-        attachment_icon.set_visible(item.has_attachments)
+        # Show/hide attachment indicator with count
+        if item.has_attachments:
+            attachment_box.set_visible(True)
+            # Get the count label (second child of attachment_box)
+            count_label = attachment_box.get_first_child().get_next_sibling()
+            if count_label and item.attachment_count > 1:
+                count_label.set_label(str(item.attachment_count))
+                count_label.set_visible(True)
+            elif count_label:
+                count_label.set_visible(False)
+        else:
+            attachment_box.set_visible(False)
 
     def _create_preview_pane(self) -> Gtk.Widget:
         """
@@ -1430,6 +1604,7 @@ class MainWindow(Adw.ApplicationWindow):
                 datetime(2026, 1, 11, 14, 30),
                 is_read=False,
                 has_attachments=True,
+                attachment_count=2,
             ),
             MessageItem(
                 "msg2",
@@ -1464,7 +1639,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._update_message_count()
 
     def _update_message_count(self) -> None:
-        """Update the message count label."""
+        """Update the message count label and empty state visibility."""
         count = self._message_store.get_n_items()
         selected = len(self._selected_messages)
 
@@ -1473,6 +1648,61 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             text = f"{count} message{'s' if count != 1 else ''}"
         self._message_count_label.set_label(text)
+
+        # Update empty state visibility
+        self._update_empty_state_visibility(count)
+
+    def _update_empty_state_visibility(self, message_count: int) -> None:
+        """Update the empty state visibility based on message count.
+
+        Args:
+            message_count: Number of messages in the current folder.
+        """
+        if not hasattr(self, '_message_list_stack'):
+            return
+
+        if message_count == 0:
+            # Show empty state
+            self._message_list_stack.set_visible_child_name("empty-state")
+            # Update empty state content based on current folder
+            self._update_empty_state_content()
+        else:
+            # Show message list
+            self._message_list_stack.set_visible_child_name("message-list")
+
+    def _update_empty_state_content(self) -> None:
+        """Update the empty state content based on the current folder."""
+        if not hasattr(self, '_empty_state'):
+            return
+
+        # Determine empty state type based on folder
+        folder_name = getattr(self, '_selected_folder_id', 'inbox').lower()
+
+        # Map folder names to empty state configs
+        folder_to_state = {
+            'inbox': 'inbox',
+            'drafts': 'drafts_empty',
+            'sent': 'sent_empty',
+            'trash': 'trash_empty',
+            'spam': 'spam_empty',
+            'junk': 'spam_empty',
+        }
+
+        state_key = folder_to_state.get(folder_name, 'folder_empty')
+        state_config = EMPTY_STATES.get(state_key, EMPTY_STATES['folder_empty'])
+
+        # Remove old empty state and create new one
+        self._message_list_stack.remove(self._empty_state)
+
+        self._empty_state = EmptyStateWidget(
+            icon_name=state_config["icon"],
+            title=state_config["title"],
+            description=state_config["description"],
+            cta_label=state_config.get("cta_label"),
+            cta_action=state_config.get("cta_action"),
+        )
+        self._message_list_stack.add_named(self._empty_state, "empty-state")
+        self._message_list_stack.set_visible_child_name("empty-state")
 
     # Event handlers
 
@@ -1505,7 +1735,7 @@ class MainWindow(Adw.ApplicationWindow):
                 MessageItem(
                     "msg1", "alice@example.com", "Meeting tomorrow",
                     "Hi, just wanted to confirm our meeting tomorrow at 2pm...",
-                    datetime(2026, 1, 11, 14, 30), is_read=False, has_attachments=True,
+                    datetime(2026, 1, 11, 14, 30), is_read=False, has_attachments=True, attachment_count=3,
                 ),
                 MessageItem(
                     "msg2", "bob@example.com", "Re: Project update",
