@@ -17,6 +17,8 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
+from .composer import ComposerWindow, ComposerMode, EmailMessage
+
 logger = logging.getLogger(__name__)
 
 
@@ -231,6 +233,8 @@ class MainWindow(Adw.ApplicationWindow):
         # Data stores
         self._folder_store: Gio.ListStore = Gio.ListStore.new(FolderItem)
         self._message_store: Gio.ListStore = Gio.ListStore.new(MessageItem)
+        self._all_messages: list[MessageItem] = []  # Unfiltered messages for search
+        self._selected_messages: set[str] = set()  # Selected message IDs for bulk operations
 
         # Set up the window
         self._setup_window_actions()
@@ -355,7 +359,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Center: Search entry
         self._search_entry = Gtk.SearchEntry(
-            placeholder_text="Search messages...",
+            placeholder_text="Search by sender, subject, or content...",
             width_chars=40,
         )
         self._search_entry.connect("search-changed", self._on_search_changed)
@@ -803,8 +807,22 @@ class MainWindow(Adw.ApplicationWindow):
         # Sort the message store
         self._sort_messages(column, self._sort_ascending)
 
+    def _get_sort_key(self, column: str):
+        """Get the sort key function for a column."""
+        if column == "date":
+            return lambda x: x._date
+        elif column == "from":
+            return lambda x: x.from_address.lower()
+        elif column == "subject":
+            return lambda x: (x.subject or "").lower()
+        elif column == "size":
+            # Use preview length as proxy for message size
+            return lambda x: len(x.preview or "")
+        else:
+            return lambda x: x._date  # Default to date
+
     def _sort_messages(self, column: str, ascending: bool) -> None:
-        """Sort messages by the specified column."""
+        """Sort messages in the display store by the specified column."""
         if not hasattr(self, '_message_store') or not self._message_store:
             return
 
@@ -814,12 +832,8 @@ class MainWindow(Adw.ApplicationWindow):
             items.append(self._message_store.get_item(i))
 
         # Sort based on column
-        if column == "date":
-            items.sort(key=lambda x: x._date, reverse=not ascending)
-        elif column == "from":
-            items.sort(key=lambda x: x.from_address.lower(), reverse=not ascending)
-        elif column == "subject":
-            items.sort(key=lambda x: (x.subject or "").lower(), reverse=not ascending)
+        sort_key = self._get_sort_key(column)
+        items.sort(key=sort_key, reverse=not ascending)
 
         # Clear and repopulate store
         self._message_store.remove_all()
@@ -827,6 +841,13 @@ class MainWindow(Adw.ApplicationWindow):
             self._message_store.append(item)
 
         logger.info(f"Sorted {len(items)} messages by {column} ({'asc' if ascending else 'desc'})")
+
+    def _sort_all_messages(self, column: str, ascending: bool) -> None:
+        """Sort the full message list to maintain order when search is cleared."""
+        if not self._all_messages:
+            return
+        sort_key = self._get_sort_key(column)
+        self._all_messages.sort(key=sort_key, reverse=not ascending)
 
     def _create_message_list(self) -> Gtk.ListView:
         """
@@ -1013,6 +1034,15 @@ class MainWindow(Adw.ApplicationWindow):
             children[2],
             children[3],
         )
+
+        # Checkbox for selection
+        check.set_active(item.message_id in self._selected_messages)
+        # Disconnect any previous handler to avoid duplicates
+        try:
+            check.disconnect_by_func(self._on_message_check_toggled)
+        except TypeError:
+            pass  # No previous handler
+        check.connect("toggled", self._on_message_check_toggled, item.message_id)
 
         # Star button
         star_button.set_active(item.is_starred)
@@ -1436,7 +1466,12 @@ class MainWindow(Adw.ApplicationWindow):
     def _update_message_count(self) -> None:
         """Update the message count label."""
         count = self._message_store.get_n_items()
-        text = f"{count} message{'s' if count != 1 else ''}"
+        selected = len(self._selected_messages)
+
+        if selected > 0:
+            text = f"{selected} of {count} selected"
+        else:
+            text = f"{count} message{'s' if count != 1 else ''}"
         self._message_count_label.set_label(text)
 
     # Event handlers
@@ -1551,8 +1586,14 @@ class MainWindow(Adw.ApplicationWindow):
         }
 
         messages = folder_messages.get(folder_name, [])
+        self._all_messages = messages.copy()  # Store unfiltered list for search
         for message in messages:
             self._message_store.append(message)
+
+        # Clear search and selection when switching folders
+        self._search_entry.set_text("")
+        self._selected_messages.clear()
+        self._update_select_all_state()
 
         self._update_message_count()
         self._show_preview_placeholder()
@@ -1593,15 +1634,34 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
         """Handle search text change."""
-        text = entry.get_text()
+        text = entry.get_text().strip().lower()
         logger.debug(f"Search text: {text}")
-        # TODO: Implement filtering
+        self._filter_messages(text)
 
     def _on_search_activated(self, entry: Gtk.SearchEntry) -> None:
         """Handle search activation (Enter pressed)."""
-        text = entry.get_text()
+        text = entry.get_text().strip().lower()
         logger.info(f"Search activated: {text}")
-        # TODO: Implement search
+        self._filter_messages(text)
+
+    def _filter_messages(self, search_text: str) -> None:
+        """Filter messages based on search text."""
+        self._message_store.remove_all()
+
+        if not search_text:
+            # No search text - show all messages
+            for message in self._all_messages:
+                self._message_store.append(message)
+        else:
+            # Filter messages by from, subject, and preview
+            for message in self._all_messages:
+                if (search_text in message.from_address.lower() or
+                    search_text in message.subject.lower() or
+                    search_text in message.preview.lower()):
+                    self._message_store.append(message)
+
+        self._update_message_count()
+        self._show_preview_placeholder()
 
     def _on_sort_changed(
         self,
@@ -1612,14 +1672,66 @@ class MainWindow(Adw.ApplicationWindow):
         selected = dropdown.get_selected()
         sort_options = ["date", "from", "subject", "size"]
         if 0 <= selected < len(sort_options):
-            logger.info(f"Sort by: {sort_options[selected]}")
-            # TODO: Implement sorting
+            column = sort_options[selected]
+            logger.info(f"Sort by: {column}")
+            # Sort the displayed messages
+            self._sort_messages(column, self._sort_ascending)
+            # Also sort the full list to maintain order when search is cleared
+            self._sort_all_messages(column, self._sort_ascending)
+
+    def _on_message_check_toggled(self, check: Gtk.CheckButton, message_id: str) -> None:
+        """Handle individual message checkbox toggle."""
+        if check.get_active():
+            self._selected_messages.add(message_id)
+        else:
+            self._selected_messages.discard(message_id)
+        self._update_message_count()
+        self._update_select_all_state()
 
     def _on_select_all_toggled(self, button: Gtk.CheckButton) -> None:
         """Handle select all toggle."""
         active = button.get_active()
         logger.debug(f"Select all: {active}")
-        # TODO: Implement select all
+
+        if active:
+            # Select all messages in current view
+            for i in range(self._message_store.get_n_items()):
+                item = self._message_store.get_item(i)
+                self._selected_messages.add(item.message_id)
+        else:
+            # Deselect all
+            self._selected_messages.clear()
+
+        # Refresh the list to update checkboxes
+        self._refresh_message_list()
+        self._update_message_count()
+
+    def _update_select_all_state(self) -> None:
+        """Update select all checkbox state based on current selection."""
+        total = self._message_store.get_n_items()
+        selected = len(self._selected_messages)
+
+        # Block the signal to avoid triggering _on_select_all_toggled
+        self._select_all_check.handler_block_by_func(self._on_select_all_toggled)
+
+        if selected == 0:
+            self._select_all_check.set_active(False)
+            self._select_all_check.set_inconsistent(False)
+        elif selected == total and total > 0:
+            self._select_all_check.set_active(True)
+            self._select_all_check.set_inconsistent(False)
+        else:
+            self._select_all_check.set_active(False)
+            self._select_all_check.set_inconsistent(True)
+
+        self._select_all_check.handler_unblock_by_func(self._on_select_all_toggled)
+
+    def _refresh_message_list(self) -> None:
+        """Refresh the message list to update all item widgets."""
+        # Trigger a refresh by emitting items-changed
+        n_items = self._message_store.get_n_items()
+        if n_items > 0:
+            self._message_store.items_changed(0, n_items, n_items)
 
     def _on_delete_message(
         self,
@@ -1631,6 +1743,44 @@ class MainWindow(Adw.ApplicationWindow):
             logger.info(f"Delete message: {self._selected_message_id}")
             # TODO: Implement delete
 
+    def _get_selected_message(self) -> Optional[MessageItem]:
+        """Get the currently selected message item."""
+        if not self._selected_message_id:
+            return None
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item.message_id == self._selected_message_id:
+                return item
+        return None
+
+    def _create_email_message_from_item(self, item: MessageItem) -> EmailMessage:
+        """Create an EmailMessage from a MessageItem for reply/forward."""
+        return EmailMessage(
+            message_id=item.message_id,
+            subject=item.subject,
+            sender=item.from_address,
+            recipients=[],
+            cc=[],
+            date=item.date_string,
+            body=item.preview,  # In real app, would fetch full body
+        )
+
+    def _open_composer(self, mode: ComposerMode) -> None:
+        """Open the composer window with the specified mode."""
+        message = self._get_selected_message()
+        if not message:
+            logger.warning("No message selected for compose action")
+            return
+
+        email_msg = self._create_email_message_from_item(message)
+        composer = ComposerWindow(
+            mode=mode,
+            original_message=email_msg,
+            application=self._application,
+        )
+        composer.present()
+        logger.info(f"Opened composer in {mode.value} mode for message: {message.message_id}")
+
     def _on_reply(
         self,
         action: Gio.SimpleAction,
@@ -1639,7 +1789,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Handle reply action."""
         if self._selected_message_id:
             logger.info(f"Reply to message: {self._selected_message_id}")
-            # TODO: Open compose dialog with reply
+            self._open_composer(ComposerMode.REPLY)
 
     def _on_reply_all(
         self,
@@ -1649,7 +1799,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Handle reply all action."""
         if self._selected_message_id:
             logger.info(f"Reply all to message: {self._selected_message_id}")
-            # TODO: Open compose dialog with reply all
+            self._open_composer(ComposerMode.REPLY_ALL)
 
     def _on_forward(
         self,
@@ -1659,7 +1809,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Handle forward action."""
         if self._selected_message_id:
             logger.info(f"Forward message: {self._selected_message_id}")
-            # TODO: Open compose dialog with forward
+            self._open_composer(ComposerMode.FORWARD)
 
     def _on_mark_read(
         self,

@@ -16,23 +16,35 @@ CSS applies `border-radius: 0` globally.
 
 ## Email View Themes
 
-Three view themes for message list density:
+Two view themes for message list density:
 
 | Theme | Description | Row Height |
 |-------|-------------|------------|
 | **standard** | Balanced spacing (default) | ~48px |
-| **compact** | Dense, no preview | ~32px |
-| **minimal** | Single line: date \| from \| subject | ~28px |
+| **minimal** | Single line: date \| from \| subject | ~26px |
 
 ### Theme Classes
 ```css
 .view-theme-standard
-.view-theme-compact
 .view-theme-minimal
 ```
 
-### Minimal View Format
-Single line display: `2026/12/01   friend@domain.com   what do you want for lunch today?`
+### Minimal View Features
+- Single line display: `2026/12/01   friend@domain.com   what do you want for lunch today?`
+- Starred/favorite messages indicated by gold left border (3px)
+- Checkbox and star button hidden via CSS (opacity: 0)
+- Tighter row spacing for maximum density
+
+### Starred Message Indicator (Minimal View)
+```css
+.view-theme-minimal .message-row.starred {
+    border-left: 3px solid @warning_color;
+}
+
+.view-theme-minimal .message-row:not(.starred) {
+    border-left: 3px solid transparent;
+}
+```
 
 ## Usage
 
@@ -49,7 +61,7 @@ from client.ui.view_theme import (
 manager = get_view_theme_manager()
 
 # Set theme
-manager.set_theme(ViewTheme.COMPACT)
+manager.set_theme(ViewTheme.MINIMAL)
 
 # Get current theme
 current = manager.current_theme
@@ -80,17 +92,13 @@ settings_box.append(theme_selector)
 ## Theme Comparison
 
 ### Standard (Default)
-- Shows: avatar, from, subject, preview, date
+- Shows: avatar, from, subject, preview, date, star button
 - Best for: General use
-
-### Compact
-- Shows: small avatar, from, subject, date
-- Hides: preview
-- Best for: Power users, large mailboxes
 
 ### Minimal
 - Shows: single line with date | from | subject
-- Hides: avatar, preview, separate date/subject rows
+- Starred: Gold left border indicator
+- Hides: avatar, preview, checkbox, star button
 - Format: `2026/12/01   user@example.com   Email subject here`
 - Best for: Maximum density, keyboard navigation
 
@@ -111,11 +119,10 @@ Visual radio button selectors for:
 
 **Message List Density:**
 - Standard (default)
-- Compact
 - Minimal
 
-Each option shows:
-- Icon prefix
-- Title
-- Descriptive subtitle
-- Radio button for selection
+Settings persist automatically and apply immediately on selection.
+
+### Advanced Settings
+- Email export feature (mbox and JSON formats)
+- Export location selection via file dialog
