@@ -520,6 +520,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 target_theme = theme_map[saved_density]
                 manager = get_view_theme_manager()
 
+                # Set the correct view stack based on saved density
+                if hasattr(self, '_view_type_stack'):
+                    if saved_density == "minimal":
+                        self._view_type_stack.set_visible_child_name("minimal-view")
+                    else:
+                        self._view_type_stack.set_visible_child_name("standard-view")
+
                 # If saved density differs from current, apply it
                 if manager.current_theme != target_theme:
                     manager.set_theme(target_theme)
@@ -1085,18 +1092,34 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             vexpand=True,
         )
 
-        # Scrolled window for message list
-        scrolled = Gtk.ScrolledWindow(
+        # Inner stack to switch between standard ListView and minimal ColumnView
+        self._view_type_stack = Gtk.Stack(
+            transition_type=Gtk.StackTransitionType.CROSSFADE,
+            transition_duration=150,
+            vexpand=True,
+        )
+
+        # === Standard ListView (for standard view) ===
+        standard_scrolled = Gtk.ScrolledWindow(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
             vexpand=True,
         )
-
-        # Create message list view
         self._message_list = self._create_message_list()
-        scrolled.set_child(self._message_list)
+        standard_scrolled.set_child(self._message_list)
+        self._view_type_stack.add_named(standard_scrolled, "standard-view")
 
-        self._message_list_stack.add_named(scrolled, "message-list")
+        # === Minimal ColumnView (for minimal/columnar view) ===
+        minimal_scrolled = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            vexpand=True,
+        )
+        self._column_view = self._create_column_view()
+        minimal_scrolled.set_child(self._column_view)
+        self._view_type_stack.add_named(minimal_scrolled, "minimal-view")
+
+        self._message_list_stack.add_named(self._view_type_stack, "message-list")
 
         # Create default empty state (inbox)
         self._empty_state = EmptyStateWidget(
@@ -1123,36 +1146,31 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         return message_box
 
     def _on_view_theme_changed(self, manager, theme_name: str) -> None:
-        """Handle view theme change - refresh message list."""
-        logger.info(f"View theme changed to: {theme_name}, refreshing message list")
+        """Handle view theme change - switch between standard and minimal views."""
+        logger.info(f"View theme changed to: {theme_name}, switching views")
 
-        # Show/hide column headers for minimal view
+        # Hide column headers (ColumnView has its own headers now)
         if hasattr(self, '_column_headers'):
-            self._column_headers.set_visible(theme_name == "minimal")
+            self._column_headers.set_visible(False)
 
-        # Force complete rebind by temporarily replacing the model
-        if hasattr(self, '_message_list') and self._message_list:
-            selection_model = self._message_list.get_model()
-            if selection_model and hasattr(selection_model, 'get_model'):
-                # Get the current store
-                store = selection_model.get_model()
+        # Switch between standard ListView and minimal ColumnView
+        if hasattr(self, '_view_type_stack'):
+            if theme_name == "minimal":
+                self._view_type_stack.set_visible_child_name("minimal-view")
+                logger.info("Switched to minimal ColumnView")
+            else:
+                self._view_type_stack.set_visible_child_name("standard-view")
+                logger.info("Switched to standard ListView")
+
+        # Force refresh of both views to ensure proper data binding
+        self._refresh_message_list()
+        if hasattr(self, '_column_view') and self._column_view:
+            # Refresh the ColumnView's selection model
+            cv_selection = self._column_view.get_model()
+            if cv_selection and isinstance(cv_selection, Gtk.SingleSelection):
+                store = cv_selection.get_model()
                 if store and store.get_n_items() > 0:
-                    # Save current selection
-                    selected_idx = selection_model.get_selected()
-
-                    # Collect all items
-                    items = []
-                    for i in range(store.get_n_items()):
-                        items.append(store.get_item(i))
-
-                    # Clear and re-add to force complete rebind
-                    store.remove_all()
-                    for item in items:
-                        store.append(item)
-
-                    # Restore selection if valid
-                    if selected_idx < len(items):
-                        selection_model.set_selected(selected_idx)
+                    store.items_changed(0, store.get_n_items(), store.get_n_items())
 
     def _on_column_header_clicked(self, button: Gtk.Button, column: str) -> None:
         """Handle column header click for sorting."""
@@ -1251,6 +1269,330 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._setup_message_context_menu(list_view)
 
         return list_view
+
+    # === ColumnView Implementation for Minimal View ===
+
+    def _create_column_view(self) -> Gtk.ColumnView:
+        """
+        Create a GtkColumnView for the minimal/columnar view.
+
+        The ColumnView provides native column resizing, proper column separators,
+        and uses the activate signal for double-click handling (avoiding
+        triple-click issues).
+
+        Returns:
+            Configured ColumnView with Date, From, and Subject columns.
+        """
+        # Create selection model sharing the same message store
+        self._column_view_selection = Gtk.SingleSelection(model=self._message_store)
+        self._column_view_selection.connect(
+            "selection-changed", self._on_column_view_selection_changed
+        )
+
+        # Create the ColumnView
+        column_view = Gtk.ColumnView(
+            model=self._column_view_selection,
+            reorderable=False,
+            show_column_separators=True,
+            show_row_separators=False,
+            css_classes=["message-column-view"],
+        )
+
+        # Use 'activate' signal for double-click - avoids triple-click issues
+        column_view.connect("activate", self._on_column_view_activated)
+
+        # Date/Received column - fixed width, resizable
+        date_factory = self._create_date_column_factory()
+        date_column = Gtk.ColumnViewColumn(
+            title="Received",
+            factory=date_factory,
+            resizable=True,
+            fixed_width=self._column_width_received,
+        )
+        column_view.append_column(date_column)
+        self._cv_date_column = date_column
+
+        # From column - fixed width, resizable
+        from_factory = self._create_from_column_factory()
+        from_column = Gtk.ColumnViewColumn(
+            title="From",
+            factory=from_factory,
+            resizable=True,
+            fixed_width=self._column_width_from,
+        )
+        column_view.append_column(from_column)
+        self._cv_from_column = from_column
+
+        # Subject column - expands to fill remaining space
+        subject_factory = self._create_subject_column_factory()
+        subject_column = Gtk.ColumnViewColumn(
+            title="Subject",
+            factory=subject_factory,
+            resizable=True,
+            expand=True,
+        )
+        column_view.append_column(subject_column)
+        self._cv_subject_column = subject_column
+
+        # Set up context menus for ColumnView
+        self._setup_column_view_context_menu(column_view)
+
+        logger.info("Created ColumnView for minimal view with resizable columns")
+        return column_view
+
+    def _create_date_column_factory(self) -> Gtk.SignalListItemFactory:
+        """
+        Create factory for the Date column in ColumnView.
+
+        Returns:
+            Factory that creates date labels for each row.
+        """
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", self._on_date_cell_setup)
+        factory.connect("bind", self._on_date_cell_bind)
+        return factory
+
+    def _on_date_cell_setup(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Set up a date cell widget."""
+        label = Gtk.Label(
+            xalign=0,
+            css_classes=["message-date-cell"],
+        )
+        label.set_margin_start(8)
+        label.set_margin_end(8)
+        label.set_margin_top(6)
+        label.set_margin_bottom(6)
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        list_item.set_child(label)
+
+    def _on_date_cell_bind(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Bind data to a date cell widget."""
+        item: MessageItem = list_item.get_item()
+        label: Gtk.Label = list_item.get_child()
+        label.set_label(item.date_string)
+
+        # Apply unread styling
+        if not item.is_read:
+            label.add_css_class("bold")
+        else:
+            label.remove_css_class("bold")
+
+    def _create_from_column_factory(self) -> Gtk.SignalListItemFactory:
+        """
+        Create factory for the From column in ColumnView.
+
+        Returns:
+            Factory that creates sender labels for each row.
+        """
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", self._on_from_cell_setup)
+        factory.connect("bind", self._on_from_cell_bind)
+        return factory
+
+    def _on_from_cell_setup(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Set up a from cell widget."""
+        label = Gtk.Label(
+            xalign=0,
+            css_classes=["message-from-cell"],
+        )
+        label.set_margin_start(8)
+        label.set_margin_end(8)
+        label.set_margin_top(6)
+        label.set_margin_bottom(6)
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        list_item.set_child(label)
+
+    def _on_from_cell_bind(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Bind data to a from cell widget."""
+        item: MessageItem = list_item.get_item()
+        label: Gtk.Label = list_item.get_child()
+        label.set_label(item.from_address)
+
+        # Apply unread styling
+        if not item.is_read:
+            label.add_css_class("bold")
+        else:
+            label.remove_css_class("bold")
+
+    def _create_subject_column_factory(self) -> Gtk.SignalListItemFactory:
+        """
+        Create factory for the Subject column in ColumnView.
+
+        Returns:
+            Factory that creates subject labels for each row.
+        """
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", self._on_subject_cell_setup)
+        factory.connect("bind", self._on_subject_cell_bind)
+        return factory
+
+    def _on_subject_cell_setup(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Set up a subject cell widget."""
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.set_margin_start(8)
+        box.set_margin_end(8)
+        box.set_margin_top(6)
+        box.set_margin_bottom(6)
+
+        # Favorite indicator
+        star_icon = Gtk.Image(
+            icon_name="starred-symbolic",
+            css_classes=["favorite-indicator"],
+        )
+        star_icon.set_visible(False)
+        box.append(star_icon)
+
+        # Subject label
+        label = Gtk.Label(
+            xalign=0,
+            hexpand=True,
+            css_classes=["message-subject-cell"],
+        )
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        box.append(label)
+
+        # Attachment indicator
+        attachment_icon = Gtk.Image(
+            icon_name="mail-attachment-symbolic",
+            css_classes=["attachment-indicator", "dim-label"],
+        )
+        attachment_icon.set_visible(False)
+        box.append(attachment_icon)
+
+        list_item.set_child(box)
+
+    def _on_subject_cell_bind(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Bind data to a subject cell widget."""
+        item: MessageItem = list_item.get_item()
+        box: Gtk.Box = list_item.get_child()
+
+        # Get child widgets
+        children = []
+        child = box.get_first_child()
+        while child:
+            children.append(child)
+            child = child.get_next_sibling()
+
+        star_icon, label, attachment_icon = children
+
+        # Set subject
+        label.set_label(item.subject or "(No subject)")
+
+        # Show/hide favorite indicator
+        star_icon.set_visible(item.is_starred)
+
+        # Show/hide attachment indicator
+        attachment_icon.set_visible(item.has_attachments)
+
+        # Apply unread styling
+        if not item.is_read:
+            label.add_css_class("bold")
+        else:
+            label.remove_css_class("bold")
+
+    def _on_column_view_selection_changed(
+        self,
+        selection: Gtk.SingleSelection,
+        position: int,
+        n_items: int,
+    ) -> None:
+        """Handle selection change in the ColumnView."""
+        selected = selection.get_selected_item()
+        if selected:
+            self._selected_message_id = selected.message_id
+            self._show_message_preview(selected)
+            logger.info(f"ColumnView selected: {selected.subject}")
+
+    def _on_column_view_activated(
+        self,
+        column_view: Gtk.ColumnView,
+        position: int,
+    ) -> None:
+        """
+        Handle item activation (double-click) in the ColumnView.
+
+        The 'activate' signal fires on double-click by default, which
+        avoids the triple-click detection issues present in gesture-based
+        approaches.
+
+        Args:
+            column_view: The ColumnView widget.
+            position: Index of the activated item.
+        """
+        item = self._message_store.get_item(position)
+        if not item:
+            return
+
+        self._selected_message_id = item.message_id
+        logger.info(f"ColumnView activated (double-click): {item.subject}")
+
+        # Check if we're in the Drafts folder - open for editing if so
+        if self._is_drafts_folder():
+            self._open_draft_for_editing(item)
+        else:
+            self._open_message_popout(item)
+
+    def _setup_column_view_context_menu(self, column_view: Gtk.ColumnView) -> None:
+        """Set up right-click context menus for the ColumnView."""
+        # Create context menus (reuse same menu models as ListView)
+        self._cv_message_context_menu = self._create_regular_context_menu()
+        self._cv_message_context_menu.set_parent(column_view)
+
+        self._cv_trash_context_menu = self._create_trash_context_menu()
+        self._cv_trash_context_menu.set_parent(column_view)
+
+        # Add right-click gesture
+        click_gesture = Gtk.GestureClick(button=3)  # Right click
+        click_gesture.connect("pressed", self._on_column_view_right_click)
+        column_view.add_controller(click_gesture)
+
+    def _on_column_view_right_click(
+        self,
+        gesture: Gtk.GestureClick,
+        n_press: int,
+        x: float,
+        y: float,
+    ) -> None:
+        """Handle right-click on ColumnView."""
+        rect = Gdk.Rectangle()
+        rect.x = int(x)
+        rect.y = int(y)
+        rect.width = 1
+        rect.height = 1
+
+        current_folder = self._get_selected_folder_name()
+        if current_folder.lower() == "trash":
+            self._cv_trash_context_menu.set_pointing_to(rect)
+            self._cv_trash_context_menu.popup()
+        else:
+            self._cv_message_context_menu.set_pointing_to(rect)
+            self._cv_message_context_menu.popup()
+
+    # === End ColumnView Implementation ===
 
     def _setup_message_context_menu(self, list_view: Gtk.ListView) -> None:
         """Set up right-click context menus for messages.
@@ -1502,50 +1844,21 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
         from_label, date_label = header_children
 
-        # Check current view theme
-        try:
-            from .view_theme import ViewTheme, get_view_theme_manager
-            theme_manager = get_view_theme_manager()
-            current_theme = theme_manager.current_theme
-        except ImportError:
-            current_theme = None
-
-        if current_theme == ViewTheme.MINIMAL:
-            # Minimal view: columnar layout - date | from | subject
-            # Format date with fixed width padding
-            date_str = f"{item.date_string:<12}"
-            from_str = item.from_address
-            # Truncate from address if too long
-            if len(from_str) > 35:
-                from_str = from_str[:32] + "..."
-            from_str = f"{from_str:<38}"
-            subj_str = item.subject or "(No subject)"
-
-            from_label.set_label(f"{date_str}{from_str}{subj_str}")
-            date_label.set_visible(False)
-            subject_label.set_visible(False)
-            preview_label.set_visible(False)
-            # Hide checkbox and favorite button in minimal view (proper GTK4 visibility)
-            check.set_visible(False)
-            favorite_button.set_visible(False)
-            # Reduce row padding for minimal
-            row_box.set_margin_top(2)
-            row_box.set_margin_bottom(2)
-        else:
-            # Standard view: normal layout with preview
-            from_label.set_label(item.from_address)
-            date_label.set_label(item.date_string)
-            date_label.set_visible(True)
-            subject_label.set_label(item.subject or "(No subject)")
-            subject_label.set_visible(True)
-            preview_label.set_label(item.preview or "")
-            preview_label.set_visible(True)
-            # Show checkbox and favorite button in standard view
-            check.set_visible(True)
-            favorite_button.set_visible(True)
-            # Normal row padding
-            row_box.set_margin_top(8)
-            row_box.set_margin_bottom(8)
+        # Standard view: normal layout with preview
+        # Note: Minimal view now uses ColumnView, not this ListView
+        from_label.set_label(item.from_address)
+        date_label.set_label(item.date_string)
+        date_label.set_visible(True)
+        subject_label.set_label(item.subject or "(No subject)")
+        subject_label.set_visible(True)
+        preview_label.set_label(item.preview or "")
+        preview_label.set_visible(True)
+        # Show checkbox and favorite button in standard view
+        check.set_visible(True)
+        favorite_button.set_visible(True)
+        # Normal row padding
+        row_box.set_margin_top(8)
+        row_box.set_margin_bottom(8)
 
         # Apply unread styling
         if not item.is_read:
