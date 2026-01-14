@@ -494,13 +494,18 @@ class SettingsWindow(Adw.PreferencesWindow):
             description="How dates appear in the message list",
         )
 
-        # Date format dropdown
+        # Date format dropdown with date-only and date+time options
         date_formats = [
             "MM/DD/YYYY (US)",
             "DD/MM/YYYY (European)",
             "YYYY-MM-DD (ISO)",
             "DD MMM YYYY",
             "MMM DD, YYYY",
+            "MM/DD/YYYY HH:MM (US with time)",
+            "DD/MM/YYYY HH:MM (European with time)",
+            "YYYY-MM-DD HH:MM (ISO with time)",
+            "DD MMM YYYY HH:MM",
+            "MMM DD, YYYY HH:MM",
         ]
         date_format_model = Gtk.StringList.new(date_formats)
         self._date_format_row = Adw.ComboRow(
@@ -914,6 +919,11 @@ class SettingsWindow(Adw.PreferencesWindow):
             "YYYY-MM-DD": 2,
             "DD MMM YYYY": 3,
             "MMM DD, YYYY": 4,
+            "MM/DD/YYYY HH:MM": 5,
+            "DD/MM/YYYY HH:MM": 6,
+            "YYYY-MM-DD HH:MM": 7,
+            "DD MMM YYYY HH:MM": 8,
+            "MMM DD, YYYY HH:MM": 9,
         }
         preview_map = {
             "MM/DD/YYYY": "01/13/2026",
@@ -921,6 +931,11 @@ class SettingsWindow(Adw.PreferencesWindow):
             "YYYY-MM-DD": "2026-01-13",
             "DD MMM YYYY": "13 Jan 2026",
             "MMM DD, YYYY": "Jan 13, 2026",
+            "MM/DD/YYYY HH:MM": "01/13/2026 14:30",
+            "DD/MM/YYYY HH:MM": "13/01/2026 14:30",
+            "YYYY-MM-DD HH:MM": "2026-01-13 14:30",
+            "DD MMM YYYY HH:MM": "13 Jan 2026 14:30",
+            "MMM DD, YYYY HH:MM": "Jan 13, 2026 14:30",
         }
         date_format_index = format_index_map.get(date_format, 2)
         self._date_format_row.set_selected(date_format_index)
@@ -1190,6 +1205,11 @@ class SettingsWindow(Adw.PreferencesWindow):
             2: "YYYY-MM-DD",
             3: "DD MMM YYYY",
             4: "MMM DD, YYYY",
+            5: "MM/DD/YYYY HH:MM",
+            6: "DD/MM/YYYY HH:MM",
+            7: "YYYY-MM-DD HH:MM",
+            8: "DD MMM YYYY HH:MM",
+            9: "MMM DD, YYYY HH:MM",
         }
         preview_map = {
             0: "01/13/2026",
@@ -1197,6 +1217,11 @@ class SettingsWindow(Adw.PreferencesWindow):
             2: "2026-01-13",
             3: "13 Jan 2026",
             4: "Jan 13, 2026",
+            5: "01/13/2026 14:30",
+            6: "13/01/2026 14:30",
+            7: "2026-01-13 14:30",
+            8: "13 Jan 2026 14:30",
+            9: "Jan 13, 2026 14:30",
         }
         date_format = format_map.get(selected_index, "YYYY-MM-DD")
         preview = preview_map.get(selected_index, "2026-01-13")

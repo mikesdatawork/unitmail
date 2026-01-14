@@ -187,6 +187,7 @@ class LocalEmailStorage:
             "priority": message.get("priority", MessagePriority.NORMAL),
             "is_read": message.get("is_read", False),
             "is_starred": message.get("is_starred", False),
+            "is_important": message.get("is_important", False),
             "is_encrypted": message.get("is_encrypted", False),
             "received_at": message.get("received_at", now),
             "sent_at": message.get("sent_at"),
@@ -469,6 +470,17 @@ class LocalEmailStorage:
         if msg:
             return self.update_message(message_id, {"is_starred": not msg.get("is_starred", False)})
         return None
+
+    def toggle_important(self, message_id: str) -> Optional[dict]:
+        """Toggle the important status of a message."""
+        msg = self.get_message(message_id)
+        if msg:
+            return self.update_message(message_id, {"is_important": not msg.get("is_important", False)})
+        return None
+
+    def set_important(self, message_id: str, important: bool) -> Optional[dict]:
+        """Set the important status of a message."""
+        return self.update_message(message_id, {"is_important": important})
 
     def mark_as_read(self, message_id: str) -> Optional[dict]:
         """Mark a message as read."""

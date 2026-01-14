@@ -352,6 +352,7 @@ class MessageItem(GObject.Object):
         date: datetime,
         is_read: bool = False,
         is_starred: bool = False,
+        is_important: bool = False,
         has_attachments: bool = False,
         attachment_count: int = 0,
     ) -> None:
@@ -366,6 +367,7 @@ class MessageItem(GObject.Object):
             date: Message date/time.
             is_read: Whether the message has been read.
             is_starred: Whether the message is starred.
+            is_important: Whether the message is marked important.
             has_attachments: Whether the message has attachments.
             attachment_count: Number of attachments.
         """
@@ -377,6 +379,7 @@ class MessageItem(GObject.Object):
         self._date = date
         self._is_read = is_read
         self._is_starred = is_starred
+        self._is_important = is_important
         self._has_attachments = has_attachments
         self._attachment_count = attachment_count
 
@@ -437,6 +440,18 @@ class MessageItem(GObject.Object):
         if self._is_starred != value:
             self._is_starred = value
             self.notify('is-starred')
+
+    @GObject.Property(type=bool, default=False)
+    def is_important(self) -> bool:
+        """Get important status."""
+        return self._is_important
+
+    @is_important.setter
+    def is_important(self, value: bool) -> None:
+        """Set important status."""
+        if self._is_important != value:
+            self._is_important = value
+            self.notify('is-important')
 
     @GObject.Property(type=bool, default=False)
     def has_attachments(self) -> bool:
@@ -560,12 +575,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             "mark-starred": self._on_mark_starred,
             "unstar-message": self._on_unstar_message,
             "toggle-favorite": self._on_toggle_favorite,
+            "mark-important": self._on_mark_important,
+            "unmark-important": self._on_unmark_important,
             "search": self._on_search_focus,
             "next-message": self._on_next_message,
             "previous-message": self._on_previous_message,
             "move-to-archive": self._on_move_to_archive,
             "move-to-spam": self._on_move_to_spam,
             "move-to-trash": self._on_move_to_trash,
+            "move-to-folder-dialog": self._on_move_to_folder_dialog,
             "folder-mark-all-read": self._on_folder_mark_all_read,
             "folder-refresh": self._on_folder_refresh,
             "folder-empty": self._on_folder_empty,
@@ -931,7 +949,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         toolbar.append(self._message_count_label)
 
         # Sort dropdown
-        sort_items = ["Date", "From", "Subject", "Size"]
+        sort_items = ["Date", "From", "Subject", "Size", "Favorite", "Important"]
         sort_store = Gtk.StringList.new(sort_items)
         self._sort_dropdown = Gtk.DropDown(
             model=sort_store,
@@ -1215,6 +1233,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         elif column == "size":
             # Use preview length as proxy for message size
             return lambda x: len(x.preview or "")
+        elif column == "favorite":
+            # Sort by starred status (starred first)
+            return lambda x: (not x.is_starred, x._date)
+        elif column == "important":
+            # Sort by important status (important first)
+            return lambda x: (not x.is_important, x._date)
         else:
             return lambda x: x._date  # Default to date
 
@@ -1466,6 +1490,14 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         star_icon.set_visible(False)
         box.append(star_icon)
 
+        # Important indicator (exclamation mark)
+        important_icon = Gtk.Image(
+            icon_name="dialog-warning-symbolic",
+            css_classes=["important-indicator"],
+        )
+        important_icon.set_visible(False)
+        box.append(important_icon)
+
         # Subject label
         label = Gtk.Label(
             xalign=0,
@@ -1501,13 +1533,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             children.append(child)
             child = child.get_next_sibling()
 
-        star_icon, label, attachment_icon = children
+        star_icon, important_icon, label, attachment_icon = children
 
         # Set subject
         label.set_label(item.subject or "(No subject)")
 
         # Show/hide favorite indicator
         star_icon.set_visible(item.is_starred)
+
+        # Show/hide important indicator
+        important_icon.set_visible(item.is_important)
 
         # Show/hide attachment indicator
         attachment_icon.set_visible(item.has_attachments)
@@ -1644,6 +1679,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         favorite_section.append("Remove from Favorites", "win.unstar-message")
         menu.append_section(None, favorite_section)
 
+        # Important section
+        important_section = Gio.Menu()
+        important_section.append("Mark as Important", "win.mark-important")
+        important_section.append("Remove Important", "win.unmark-important")
+        menu.append_section(None, important_section)
+
         # Actions section
         action_section = Gio.Menu()
         action_section.append("Reply", "win.reply")
@@ -1657,6 +1698,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         move_submenu.append("Archive", "win.move-to-archive")
         move_submenu.append("Spam", "win.move-to-spam")
         move_submenu.append("Trash", "win.move-to-trash")
+        # Add separator and option to choose any folder
+        move_submenu.append("Choose Folder...", "win.move-to-folder-dialog")
         move_section.append_submenu("Move to...", move_submenu)
         menu.append_section(None, move_section)
 
@@ -1993,6 +2036,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._preview_favorite_button.connect("toggled", self._on_preview_favorite_toggled)
         action_bar.append(self._preview_favorite_button)
 
+        # Important toggle button for reading pane
+        self._preview_important_button = Gtk.ToggleButton(
+            icon_name="dialog-warning-symbolic",
+            tooltip_text="Mark as Important",
+            css_classes=["flat", "important-toggle"],
+        )
+        self._preview_important_button.connect("toggled", self._on_preview_important_toggled)
+        action_bar.append(self._preview_important_button)
+
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
         delete_button = Gtk.Button(
@@ -2022,6 +2074,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         move_submenu.append("Archive", "win.move-to-archive")
         move_submenu.append("Spam", "win.move-to-spam")
         move_submenu.append("Trash", "win.move-to-trash")
+        move_submenu.append("Choose Folder...", "win.move-to-folder-dialog")
         move_section.append_submenu("Move to...", move_submenu)
         more_menu.append_section(None, move_section)
 
@@ -2377,6 +2430,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 date=msg_date,
                 is_read=db_msg.get("is_read", False),
                 is_starred=db_msg.get("is_starred", False),
+                is_important=db_msg.get("is_important", False),
                 has_attachments=has_attachments,
                 attachment_count=attachment_count,
             )
@@ -2435,6 +2489,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             icon_name = "starred-symbolic" if message.is_starred else "non-starred-symbolic"
             self._preview_favorite_button.set_icon_name(icon_name)
             self._preview_favorite_button.handler_unblock_by_func(self._on_preview_favorite_toggled)
+
+        # Update important button state in reading pane
+        if hasattr(self, '_preview_important_button'):
+            # Block signal to avoid triggering toggle during update
+            self._preview_important_button.handler_block_by_func(self._on_preview_important_toggled)
+            self._preview_important_button.set_active(message.is_important)
+            self._preview_important_button.handler_unblock_by_func(self._on_preview_important_toggled)
 
         # Get full message body from database
         storage = get_local_storage()
@@ -2497,7 +2558,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     ) -> None:
         """Handle sort option change."""
         selected = dropdown.get_selected()
-        sort_options = ["date", "from", "subject", "size"]
+        sort_options = ["date", "from", "subject", "size", "favorite", "important"]
         if 0 <= selected < len(sort_options):
             column = sort_options[selected]
             logger.info(f"Sort by: {column}")
@@ -2706,6 +2767,26 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             logger.info(f"Unstar message: {self._selected_message_id}")
             self._set_message_starred(self._selected_message_id, False)
 
+    def _on_mark_important(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle mark important action."""
+        if self._selected_message_id:
+            logger.info(f"Mark important: {self._selected_message_id}")
+            self._set_message_important(self._selected_message_id, True)
+
+    def _on_unmark_important(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle unmark important action."""
+        if self._selected_message_id:
+            logger.info(f"Unmark important: {self._selected_message_id}")
+            self._set_message_important(self._selected_message_id, False)
+
     def _on_mark_unread(
         self,
         action: Gio.SimpleAction,
@@ -2748,6 +2829,58 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             # Clear preview after moving to trash
             self._selected_message_id = None
             self._show_preview_placeholder()
+
+    def _on_move_to_folder_dialog(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Show folder selection dialog to move message to any folder.
+
+        Opens a dialog showing all available folders including user-created
+        custom folders, allowing the user to select the destination folder.
+        """
+        if not self._selected_message_id:
+            return
+
+        # Create folder selection dialog
+        dialog = FolderSelectionDialog(
+            parent=self,
+            title="Move to Folder",
+            exclude_folders=[],  # Show all folders
+        )
+
+        # Store message ID for use in response handler
+        dialog._message_id = self._selected_message_id
+
+        dialog.connect("response", self._on_move_folder_dialog_response)
+        dialog.present()
+
+    def _on_move_folder_dialog_response(
+        self,
+        dialog: "FolderSelectionDialog",
+        response: str,
+    ) -> None:
+        """Handle folder selection dialog response for move action."""
+        if response == "move":
+            selected_folder = dialog.get_selected_folder()
+            message_id = dialog._message_id
+
+            if selected_folder and message_id:
+                storage = get_local_storage()
+                result = storage.move_to_folder(message_id, selected_folder)
+
+                if result:
+                    logger.info(f"Moved message {message_id} to {selected_folder}")
+                    # Remove from current view
+                    self._remove_message_from_view(message_id)
+                    self._selected_message_id = None
+                    self._show_preview_placeholder()
+                    self._update_message_count()
+                else:
+                    logger.warning(f"Failed to move message {message_id} to {selected_folder}")
+
+        dialog.destroy()
 
     def _on_restore_to_inbox(
         self,
@@ -2926,6 +3059,17 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
         # Update message in store and database
         self._set_message_starred(self._selected_message_id, is_starred)
+
+    def _on_preview_important_toggled(self, button: Gtk.ToggleButton) -> None:
+        """Handle important toggle button click in reading pane."""
+        if not self._selected_message_id:
+            return
+
+        is_important = button.get_active()
+        logger.info(f"Preview important toggled for {self._selected_message_id}: {is_important}")
+
+        # Update message in store and database
+        self._set_message_important(self._selected_message_id, is_important)
 
     def _on_bulk_delete(
         self,
@@ -3332,6 +3476,20 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             item = self._message_store.get_item(i)
             if item.message_id == message_id:
                 item.is_starred = starred
+                # Force refresh
+                self._message_store.items_changed(i, 1, 1)
+                break
+
+    def _set_message_important(self, message_id: str, important: bool) -> None:
+        """Set important status for a message."""
+        # Update database
+        storage = get_local_storage()
+        storage.update_message(message_id, {"is_important": important})
+
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item.message_id == message_id:
+                item.is_important = important
                 # Force refresh
                 self._message_store.items_changed(i, 1, 1)
                 break

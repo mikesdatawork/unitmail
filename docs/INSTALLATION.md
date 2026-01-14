@@ -48,7 +48,7 @@ This guide covers the installation of unitMail on Linux systems. unitMail provid
 
 - Python 3.11 or later
 - GTK 4.0 or later
-- SQLite 3.35 or later
+- PostgreSQL 3.35 or later
 - OpenSSL 3.0 or later
 - systemd (for service management)
 
@@ -205,7 +205,7 @@ sudo python setup.py install
 | Package | Purpose |
 |---------|---------|
 | WireGuard | Mesh networking |
-| SQLCipher | Database encryption |
+| pgcrypto | Database encryption |
 | Rspamd | Spam filtering |
 | ClamAV | Antivirus scanning |
 
@@ -216,9 +216,9 @@ sudo python setup.py install
 sudo apt install wireguard  # Ubuntu/Debian
 sudo dnf install wireguard-tools  # Fedora
 
-# SQLCipher (for encrypted database)
-sudo apt install sqlcipher libsqlcipher-dev  # Ubuntu/Debian
-sudo dnf install sqlcipher sqlcipher-devel  # Fedora
+# PostgreSQL with pgcrypto (for encrypted database)
+sudo apt install postgresql postgresql-contrib libpq-dev  # Ubuntu/Debian
+sudo dnf install postgresql postgresql-contrib libpq-devel  # Fedora
 ```
 
 ---
@@ -286,7 +286,7 @@ _dmarc.yourdomain.com. IN TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdoma
 ### Step 5: Security Settings (Optional)
 
 - **PGP Key Generation**: Create a new key pair for end-to-end encryption
-- **Database Encryption**: Enable SQLCipher for encrypted local storage
+- **Database Encryption**: Enable pgcrypto for encrypted local storage
 - **Mesh Network**: Join or create a private mesh network
 
 ### Step 6: Complete Setup

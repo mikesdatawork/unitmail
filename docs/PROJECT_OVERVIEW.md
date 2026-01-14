@@ -31,7 +31,7 @@ Current email landscape issues:
 unitMail provides a self-contained email system where:
 
 **Users Control**
-- Email storage (local SQLite database)
+- Email storage (local PostgreSQL database)
 - Mail server infrastructure (bundled microservice)
 - Access credentials (no third-party authentication)
 - Data privacy (no scanning or monitoring)
@@ -123,7 +123,7 @@ The project succeeds when:
 **Phase 1: Minimum Viable Product (6 months)**
 - GTK desktop client
 - Gateway microservice (SMTP ↔ HTTPS conversion)
-- SQLite storage
+- PostgreSQL storage
 - Basic send/receive functionality
 - VPS deployment option
 - 50 beta users

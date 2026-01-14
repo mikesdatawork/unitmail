@@ -71,7 +71,7 @@ unitmail/
 - Python 3.11 or later
 - Git 2.35+
 - Make (for build automation)
-- SQLite 3.35+
+- PostgreSQL 3.35+
 
 **Development Tools**
 - pytest (testing)

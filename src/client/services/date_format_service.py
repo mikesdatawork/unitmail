@@ -25,11 +25,18 @@ logger = logging.getLogger(__name__)
 class DateFormat(Enum):
     """Supported date format options."""
 
+    # Date only formats
     US = "MM/DD/YYYY"          # 01/13/2026
     EUROPEAN = "DD/MM/YYYY"    # 13/01/2026
     ISO = "YYYY-MM-DD"         # 2026-01-13
     DAY_MONTH_YEAR = "DD MMM YYYY"  # 13 Jan 2026
     MONTH_DAY_YEAR = "MMM DD, YYYY"  # Jan 13, 2026
+    # Date and time formats
+    US_TIME = "MM/DD/YYYY HH:MM"          # 01/13/2026 14:30
+    EUROPEAN_TIME = "DD/MM/YYYY HH:MM"    # 13/01/2026 14:30
+    ISO_TIME = "YYYY-MM-DD HH:MM"         # 2026-01-13 14:30
+    DAY_MONTH_YEAR_TIME = "DD MMM YYYY HH:MM"  # 13 Jan 2026 14:30
+    MONTH_DAY_YEAR_TIME = "MMM DD, YYYY HH:MM"  # Jan 13, 2026 14:30
 
 
 # Format string mappings for strftime
@@ -39,6 +46,11 @@ DATE_FORMAT_PATTERNS = {
     DateFormat.ISO: "%Y-%m-%d",
     DateFormat.DAY_MONTH_YEAR: "%d %b %Y",
     DateFormat.MONTH_DAY_YEAR: "%b %d, %Y",
+    DateFormat.US_TIME: "%m/%d/%Y %H:%M",
+    DateFormat.EUROPEAN_TIME: "%d/%m/%Y %H:%M",
+    DateFormat.ISO_TIME: "%Y-%m-%d %H:%M",
+    DateFormat.DAY_MONTH_YEAR_TIME: "%d %b %Y %H:%M",
+    DateFormat.MONTH_DAY_YEAR_TIME: "%b %d, %Y %H:%M",
 }
 
 # Human-readable labels for the UI
@@ -48,6 +60,11 @@ DATE_FORMAT_LABELS = {
     DateFormat.ISO: "YYYY-MM-DD (ISO)",
     DateFormat.DAY_MONTH_YEAR: "DD MMM YYYY",
     DateFormat.MONTH_DAY_YEAR: "MMM DD, YYYY",
+    DateFormat.US_TIME: "MM/DD/YYYY HH:MM (US with time)",
+    DateFormat.EUROPEAN_TIME: "DD/MM/YYYY HH:MM (European with time)",
+    DateFormat.ISO_TIME: "YYYY-MM-DD HH:MM (ISO with time)",
+    DateFormat.DAY_MONTH_YEAR_TIME: "DD MMM YYYY HH:MM",
+    DateFormat.MONTH_DAY_YEAR_TIME: "MMM DD, YYYY HH:MM",
 }
 
 # Example dates for preview in settings
@@ -57,6 +74,11 @@ DATE_FORMAT_EXAMPLES = {
     DateFormat.ISO: "2026-01-13",
     DateFormat.DAY_MONTH_YEAR: "13 Jan 2026",
     DateFormat.MONTH_DAY_YEAR: "Jan 13, 2026",
+    DateFormat.US_TIME: "01/13/2026 14:30",
+    DateFormat.EUROPEAN_TIME: "13/01/2026 14:30",
+    DateFormat.ISO_TIME: "2026-01-13 14:30",
+    DateFormat.DAY_MONTH_YEAR_TIME: "13 Jan 2026 14:30",
+    DateFormat.MONTH_DAY_YEAR_TIME: "Jan 13, 2026 14:30",
 }
 
 
@@ -76,6 +98,11 @@ def get_date_format_from_string(format_str: str) -> DateFormat:
         "YYYY-MM-DD": DateFormat.ISO,
         "DD MMM YYYY": DateFormat.DAY_MONTH_YEAR,
         "MMM DD, YYYY": DateFormat.MONTH_DAY_YEAR,
+        "MM/DD/YYYY HH:MM": DateFormat.US_TIME,
+        "DD/MM/YYYY HH:MM": DateFormat.EUROPEAN_TIME,
+        "YYYY-MM-DD HH:MM": DateFormat.ISO_TIME,
+        "DD MMM YYYY HH:MM": DateFormat.DAY_MONTH_YEAR_TIME,
+        "MMM DD, YYYY HH:MM": DateFormat.MONTH_DAY_YEAR_TIME,
     }
     return format_map.get(format_str, DateFormat.ISO)
 

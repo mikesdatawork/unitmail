@@ -163,7 +163,7 @@ This document defines the requirements for unitMail, an independent email system
 - **Priority**: SHOULD
 - **Description**: Local email storage should be encrypted
 - **Acceptance Criteria**:
-  - SQLite database encrypted with SQLCipher
+  - PostgreSQL database encrypted with pgcrypto
   - User password required to unlock
   - Automatic lock after 30 minutes inactivity
   - Secure password storage (not plaintext)
@@ -650,13 +650,13 @@ This document defines the requirements for unitMail, an independent email system
 - Python 3.11+
 - GTK 4.0
 - Postfix 3.5+
-- SQLite 3.35+
+- PostgreSQL 3.35+
 - OpenSSL 3.0+
 
 **Optional**
 - WireGuard (for mesh networking)
 - GnuPG 2.2+ (for PGP)
-- SQLCipher 4.0+ (for database encryption)
+- pgcrypto 4.0+ (for database encryption)
 - Rspamd (for spam filtering)
 
 ### Service Dependencies

@@ -428,6 +428,29 @@ listview.message-list row:selected checkbutton {
     margin-right: 4px;
 }
 
+/* Important indicator (exclamation) in ColumnView */
+.important-indicator {
+    color: @error_color;
+    -gtk-icon-size: 14px;
+    margin-right: 4px;
+}
+
+/* Important toggle in reading pane */
+.important-toggle {
+    padding: 4px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 0;
+}
+
+.important-toggle:checked {
+    color: @error_color;
+}
+
+.important-toggle:checked image {
+    color: @error_color;
+}
+
 /* Attachment indicator */
 .attachment-indicator {
     margin-right: 8px;

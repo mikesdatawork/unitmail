@@ -36,7 +36,7 @@ YOUR HOME SYSTEM                    BRIDGE SERVER                    INTERNET
 ┌──────────────┐                   ┌──────────────┐                 ┌──────────────┐
 │              │                   │              │                 │              │
 │  GTK Client  │                   │  Protocol    │                 │  Gmail       │
-│  SQLite DB   │◄─── HTTPS ───────►│  Converter   │◄─── SMTP ──────►│  Outlook     │
+│  PostgreSQL DB   │◄─── HTTPS ───────►│  Converter   │◄─── SMTP ──────►│  Outlook     │
 │  Local Mail  │     Port 443      │              │     Port 25     │  Yahoo       │
 │              │                   │              │                 │  Any Server  │
 └──────────────┘                   └──────────────┘                 └──────────────┘
@@ -63,7 +63,7 @@ User writes email in GTK client:
 - Subject: Meeting tomorrow
 - Body: Let's meet at 2pm
 
-Client stores message in local SQLite database with status "pending".
+Client stores message in local PostgreSQL database with status "pending".
 
 ### Step 2: Client Packages Message
 
@@ -181,7 +181,7 @@ Bridge sends response back to client:
 
 ### Step 9: Client Updates Local Database
 
-Client marks message as "sent" in SQLite. User sees green checkmark.
+Client marks message as "sent" in PostgreSQL. User sees green checkmark.
 
 ---
 
@@ -309,7 +309,7 @@ Home → Bridge: 200 OK
 
 Client receives JSON and:
 
-1. Stores in local SQLite database
+1. Stores in local PostgreSQL database
 2. Shows desktop notification
 3. Updates UI with new message
 4. Marks as unread
