@@ -422,7 +422,9 @@ class MessageItem(GObject.Object):
     @is_read.setter
     def is_read(self, value: bool) -> None:
         """Set read status."""
-        self._is_read = value
+        if self._is_read != value:
+            self._is_read = value
+            self.notify('is-read')
 
     @GObject.Property(type=bool, default=False)
     def is_starred(self) -> bool:
@@ -432,7 +434,9 @@ class MessageItem(GObject.Object):
     @is_starred.setter
     def is_starred(self, value: bool) -> None:
         """Set starred status."""
-        self._is_starred = value
+        if self._is_starred != value:
+            self._is_starred = value
+            self.notify('is-starred')
 
     @GObject.Property(type=bool, default=False)
     def has_attachments(self) -> bool:

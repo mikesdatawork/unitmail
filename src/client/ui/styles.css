@@ -405,6 +405,29 @@ listview.message-list row:selected checkbutton {
     color: @warning_color;
 }
 
+/* Favorite toggle in reading pane */
+.favorite-toggle {
+    padding: 4px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 0;
+}
+
+.favorite-toggle:checked {
+    color: @warning_color;
+}
+
+.favorite-toggle:checked image {
+    color: @warning_color;
+}
+
+/* Favorite indicator star in ColumnView */
+.favorite-indicator {
+    color: @warning_color;
+    -gtk-icon-size: 14px;
+    margin-right: 4px;
+}
+
 /* Attachment indicator */
 .attachment-indicator {
     margin-right: 8px;
