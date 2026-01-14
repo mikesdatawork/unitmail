@@ -172,3 +172,7 @@ config/*.local.yaml
 *.key
 secrets/
 .github/workflows/
+
+# Test and sample files
+screenshots/sample.png
+test_gui.py

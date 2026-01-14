@@ -711,17 +711,17 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             Container widget with three panes.
         """
         # Outer paned: left (folders) | right (messages + preview)
-        outer_paned = Gtk.Paned(
+        self._outer_paned = Gtk.Paned(
             orientation=Gtk.Orientation.HORIZONTAL,
             shrink_start_child=False,
             shrink_end_child=False,
         )
-        outer_paned.set_vexpand(True)
+        self._outer_paned.set_vexpand(True)
 
         # Left pane: Folder tree
         folder_pane = self._create_folder_pane()
-        outer_paned.set_start_child(folder_pane)
-        outer_paned.set_position(self.DEFAULT_LEFT_PANE_WIDTH)
+        self._outer_paned.set_start_child(folder_pane)
+        self._outer_paned.set_position(self.DEFAULT_LEFT_PANE_WIDTH)
 
         # Inner paned: message list | preview
         inner_paned = Gtk.Paned(
@@ -739,9 +739,9 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         preview_pane = self._create_preview_pane()
         inner_paned.set_end_child(preview_pane)
 
-        outer_paned.set_end_child(inner_paned)
+        self._outer_paned.set_end_child(inner_paned)
 
-        return outer_paned
+        return self._outer_paned
 
     def _create_folder_pane(self) -> Gtk.Widget:
         """
@@ -2525,9 +2525,37 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             )
             self._folder_store.append(folder_item)
 
+        # Adjust sidebar width based on longest folder name
+        self._adjust_sidebar_width()
+
         # Load inbox messages by default
         self._load_folder_messages("Inbox")
         self._update_message_count()
+
+    def _adjust_sidebar_width(self) -> None:
+        """Adjust sidebar width based on the longest folder name."""
+        if not hasattr(self, '_outer_paned') or not self._outer_paned:
+            return
+
+        # Find the longest folder name
+        max_length = 0
+        for i in range(self._folder_store.get_n_items()):
+            folder = self._folder_store.get_item(i)
+            if folder and len(folder.name) > max_length:
+                max_length = len(folder.name)
+
+        # Calculate width: icon (24px) + text (~8px per char) + padding (24px) + unread badge (30px)
+        # Minimum width of 100px, maximum of 250px
+        char_width = 8  # Approximate pixels per character
+        icon_width = 24
+        padding = 24
+        badge_width = 30
+
+        calculated_width = icon_width + (max_length * char_width) + padding + badge_width
+        sidebar_width = max(100, min(250, calculated_width))
+
+        self._outer_paned.set_position(sidebar_width)
+        logger.debug(f"Sidebar width set to {sidebar_width}px (longest folder: {max_length} chars)")
 
     def _update_message_count(self) -> None:
         """Update the message count label and empty state visibility."""
@@ -3973,6 +4001,9 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Restore selection if possible
         if new_selection_idx is not None and isinstance(selection, Gtk.SingleSelection):
             selection.set_selected(new_selection_idx)
+
+        # Adjust sidebar width for any new/renamed folders
+        self._adjust_sidebar_width()
 
         logger.debug(f"Refreshed folder list with {len(db_folders)} folders")
 
