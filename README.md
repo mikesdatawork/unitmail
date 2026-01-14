@@ -4,6 +4,8 @@
 
 unitMail is an independent, self-hosted email system that gives you complete control over your email infrastructure. No more relying on Gmail, Outlook, or other cloud providers who can lock you out at any moment.
 
+![unitMail Desktop Client](screenshots/main_message_view.png)
+
 ---
 
 ## The Problem with Conventional Webmail
@@ -429,6 +431,46 @@ Built with:
 - [GTK 4](https://gtk.org/) - Desktop UI toolkit
 - [Playwright](https://playwright.dev/) - E2E testing
 - [Postfix](http://www.postfix.org/) - SMTP server
+
+---
+
+## AI Agent Development Team
+
+unitMail was developed with the assistance of a multi-agent AI system powered by [Claude](https://claude.ai). Each specialized agent contributed to different aspects of the application:
+
+| Agent | Role | Contributions |
+|-------|------|---------------|
+| **change-coordinator** | Meta-Orchestrator | Task routing, conflict resolution, work prioritization |
+| **email-client-expert** | Email Features | Core email functionality, draft editing, multi-selection, click handling |
+| **email-ui-expert** | UI/UX Design | Column alignment, context menus, accessibility, visual design |
+| **db-email-integrator** | Database | Local storage system, schema design, sample data generation |
+| **performance-engineer** | Optimization | Performance profiling, bottleneck detection |
+| **security-auditor** | Security | Vulnerability assessment, OWASP compliance review |
+| **test-automation** | Testing | Test infrastructure, coverage analysis, regression detection |
+| **user-simulation** | UX Testing | Exploratory testing, user journey validation |
+| **gateway-specialist** | Backend | SMTP/IMAP protocol integration |
+| **ci-cd-specialist** | DevOps | Build pipelines, deployment automation |
+
+### Agent Workflow
+
+```
+                    change-coordinator
+                   (Meta-Orchestrator)
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+  email-client      email-ui         db-email
+    -expert          -expert        -integrator
+        │                 │                 │
+        └─────────────────┼─────────────────┘
+                          ▼
+                  test-automation
+                          │
+                          ▼
+                  user-simulation
+```
+
+The agent system follows a **modular design principle** where each component can be modified independently without affecting the overall system. All agents coordinate through the change-coordinator to ensure consistency and avoid conflicts.
 
 ---
 
