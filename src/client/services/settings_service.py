@@ -78,6 +78,10 @@ class AppearanceSettings:
     compact_mode: bool = False
     show_avatars: bool = True
     message_preview_lines: int = 2
+    # Column widths for minimal view (received, from, subject)
+    column_width_received: int = 120
+    column_width_from: int = 250
+    column_width_subject: int = -1  # -1 means expand to fill
 
 
 @dataclass
@@ -405,6 +409,9 @@ class SettingsService(GObject.Object):
         compact_mode: Optional[bool] = None,
         show_avatars: Optional[bool] = None,
         message_preview_lines: Optional[int] = None,
+        column_width_received: Optional[int] = None,
+        column_width_from: Optional[int] = None,
+        column_width_subject: Optional[int] = None,
     ) -> None:
         """Update appearance settings."""
         theme_changed = False
@@ -422,6 +429,12 @@ class SettingsService(GObject.Object):
             self._settings.appearance.show_avatars = show_avatars
         if message_preview_lines is not None:
             self._settings.appearance.message_preview_lines = message_preview_lines
+        if column_width_received is not None:
+            self._settings.appearance.column_width_received = column_width_received
+        if column_width_from is not None:
+            self._settings.appearance.column_width_from = column_width_from
+        if column_width_subject is not None:
+            self._settings.appearance.column_width_subject = column_width_subject
 
         self._is_dirty = True
 

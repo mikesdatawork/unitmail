@@ -17,7 +17,10 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
+from common.local_storage import get_local_storage
+from common.sample_data import generate_sample_messages
 from .composer import ComposerWindow, ComposerMode, EmailMessage
+from .column_resize_mixin import ColumnResizeMixin
 
 logger = logging.getLogger(__name__)
 
@@ -324,7 +327,7 @@ class MessageItem(GObject.Object):
         return self._attachment_count
 
 
-class MainWindow(Adw.ApplicationWindow):
+class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     """
     Main application window for unitMail.
 
@@ -423,6 +426,7 @@ class MainWindow(Adw.ApplicationWindow):
             "mark-unread": self._on_mark_unread,
             "mark-starred": self._on_mark_starred,
             "unstar-message": self._on_unstar_message,
+            "toggle-favorite": self._on_toggle_favorite,
             "search": self._on_search_focus,
             "next-message": self._on_next_message,
             "previous-message": self._on_previous_message,
@@ -432,6 +436,11 @@ class MainWindow(Adw.ApplicationWindow):
             "folder-mark-all-read": self._on_folder_mark_all_read,
             "folder-refresh": self._on_folder_refresh,
             "folder-empty": self._on_folder_empty,
+            "bulk-delete": self._on_bulk_delete,
+            "bulk-mark-read": self._on_bulk_mark_read,
+            "bulk-mark-unread": self._on_bulk_mark_unread,
+            "bulk-favorite": self._on_bulk_favorite,
+            "bulk-unfavorite": self._on_bulk_unfavorite,
         }
 
         for name, callback in actions.items():
@@ -779,6 +788,74 @@ class MainWindow(Adw.ApplicationWindow):
 
         message_box.append(toolbar)
 
+        # Bulk actions toolbar (hidden by default, shown when messages are selected)
+        self._bulk_actions_bar = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=4,
+            margin_start=8,
+            margin_end=8,
+            margin_top=4,
+            margin_bottom=4,
+            css_classes=["bulk-actions-bar"],
+        )
+        self._bulk_actions_bar.set_visible(False)
+
+        # Bulk delete button
+        bulk_delete_btn = Gtk.Button(
+            icon_name="user-trash-symbolic",
+            tooltip_text="Delete selected messages",
+        )
+        bulk_delete_btn.set_action_name("win.bulk-delete")
+        self._bulk_actions_bar.append(bulk_delete_btn)
+
+        # Bulk mark read button
+        bulk_read_btn = Gtk.Button(
+            icon_name="mail-read-symbolic",
+            tooltip_text="Mark selected as read",
+        )
+        bulk_read_btn.set_action_name("win.bulk-mark-read")
+        self._bulk_actions_bar.append(bulk_read_btn)
+
+        # Bulk mark unread button
+        bulk_unread_btn = Gtk.Button(
+            icon_name="mail-unread-symbolic",
+            tooltip_text="Mark selected as unread",
+        )
+        bulk_unread_btn.set_action_name("win.bulk-mark-unread")
+        self._bulk_actions_bar.append(bulk_unread_btn)
+
+        # Separator
+        self._bulk_actions_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        # Bulk favorite button
+        bulk_fav_btn = Gtk.Button(
+            icon_name="starred-symbolic",
+            tooltip_text="Add selected to favorites",
+        )
+        bulk_fav_btn.set_action_name("win.bulk-favorite")
+        self._bulk_actions_bar.append(bulk_fav_btn)
+
+        # Bulk unfavorite button
+        bulk_unfav_btn = Gtk.Button(
+            icon_name="non-starred-symbolic",
+            tooltip_text="Remove selected from favorites",
+        )
+        bulk_unfav_btn.set_action_name("win.bulk-unfavorite")
+        self._bulk_actions_bar.append(bulk_unfav_btn)
+
+        # Spacer
+        spacer = Gtk.Box(hexpand=True)
+        self._bulk_actions_bar.append(spacer)
+
+        # Selected count label
+        self._bulk_selected_label = Gtk.Label(
+            label="0 selected",
+            css_classes=["dim-label"],
+        )
+        self._bulk_actions_bar.append(self._bulk_selected_label)
+
+        message_box.append(self._bulk_actions_bar)
+
         # Separator
         message_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
@@ -793,11 +870,17 @@ class MainWindow(Adw.ApplicationWindow):
             margin_bottom=4,
             css_classes=["column-headers"],
         )
-        self._column_headers.set_visible(False)
-
-        # Track current sort column and direction
+        self._column_headers.set_visible(False)        # Track current sort column and direction
         self._sort_column = "date"
         self._sort_ascending = False
+
+        # Track column resize state (required by mixin)
+        self._resizing_column = None
+        self._resize_start_x = 0
+        self._resize_start_width = 0
+
+        # Load saved column widths from settings
+        self._load_column_widths()
 
         # Received column header (sortable)
         self._received_header_btn = Gtk.Button(
@@ -808,9 +891,13 @@ class MainWindow(Adw.ApplicationWindow):
         self._received_sort_icon = Gtk.Image(icon_name="pan-down-symbolic")
         received_box.append(self._received_sort_icon)
         self._received_header_btn.set_child(received_box)
-        self._received_header_btn.set_size_request(120, -1)
+        self._received_header_btn.set_size_request(self._column_width_received, -1)
         self._received_header_btn.connect("clicked", self._on_column_header_clicked, "date")
         self._column_headers.append(self._received_header_btn)
+
+        # Resize handle for received column
+        self._received_resize_handle = self._create_resize_handle("received")
+        self._column_headers.append(self._received_resize_handle)
 
         # From column header (sortable)
         self._from_header_btn = Gtk.Button(
@@ -822,9 +909,13 @@ class MainWindow(Adw.ApplicationWindow):
         self._from_sort_icon.set_visible(False)
         from_box.append(self._from_sort_icon)
         self._from_header_btn.set_child(from_box)
-        self._from_header_btn.set_size_request(250, -1)
+        self._from_header_btn.set_size_request(self._column_width_from, -1)
         self._from_header_btn.connect("clicked", self._on_column_header_clicked, "from")
         self._column_headers.append(self._from_header_btn)
+
+        # Resize handle for from column
+        self._from_resize_handle = self._create_resize_handle("from")
+        self._column_headers.append(self._from_resize_handle)
 
         # Subject column header (sortable)
         self._subject_header_btn = Gtk.Button(
@@ -839,6 +930,8 @@ class MainWindow(Adw.ApplicationWindow):
         self._subject_header_btn.set_child(subject_box)
         self._subject_header_btn.connect("clicked", self._on_column_header_clicked, "subject")
         self._column_headers.append(self._subject_header_btn)
+
+
 
         message_box.append(self._column_headers)
 
@@ -1067,8 +1160,9 @@ class MainWindow(Adw.ApplicationWindow):
         list_view.add_controller(click_gesture)
 
         # Add double-click gesture for message pop-out
+        # Use pressed signal to detect double-click (n_press == 2)
         double_click_gesture = Gtk.GestureClick(button=1)  # Left click
-        double_click_gesture.connect("released", self._on_message_double_click)
+        double_click_gesture.connect("pressed", self._on_message_double_click)
         list_view.add_controller(double_click_gesture)
 
     def _on_message_item_setup(
@@ -1384,22 +1478,23 @@ class MainWindow(Adw.ApplicationWindow):
 
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
-        # Favorite button
-        favorite_button = Gtk.Button(
-            icon_name="starred-symbolic",
+        # Favorite toggle button for reading pane
+        self._preview_favorite_button = Gtk.ToggleButton(
+            icon_name="non-starred-symbolic",
             tooltip_text="Add/Remove favorite",
+            css_classes=["flat", "favorite-toggle"],
         )
-        favorite_button.set_action_name("win.mark-starred")
-        action_bar.append(favorite_button)
+        self._preview_favorite_button.connect("toggled", self._on_preview_favorite_toggled)
+        action_bar.append(self._preview_favorite_button)
 
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
         delete_button = Gtk.Button(
             icon_name="user-trash-symbolic",
-            tooltip_text="Delete (Delete)",
+            tooltip_text="Move to Trash (Delete)",
             css_classes=["destructive-action"],
         )
-        delete_button.set_action_name("win.delete-message")
+        delete_button.set_action_name("win.move-to-trash")
         action_bar.append(delete_button)
 
         # Spacer
@@ -1576,98 +1671,46 @@ class MainWindow(Adw.ApplicationWindow):
         self.connect("close-request", self._on_close_request)
 
     def _load_sample_data(self) -> None:
-        """Load sample data for development/testing."""
-        # Sample folders
-        folders = [
-            FolderItem("inbox", "Inbox", "mail-inbox-symbolic", 5, "inbox"),
-            FolderItem("sent", "Sent", "mail-send-symbolic", 0, "sent"),
-            FolderItem("drafts", "Drafts", "mail-drafts-symbolic", 2, "drafts"),
-            FolderItem("trash", "Trash", "user-trash-symbolic", 0, "trash"),
-            FolderItem("spam", "Spam", "mail-mark-junk-symbolic", 1, "spam"),
-            FolderItem("archive", "Archive", "folder-symbolic", 0, "archive"),
-        ]
+        """Load sample data from local storage for development/testing."""
+        # Initialize sample data in the database if not already present
+        try:
+            count = generate_sample_messages()
+            logger.info(f"Database initialized with {count} messages")
+        except Exception as e:
+            logger.warning(f"Could not generate sample messages: {e}")
 
-        for folder in folders:
-            self._folder_store.append(folder)
+        # Get storage instance
+        storage = get_local_storage()
 
-        # Sample messages with threaded conversation
-        messages = [
-            MessageItem(
-                "msg1",
-                "alice@example.com",
-                "Meeting tomorrow",
-                "Hi, just wanted to confirm our meeting tomorrow at 2pm...",
-                datetime(2026, 1, 11, 14, 30),
-                is_read=False,
-                has_attachments=True,
-                attachment_count=2,
-            ),
-            # Threaded conversation: Project Planning Discussion
-            MessageItem(
-                "thread1-1",
-                "sarah@company.com",
-                "Project Planning - Q1 Goals",
-                "Team, I'd like to discuss our Q1 goals. We need to finalize the roadmap by Friday...",
-                datetime(2026, 1, 11, 9, 0),
-                is_read=True,
-            ),
-            MessageItem(
-                "thread1-2",
-                "mike@company.com",
-                "Re: Project Planning - Q1 Goals",
-                "Sarah, I think we should prioritize the API refactor first. Here's my reasoning...",
-                datetime(2026, 1, 11, 10, 30),
-                is_read=True,
-            ),
-            MessageItem(
-                "thread1-3",
-                "lisa@company.com",
-                "Re: Project Planning - Q1 Goals",
-                "I agree with Mike. Also, we should consider the infrastructure upgrades mentioned in...",
-                datetime(2026, 1, 11, 11, 15),
-                is_read=True,
-            ),
-            MessageItem(
-                "thread1-4",
-                "sarah@company.com",
-                "Re: Project Planning - Q1 Goals",
-                "Great points everyone! Let's schedule a call for tomorrow to finalize. I've attached...",
-                datetime(2026, 1, 11, 14, 0),
-                is_read=False,
-                has_attachments=True,
-                attachment_count=1,
-                is_starred=True,
-            ),
-            MessageItem(
-                "thread1-5",
-                "mike@company.com",
-                "Re: Project Planning - Q1 Goals",
-                "Works for me! I've blocked 2pm on my calendar. Should we invite the stakeholders?",
-                datetime(2026, 1, 11, 15, 30),
-                is_read=False,
-            ),
-            MessageItem(
-                "msg3",
-                "newsletter@company.com",
-                "Weekly Newsletter",
-                "This week's highlights include new features and...",
-                datetime(2026, 1, 10, 9, 0),
-                is_read=False,
-            ),
-            MessageItem(
-                "msg4",
-                "support@service.com",
-                "Your ticket has been updated",
-                "We've made progress on your support ticket #12345...",
-                datetime(2026, 1, 9, 16, 45),
-                is_read=True,
-                is_starred=True,
-            ),
-        ]
+        # Load folders from database
+        db_folders = storage.get_folders()
+        for db_folder in db_folders:
+            folder_name = db_folder["name"]
+            folder_type = db_folder.get("folder_type", "custom")
 
-        for message in messages:
-            self._message_store.append(message)
+            # Map folder types to icons
+            icon_map = {
+                "inbox": "mail-inbox-symbolic",
+                "sent": "mail-send-symbolic",
+                "drafts": "mail-drafts-symbolic",
+                "trash": "user-trash-symbolic",
+                "spam": "mail-mark-junk-symbolic",
+                "archive": "folder-symbolic",
+                "custom": "folder-symbolic",
+            }
+            icon = icon_map.get(folder_type, "folder-symbolic")
 
+            folder_item = FolderItem(
+                db_folder["id"],
+                folder_name,
+                icon,
+                db_folder.get("unread_count", 0),
+                folder_type,
+            )
+            self._folder_store.append(folder_item)
+
+        # Load inbox messages by default
+        self._load_folder_messages("Inbox")
         self._update_message_count()
 
     def _update_message_count(self) -> None:
@@ -1680,6 +1723,12 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             text = f"{count} message{'s' if count != 1 else ''}"
         self._message_count_label.set_label(text)
+
+        # Show/hide bulk actions bar based on selection
+        if hasattr(self, '_bulk_actions_bar'):
+            self._bulk_actions_bar.set_visible(selected > 0)
+            if selected > 0:
+                self._bulk_selected_label.set_label(f"{selected} selected")
 
         # Update empty state visibility
         self._update_empty_state_visibility(count)
@@ -1759,117 +1808,60 @@ class MainWindow(Adw.ApplicationWindow):
             self._load_folder_messages(selected.name)
 
     def _load_folder_messages(self, folder_name: str) -> None:
-        """Load messages for a specific folder."""
+        """Load messages for a specific folder from database."""
         self._message_store.remove_all()
 
-        # Sample data for each folder type
-        folder_messages = {
-            "Inbox": [
-                MessageItem(
-                    "msg1", "alice@example.com", "Meeting tomorrow",
-                    "Hi, just wanted to confirm our meeting tomorrow at 2pm...",
-                    datetime(2026, 1, 11, 14, 30), is_read=False, has_attachments=True, attachment_count=3,
-                ),
-                # Threaded conversation: Project Planning Discussion
-                MessageItem(
-                    "thread1-1", "sarah@company.com", "Project Planning - Q1 Goals",
-                    "Team, I'd like to discuss our Q1 goals. We need to finalize the roadmap by Friday...",
-                    datetime(2026, 1, 11, 9, 0), is_read=True,
-                ),
-                MessageItem(
-                    "thread1-2", "mike@company.com", "Re: Project Planning - Q1 Goals",
-                    "Sarah, I think we should prioritize the API refactor first. Here's my reasoning...",
-                    datetime(2026, 1, 11, 10, 30), is_read=True,
-                ),
-                MessageItem(
-                    "thread1-3", "lisa@company.com", "Re: Project Planning - Q1 Goals",
-                    "I agree with Mike. Also, we should consider the infrastructure upgrades mentioned in...",
-                    datetime(2026, 1, 11, 11, 15), is_read=True,
-                ),
-                MessageItem(
-                    "thread1-4", "sarah@company.com", "Re: Project Planning - Q1 Goals",
-                    "Great points everyone! Let's schedule a call for tomorrow to finalize. I've attached...",
-                    datetime(2026, 1, 11, 14, 0), is_read=False, has_attachments=True, attachment_count=1, is_starred=True,
-                ),
-                MessageItem(
-                    "thread1-5", "mike@company.com", "Re: Project Planning - Q1 Goals",
-                    "Works for me! I've blocked 2pm on my calendar. Should we invite the stakeholders?",
-                    datetime(2026, 1, 11, 15, 30), is_read=False,
-                ),
-                MessageItem(
-                    "msg3", "newsletter@company.com", "Weekly Newsletter",
-                    "This week's highlights include new features and...",
-                    datetime(2026, 1, 10, 9, 0), is_read=False,
-                ),
-                MessageItem(
-                    "msg4", "support@service.com", "Your ticket has been updated",
-                    "We've made progress on your support ticket #12345...",
-                    datetime(2026, 1, 9, 16, 45), is_read=True, is_starred=True,
-                ),
-            ],
-            "Sent": [
-                MessageItem(
-                    "sent1", "me@example.com → alice@example.com", "Re: Meeting tomorrow",
-                    "Yes, 2pm works for me. See you then!",
-                    datetime(2026, 1, 11, 15, 0), is_read=True,
-                ),
-                MessageItem(
-                    "sent2", "me@example.com → team@company.com", "Weekly Report",
-                    "Here's my weekly progress report...",
-                    datetime(2026, 1, 10, 17, 30), is_read=True,
-                ),
-            ],
-            "Drafts": [
-                MessageItem(
-                    "draft1", "me@example.com", "[Draft] Proposal",
-                    "I wanted to propose a new approach to...",
-                    datetime(2026, 1, 11, 12, 0), is_read=True,
-                ),
-                MessageItem(
-                    "draft2", "me@example.com", "[Draft] Follow-up",
-                    "Following up on our discussion...",
-                    datetime(2026, 1, 10, 14, 0), is_read=True,
-                ),
-            ],
-            "Trash": [
-                MessageItem(
-                    "trash1", "spam@marketing.com", "Limited time offer!",
-                    "Don't miss out on this amazing deal...",
-                    datetime(2026, 1, 8, 10, 0), is_read=True,
-                ),
-                MessageItem(
-                    "trash2", "old@contact.com", "Old message",
-                    "This is an old message that was deleted...",
-                    datetime(2026, 1, 5, 9, 0), is_read=True,
-                ),
-            ],
-            "Spam": [
-                MessageItem(
-                    "spam1", "winner@lottery.fake", "You've won $1,000,000!!!",
-                    "Congratulations! Click here to claim your prize...",
-                    datetime(2026, 1, 11, 8, 0), is_read=False,
-                ),
-                MessageItem(
-                    "spam2", "prince@nigeria.fake", "Urgent business proposal",
-                    "I am a Nigerian prince seeking your assistance...",
-                    datetime(2026, 1, 10, 6, 0), is_read=False,
-                ),
-            ],
-            "Archive": [
-                MessageItem(
-                    "arch1", "hr@company.com", "Welcome to the team!",
-                    "We're excited to have you join our team...",
-                    datetime(2025, 6, 1, 9, 0), is_read=True,
-                ),
-                MessageItem(
-                    "arch2", "project@client.com", "Project Complete",
-                    "Thank you for completing the project successfully...",
-                    datetime(2025, 8, 15, 14, 0), is_read=True, is_starred=True,
-                ),
-            ],
-        }
+        # Get messages from local storage
+        storage = get_local_storage()
+        db_messages = storage.get_messages_by_folder(folder_name)
 
-        messages = folder_messages.get(folder_name, [])
+        # Convert database messages to MessageItem objects
+        messages = []
+        for db_msg in db_messages:
+            # Parse the received_at datetime
+            received_at = db_msg.get("received_at")
+            if isinstance(received_at, str):
+                try:
+                    msg_date = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+                except ValueError:
+                    msg_date = datetime.now()
+            else:
+                msg_date = datetime.now()
+
+            # Get sender display - use header or from_address
+            from_addr = db_msg.get("from_address", "unknown@example.com")
+            headers = db_msg.get("headers", {})
+            from_display = headers.get("From", from_addr)
+
+            # For sent messages, show "me → recipient"
+            if folder_name.lower() == "sent":
+                to_addresses = db_msg.get("to_addresses", [])
+                to_display = headers.get("To", ", ".join(to_addresses) if to_addresses else "")
+                from_display = f"me@unitmail.local → {to_display.split('<')[0].strip()}"
+
+            # Get preview from body_text
+            body_text = db_msg.get("body_text", "")
+            preview = body_text[:100] + "..." if len(body_text) > 100 else body_text
+            preview = preview.replace("\n", " ").strip()
+
+            # Check for attachments
+            attachments = db_msg.get("attachments", [])
+            has_attachments = len(attachments) > 0
+            attachment_count = len(attachments)
+
+            message_item = MessageItem(
+                message_id=db_msg.get("id", ""),
+                from_address=from_display,
+                subject=db_msg.get("subject", "(No subject)"),
+                preview=preview,
+                date=msg_date,
+                is_read=db_msg.get("is_read", False),
+                is_starred=db_msg.get("is_starred", False),
+                has_attachments=has_attachments,
+                attachment_count=attachment_count,
+            )
+            messages.append(message_item)
+
         self._all_messages = messages.copy()  # Store unfiltered list for search
         for message in messages:
             self._message_store.append(message)
@@ -1904,17 +1896,41 @@ class MainWindow(Adw.ApplicationWindow):
         """
         self._preview_subject.set_label(message.subject or "(No subject)")
         self._preview_from.set_label(message.from_address)
-        self._preview_to.set_label("me@example.com")  # TODO: Get actual recipient
+        self._preview_to.set_label("me@unitmail.local")
         self._preview_date.set_label(message._date.strftime("%B %d, %Y at %H:%M"))
 
-        # Set preview content
-        buffer = self._preview_text.get_buffer()
-        buffer.set_text(message.preview or "")
+        # Update favorite button state in reading pane
+        if hasattr(self, '_preview_favorite_button'):
+            # Block signal to avoid triggering toggle during update
+            self._preview_favorite_button.handler_block_by_func(self._on_preview_favorite_toggled)
+            self._preview_favorite_button.set_active(message.is_starred)
+            # Update icon based on state
+            icon_name = "starred-symbolic" if message.is_starred else "non-starred-symbolic"
+            self._preview_favorite_button.set_icon_name(icon_name)
+            self._preview_favorite_button.handler_unblock_by_func(self._on_preview_favorite_toggled)
 
-        # Mark as read
+        # Get full message body from database
+        storage = get_local_storage()
+        db_message = storage.get_message(message.message_id)
+
+        if db_message:
+            body_text = db_message.get("body_text", message.preview) or ""
+            buffer = self._preview_text.get_buffer()
+            buffer.set_text(body_text)
+
+            # Update recipient display
+            to_addresses = db_message.get("to_addresses", [])
+            if to_addresses:
+                self._preview_to.set_label(", ".join(to_addresses))
+        else:
+            # Fallback to preview
+            buffer = self._preview_text.get_buffer()
+            buffer.set_text(message.preview or "")
+
+        # Mark as read in database
         if not message.is_read:
             message.is_read = True
-            # TODO: Notify model of change
+            storage.mark_as_read(message.message_id)
 
     def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
         """Handle search text change."""
@@ -2022,19 +2038,45 @@ class MainWindow(Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle delete message action."""
+        """Handle delete message action.
+
+        If the message is not in Trash, it moves to Trash.
+        If the message is already in Trash, it is permanently deleted.
+        """
         if self._selected_message_id:
-            logger.info(f"Delete message: {self._selected_message_id}")
-            # Remove the message from the store
+            storage = get_local_storage()
+
+            # Check if we're currently viewing the Trash folder
+            current_folder = self._get_selected_folder_name()
+            is_in_trash = current_folder.lower() == "trash"
+
+            if is_in_trash:
+                # Permanently delete the message
+                logger.info(f"Permanently deleting message: {self._selected_message_id}")
+                storage.permanent_delete(self._selected_message_id)
+            else:
+                # Move to Trash instead of permanent delete
+                logger.info(f"Moving message to Trash: {self._selected_message_id}")
+                storage.move_to_trash(self._selected_message_id)
+
+            # Remove the message from the current view
             for i in range(self._message_store.get_n_items()):
                 item = self._message_store.get_item(i)
                 if item.message_id == self._selected_message_id:
                     self._message_store.remove(i)
+                    # Also remove from _all_messages
+                    self._all_messages = [m for m in self._all_messages if m.message_id != self._selected_message_id]
                     # Clear selection and preview
                     self._selected_message_id = None
                     self._show_preview_placeholder()
-                    logger.info(f"Deleted message at index {i}")
+                    if is_in_trash:
+                        logger.info(f"Permanently deleted message at index {i}")
+                    else:
+                        logger.info(f"Moved message to Trash at index {i}")
                     break
+
+            # Update message count
+            self._update_message_count()
 
     def _get_selected_message(self) -> Optional[MessageItem]:
         """Get the currently selected message item."""
@@ -2071,6 +2113,9 @@ class MainWindow(Adw.ApplicationWindow):
             original_message=email_msg,
             application=self._application,
         )
+        # Connect signals for draft saving and sending
+        composer.connect('save-draft-requested', self._on_save_draft)
+        composer.connect('send-requested', self._on_send_message)
         composer.present()
         logger.info(f"Opened composer in {mode.value} mode for message: {message.message_id}")
 
@@ -2109,10 +2154,10 @@ class MainWindow(Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle mark read/unread action."""
+        """Handle mark read action."""
         if self._selected_message_id:
-            logger.info(f"Toggle read status: {self._selected_message_id}")
-            # TODO: Implement mark read toggle
+            logger.info(f"Mark as read: {self._selected_message_id}")
+            self._set_message_read(self._selected_message_id, True)
 
     def _on_mark_starred(
         self,
@@ -2173,6 +2218,122 @@ class MainWindow(Adw.ApplicationWindow):
         if self._selected_message_id:
             logger.info(f"Move to trash: {self._selected_message_id}")
             self._move_message_to_folder(self._selected_message_id, "Trash")
+            # Clear preview after moving to trash
+            self._selected_message_id = None
+            self._show_preview_placeholder()
+
+    def _on_toggle_favorite(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle toggle favorite action - toggles starred state of current message."""
+        if self._selected_message_id:
+            # Find current state
+            for i in range(self._message_store.get_n_items()):
+                item = self._message_store.get_item(i)
+                if item.message_id == self._selected_message_id:
+                    new_state = not item.is_starred
+                    logger.info(f"Toggle favorite for {self._selected_message_id}: {new_state}")
+                    self._set_message_starred(self._selected_message_id, new_state)
+                    # Update preview pane button
+                    if hasattr(self, '_preview_favorite_button'):
+                        self._preview_favorite_button.handler_block_by_func(self._on_preview_favorite_toggled)
+                        self._preview_favorite_button.set_active(new_state)
+                        icon_name = "starred-symbolic" if new_state else "non-starred-symbolic"
+                        self._preview_favorite_button.set_icon_name(icon_name)
+                        self._preview_favorite_button.handler_unblock_by_func(self._on_preview_favorite_toggled)
+                    break
+
+    def _on_preview_favorite_toggled(self, button: Gtk.ToggleButton) -> None:
+        """Handle favorite toggle button click in reading pane."""
+        if not self._selected_message_id:
+            return
+
+        is_starred = button.get_active()
+        logger.info(f"Preview favorite toggled for {self._selected_message_id}: {is_starred}")
+
+        # Update icon
+        icon_name = "starred-symbolic" if is_starred else "non-starred-symbolic"
+        button.set_icon_name(icon_name)
+
+        # Update message in store and database
+        self._set_message_starred(self._selected_message_id, is_starred)
+
+    def _on_bulk_delete(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle bulk delete action - moves selected messages to Trash."""
+        if not self._selected_messages:
+            return
+
+        logger.info(f"Bulk delete {len(self._selected_messages)} messages")
+        message_ids = list(self._selected_messages)
+
+        for message_id in message_ids:
+            self._move_message_to_folder(message_id, "Trash")
+            self._selected_messages.discard(message_id)
+
+        # Also remove from _all_messages
+        self._all_messages = [m for m in self._all_messages if m.message_id not in message_ids]
+
+        self._update_message_count()
+        self._show_preview_placeholder()
+        self._selected_message_id = None
+
+    def _on_bulk_mark_read(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle bulk mark as read action."""
+        if not self._selected_messages:
+            return
+
+        logger.info(f"Bulk mark read {len(self._selected_messages)} messages")
+        for message_id in self._selected_messages:
+            self._set_message_read(message_id, True)
+
+    def _on_bulk_mark_unread(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle bulk mark as unread action."""
+        if not self._selected_messages:
+            return
+
+        logger.info(f"Bulk mark unread {len(self._selected_messages)} messages")
+        for message_id in self._selected_messages:
+            self._set_message_read(message_id, False)
+
+    def _on_bulk_favorite(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle bulk add to favorites action."""
+        if not self._selected_messages:
+            return
+
+        logger.info(f"Bulk favorite {len(self._selected_messages)} messages")
+        for message_id in self._selected_messages:
+            self._set_message_starred(message_id, True)
+
+    def _on_bulk_unfavorite(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Handle bulk remove from favorites action."""
+        if not self._selected_messages:
+            return
+
+        logger.info(f"Bulk unfavorite {len(self._selected_messages)} messages")
+        for message_id in self._selected_messages:
+            self._set_message_starred(message_id, False)
 
     def _on_message_right_click(
         self,
@@ -2289,6 +2450,10 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _set_message_starred(self, message_id: str, starred: bool) -> None:
         """Set starred status for a message."""
+        # Update database
+        storage = get_local_storage()
+        storage.update_message(message_id, {"is_starred": starred})
+
         for i in range(self._message_store.get_n_items()):
             item = self._message_store.get_item(i)
             if item.message_id == message_id:
@@ -2299,6 +2464,13 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _set_message_read(self, message_id: str, is_read: bool) -> None:
         """Set read status for a message."""
+        # Update database
+        storage = get_local_storage()
+        if is_read:
+            storage.mark_as_read(message_id)
+        else:
+            storage.mark_as_unread(message_id)
+
         for i in range(self._message_store.get_n_items()):
             item = self._message_store.get_item(i)
             if item.message_id == message_id:
@@ -2309,7 +2481,11 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _move_message_to_folder(self, message_id: str, folder: str) -> None:
         """Move a message to a folder."""
-        # Remove from current list (in real app, would update database)
+        # Update database
+        storage = get_local_storage()
+        storage.move_to_folder(message_id, folder)
+
+        # Remove from current list
         for i in range(self._message_store.get_n_items()):
             item = self._message_store.get_item(i)
             if item.message_id == message_id:
@@ -2362,11 +2538,32 @@ class MainWindow(Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle empty folder (for Trash/Spam)."""
+        """Handle empty folder (for Trash/Spam).
+
+        Permanently deletes all messages in the Trash or Spam folder.
+        """
         folder = self._get_selected_folder_name()
         if folder in ("Trash", "Spam"):
             logger.info(f"Empty folder: {folder}")
+
+            # Permanently delete all messages in the folder from storage
+            storage = get_local_storage()
+            if folder == "Trash":
+                deleted_count = storage.empty_trash()
+                logger.info(f"Emptied Trash: permanently deleted {deleted_count} messages")
+            else:
+                # For Spam, get all spam messages and delete them
+                spam_messages = storage.get_messages_by_folder("Spam")
+                deleted_count = 0
+                for msg in spam_messages:
+                    if storage.permanent_delete(msg["id"]):
+                        deleted_count += 1
+                logger.info(f"Emptied Spam: permanently deleted {deleted_count} messages")
+
+            # Clear the UI message list
             self._message_store.remove_all()
+            self._all_messages.clear()
+            self._update_message_count()
         else:
             logger.warning(f"Cannot empty folder: {folder}")
 
@@ -2424,7 +2621,66 @@ class MainWindow(Adw.ApplicationWindow):
     def show_compose_dialog(self) -> None:
         """Show the compose message dialog."""
         logger.info("Opening compose dialog")
-        # TODO: Create and show compose dialog
+        composer = ComposerWindow(
+            mode=ComposerMode.NEW,
+            application=self._application,
+        )
+        # Connect signals for draft saving
+        composer.connect('save-draft-requested', self._on_save_draft)
+        composer.connect('send-requested', self._on_send_message)
+        composer.present()
+
+    def _on_save_draft(self, composer: ComposerWindow) -> None:
+        """Handle save draft request from composer."""
+        logger.info("Saving draft message")
+        storage = get_local_storage()
+
+        # Get draft folder
+        drafts_folder = storage.get_folder_by_name("Drafts")
+        if not drafts_folder:
+            logger.error("Drafts folder not found")
+            return
+
+        # Get message data from composer
+        email_msg = composer.get_message()
+
+        # Create draft message in database
+        storage.create_message({
+            "folder_id": drafts_folder["id"],
+            "from_address": "me@unitmail.local",
+            "to_addresses": email_msg.to if email_msg.to else [],
+            "cc_addresses": email_msg.cc if email_msg.cc else [],
+            "subject": email_msg.subject or "(No subject)",
+            "body_text": email_msg.body or "",
+            "is_read": True,
+            "status": "draft",
+        })
+        logger.info("Draft saved successfully")
+
+    def _on_send_message(self, composer: ComposerWindow) -> None:
+        """Handle send message request from composer."""
+        logger.info("Send message requested (gateway not configured)")
+        # For now, save to Sent folder since gateway isn't available
+        storage = get_local_storage()
+        sent_folder = storage.get_folder_by_name("Sent")
+        if not sent_folder:
+            logger.error("Sent folder not found")
+            return
+
+        email_msg = composer.get_message()
+        storage.create_message({
+            "folder_id": sent_folder["id"],
+            "from_address": "me@unitmail.local",
+            "to_addresses": email_msg.to if email_msg.to else [],
+            "cc_addresses": email_msg.cc if email_msg.cc else [],
+            "subject": email_msg.subject or "(No subject)",
+            "body_text": email_msg.body or "",
+            "is_read": True,
+            "status": "sent",
+            "sent_at": datetime.now().isoformat(),
+        })
+        logger.info("Message saved to Sent (gateway not available)")
+        composer.close()
 
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""

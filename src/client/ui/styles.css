@@ -249,6 +249,18 @@ listview.message-list row:selected checkbutton {
 .column-header-btn label {
 }
 
+/* Column resize handles */
+.column-resize-handle {
+    background-color: transparent;
+    min-width: 8px;
+    min-height: 20px;
+}
+
+.column-resize-handle:hover {
+    background-color: alpha(@accent_bg_color, 0.3);
+    cursor: col-resize;
+}
+
 .view-theme-minimal .message-row {
     padding: 4px 8px;
 }
