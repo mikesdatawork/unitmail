@@ -423,16 +423,38 @@ listview.message-list row:selected checkbutton {
 
 /* Favorite indicator star in ColumnView */
 .favorite-indicator {
-    color: @warning_color;
     -gtk-icon-size: 14px;
-    margin-right: 4px;
+    margin-right: 0;
 }
 
-/* Important indicator (exclamation) in ColumnView */
+/* Favorite active state - gold/yellow star */
+.favorite-active {
+    color: @warning_color;
+    opacity: 1;
+}
+
+/* Favorite inactive state - faded gray */
+.favorite-inactive {
+    color: alpha(@window_fg_color, 0.1);
+    opacity: 1;
+}
+
+/* Important indicator (warning triangle) in ColumnView */
 .important-indicator {
-    color: @error_color;
     -gtk-icon-size: 14px;
-    margin-right: 4px;
+    margin-right: 0;
+}
+
+/* Important active state - red/orange warning */
+.important-active {
+    color: @error_color;
+    opacity: 1;
+}
+
+/* Important inactive state - faded gray */
+.important-inactive {
+    color: alpha(@window_fg_color, 0.1);
+    opacity: 1;
 }
 
 /* Important toggle in reading pane */

@@ -478,7 +478,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     # Window state settings
     DEFAULT_WIDTH = 1200
     DEFAULT_HEIGHT = 800
-    DEFAULT_LEFT_PANE_WIDTH = 200
+    DEFAULT_LEFT_PANE_WIDTH = 140  # Minimal width for folder names
     DEFAULT_CENTER_PANE_WIDTH = 350
 
     def __init__(self, application: "UnitMailApplication") -> None:
@@ -958,6 +958,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._sort_dropdown.connect("notify::selected", self._on_sort_changed)
         toolbar.append(self._sort_dropdown)
 
+        # Sort direction toggle button (ascending/descending)
+        self._sort_direction_btn = Gtk.Button(
+            icon_name="pan-down-symbolic",
+            tooltip_text="Toggle sort direction (currently: newest first)",
+            css_classes=["flat"],
+        )
+        self._sort_direction_btn.connect("clicked", self._on_sort_direction_toggled)
+        toolbar.append(self._sort_direction_btn)
+
         message_box.append(toolbar)
 
         # Bulk actions toolbar (hidden by default, shown when messages are selected)
@@ -1306,13 +1315,30 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
         The ColumnView provides native column resizing, proper column separators,
         and uses the activate signal for double-click handling (avoiding
-        triple-click issues).
+        triple-click issues). Column headers are clickable for sorting.
 
         Returns:
             Configured ColumnView with Date, From, and Subject columns.
         """
-        # Create selection model sharing the same message store
-        self._column_view_selection = Gtk.SingleSelection(model=self._message_store)
+        # Create sorters for each column
+        date_sorter = Gtk.CustomSorter.new(self._compare_by_date, None)
+        from_sorter = Gtk.CustomSorter.new(self._compare_by_from, None)
+        favorite_sorter = Gtk.CustomSorter.new(self._compare_by_favorite, None)
+        important_sorter = Gtk.CustomSorter.new(self._compare_by_important, None)
+        subject_sorter = Gtk.CustomSorter.new(self._compare_by_subject, None)
+
+        # Store sorters for later updates
+        self._cv_date_sorter = date_sorter
+        self._cv_from_sorter = from_sorter
+        self._cv_favorite_sorter = favorite_sorter
+        self._cv_important_sorter = important_sorter
+        self._cv_subject_sorter = subject_sorter
+
+        # Create sort list model wrapping the message store
+        self._sort_list_model = Gtk.SortListModel(model=self._message_store)
+
+        # Create selection model on top of the sort model
+        self._column_view_selection = Gtk.SingleSelection(model=self._sort_list_model)
         self._column_view_selection.connect(
             "selection-changed", self._on_column_view_selection_changed
         )
@@ -1329,18 +1355,43 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Use 'activate' signal for double-click - avoids triple-click issues
         column_view.connect("activate", self._on_column_view_activated)
 
-        # Date/Received column - fixed width, resizable
+        # Favorite column - narrow, fixed width, sortable (star icon)
+        favorite_factory = self._create_favorite_column_factory()
+        favorite_column = Gtk.ColumnViewColumn(
+            title="★",
+            factory=favorite_factory,
+            resizable=False,
+            fixed_width=24,
+        )
+        favorite_column.set_sorter(favorite_sorter)
+        column_view.append_column(favorite_column)
+        self._cv_favorite_column = favorite_column
+
+        # Important column - narrow, fixed width, sortable (exclamation icon)
+        important_factory = self._create_important_column_factory()
+        important_column = Gtk.ColumnViewColumn(
+            title="!",
+            factory=important_factory,
+            resizable=False,
+            fixed_width=24,
+        )
+        important_column.set_sorter(important_sorter)
+        column_view.append_column(important_column)
+        self._cv_important_column = important_column
+
+        # Date/Received column - fixed width, resizable, sortable
         date_factory = self._create_date_column_factory()
         date_column = Gtk.ColumnViewColumn(
-            title="Received",
+            title="Received ↓",
             factory=date_factory,
             resizable=True,
             fixed_width=self._column_width_received,
         )
+        date_column.set_sorter(date_sorter)
         column_view.append_column(date_column)
         self._cv_date_column = date_column
 
-        # From column - fixed width, resizable
+        # From column - fixed width, resizable, sortable
         from_factory = self._create_from_column_factory()
         from_column = Gtk.ColumnViewColumn(
             title="From",
@@ -1348,10 +1399,11 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             resizable=True,
             fixed_width=self._column_width_from,
         )
+        from_column.set_sorter(from_sorter)
         column_view.append_column(from_column)
         self._cv_from_column = from_column
 
-        # Subject column - expands to fill remaining space
+        # Subject column - expands to fill remaining space, sortable
         subject_factory = self._create_subject_column_factory()
         subject_column = Gtk.ColumnViewColumn(
             title="Subject",
@@ -1359,14 +1411,89 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             resizable=True,
             expand=True,
         )
+        subject_column.set_sorter(subject_sorter)
         column_view.append_column(subject_column)
         self._cv_subject_column = subject_column
+
+        # Connect to the ColumnView's sorter to detect header clicks
+        cv_sorter = column_view.get_sorter()
+        if cv_sorter:
+            self._sort_list_model.set_sorter(cv_sorter)
+            cv_sorter.connect("changed", self._on_column_sorter_changed)
 
         # Set up context menus for ColumnView
         self._setup_column_view_context_menu(column_view)
 
         logger.info("Created ColumnView for minimal view with resizable columns")
         return column_view
+
+    def _compare_by_date(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+        """Compare two messages by date for sorting."""
+        if a._date < b._date:
+            return -1
+        elif a._date > b._date:
+            return 1
+        return 0
+
+    def _compare_by_from(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+        """Compare two messages by sender for sorting."""
+        from_a = a.from_address.lower()
+        from_b = b.from_address.lower()
+        if from_a < from_b:
+            return -1
+        elif from_a > from_b:
+            return 1
+        return 0
+
+    def _compare_by_subject(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+        """Compare two messages by subject for sorting."""
+        subj_a = (a.subject or "").lower()
+        subj_b = (b.subject or "").lower()
+        if subj_a < subj_b:
+            return -1
+        elif subj_a > subj_b:
+            return 1
+        return 0
+
+    def _compare_by_favorite(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+        """Compare two messages by favorite/starred status for sorting."""
+        # Starred messages come first (True > False, so negate for ascending)
+        if a.is_starred and not b.is_starred:
+            return -1
+        elif not a.is_starred and b.is_starred:
+            return 1
+        return 0
+
+    def _compare_by_important(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+        """Compare two messages by important status for sorting."""
+        # Important messages come first
+        if a.is_important and not b.is_important:
+            return -1
+        elif not a.is_important and b.is_important:
+            return 1
+        return 0
+
+    def _on_column_sorter_changed(self, sorter: Gtk.Sorter, change: Gtk.SorterChange) -> None:
+        """Handle column header click for sorting - sync with dropdown and direction."""
+        # Get the primary sort column from the ColumnView sorter
+        if hasattr(self, '_cv_date_column') and hasattr(self, '_cv_from_column') and hasattr(self, '_cv_subject_column'):
+            # Check which column is being sorted by looking at sort order
+            date_order = self._cv_date_column.get_sorter().get_order() if self._cv_date_column.get_sorter() else Gtk.SorterOrder.NONE
+            from_order = self._cv_from_column.get_sorter().get_order() if self._cv_from_column.get_sorter() else Gtk.SorterOrder.NONE
+            favorite_order = self._cv_favorite_column.get_sorter().get_order() if hasattr(self, '_cv_favorite_column') and self._cv_favorite_column.get_sorter() else Gtk.SorterOrder.NONE
+            important_order = self._cv_important_column.get_sorter().get_order() if hasattr(self, '_cv_important_column') and self._cv_important_column.get_sorter() else Gtk.SorterOrder.NONE
+            subject_order = self._cv_subject_column.get_sorter().get_order() if self._cv_subject_column.get_sorter() else Gtk.SorterOrder.NONE
+
+            # Update column titles to show sort direction
+            self._cv_date_column.set_title("Received ↓" if date_order == Gtk.SorterOrder.TOTAL else "Received")
+            self._cv_from_column.set_title("From ↓" if from_order == Gtk.SorterOrder.TOTAL else "From")
+            if hasattr(self, '_cv_favorite_column'):
+                self._cv_favorite_column.set_title("★ ↓" if favorite_order == Gtk.SorterOrder.TOTAL else "★")
+            if hasattr(self, '_cv_important_column'):
+                self._cv_important_column.set_title("! ↓" if important_order == Gtk.SorterOrder.TOTAL else "!")
+            self._cv_subject_column.set_title("Subject ↓" if subject_order == Gtk.SorterOrder.TOTAL else "Subject")
+
+            logger.info(f"Column sorter changed: date={date_order}, from={from_order}, favorite={favorite_order}, important={important_order}, subject={subject_order}")
 
     def _create_date_column_factory(self) -> Gtk.SignalListItemFactory:
         """
@@ -1482,22 +1609,6 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         box.set_margin_top(6)
         box.set_margin_bottom(6)
 
-        # Favorite indicator
-        star_icon = Gtk.Image(
-            icon_name="starred-symbolic",
-            css_classes=["favorite-indicator"],
-        )
-        star_icon.set_visible(False)
-        box.append(star_icon)
-
-        # Important indicator (exclamation mark)
-        important_icon = Gtk.Image(
-            icon_name="dialog-warning-symbolic",
-            css_classes=["important-indicator"],
-        )
-        important_icon.set_visible(False)
-        box.append(important_icon)
-
         # Subject label
         label = Gtk.Label(
             xalign=0,
@@ -1533,16 +1644,10 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             children.append(child)
             child = child.get_next_sibling()
 
-        star_icon, important_icon, label, attachment_icon = children
+        label, attachment_icon = children
 
         # Set subject
         label.set_label(item.subject or "(No subject)")
-
-        # Show/hide favorite indicator
-        star_icon.set_visible(item.is_starred)
-
-        # Show/hide important indicator
-        important_icon.set_visible(item.is_important)
 
         # Show/hide attachment indicator
         attachment_icon.set_visible(item.has_attachments)
@@ -1552,6 +1657,144 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             label.add_css_class("bold")
         else:
             label.remove_css_class("bold")
+
+    def _create_favorite_column_factory(self) -> Gtk.SignalListItemFactory:
+        """
+        Create factory for the Favorite (star) column in ColumnView.
+
+        Returns:
+            Factory that creates star icons for each row.
+        """
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", self._on_favorite_cell_setup)
+        factory.connect("bind", self._on_favorite_cell_bind)
+        return factory
+
+    def _on_favorite_cell_setup(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Set up a favorite cell widget with clickable icon."""
+        icon = Gtk.Image(
+            icon_name="non-starred-symbolic",
+            css_classes=["favorite-indicator"],
+        )
+        icon.set_margin_start(0)
+        icon.set_margin_end(0)
+        icon.set_margin_top(4)
+        icon.set_margin_bottom(4)
+
+        # Add click gesture for toggling
+        click_gesture = Gtk.GestureClick()
+        icon.add_controller(click_gesture)
+        icon._click_gesture = click_gesture
+
+        list_item.set_child(icon)
+
+    def _on_favorite_cell_bind(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Bind data to a favorite cell widget."""
+        item: MessageItem = list_item.get_item()
+        icon: Gtk.Image = list_item.get_child()
+
+        # Always show star icon, use CSS class for active/inactive state
+        icon.set_from_icon_name("starred-symbolic")
+        if item.is_starred:
+            icon.add_css_class("favorite-active")
+            icon.remove_css_class("favorite-inactive")
+        else:
+            icon.add_css_class("favorite-inactive")
+            icon.remove_css_class("favorite-active")
+
+        # Disconnect any existing handler
+        if hasattr(icon, '_click_handler_id') and icon._click_handler_id:
+            icon._click_gesture.disconnect(icon._click_handler_id)
+
+        # Connect click handler with the message item
+        def on_click(gesture, n_press, x, y, img=icon, msg_item=item):
+            new_state = not msg_item.is_starred
+            self._set_message_starred(msg_item.message_id, new_state)
+            if new_state:
+                img.add_css_class("favorite-active")
+                img.remove_css_class("favorite-inactive")
+            else:
+                img.add_css_class("favorite-inactive")
+                img.remove_css_class("favorite-active")
+
+        icon._click_handler_id = icon._click_gesture.connect("pressed", on_click)
+
+    def _create_important_column_factory(self) -> Gtk.SignalListItemFactory:
+        """
+        Create factory for the Important column in ColumnView.
+
+        Returns:
+            Factory that creates important icons for each row.
+        """
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", self._on_important_cell_setup)
+        factory.connect("bind", self._on_important_cell_bind)
+        return factory
+
+    def _on_important_cell_setup(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Set up an important cell widget with clickable icon."""
+        icon = Gtk.Image(
+            icon_name="dialog-warning-symbolic",
+            css_classes=["important-indicator"],
+        )
+        icon.set_margin_start(0)
+        icon.set_margin_end(0)
+        icon.set_margin_top(4)
+        icon.set_margin_bottom(4)
+
+        # Add click gesture for toggling
+        click_gesture = Gtk.GestureClick()
+        icon.add_controller(click_gesture)
+        icon._click_gesture = click_gesture
+
+        list_item.set_child(icon)
+
+    def _on_important_cell_bind(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Bind data to an important cell widget."""
+        item: MessageItem = list_item.get_item()
+        icon: Gtk.Image = list_item.get_child()
+
+        # Always show warning icon, use CSS class for active/inactive state
+        icon.set_from_icon_name("dialog-warning-symbolic")
+        if item.is_important:
+            icon.add_css_class("important-active")
+            icon.remove_css_class("important-inactive")
+        else:
+            icon.add_css_class("important-inactive")
+            icon.remove_css_class("important-active")
+
+        # Disconnect any existing handler
+        if hasattr(icon, '_click_handler_id') and icon._click_handler_id:
+            icon._click_gesture.disconnect(icon._click_handler_id)
+
+        # Connect click handler with the message item
+        def on_click(gesture, n_press, x, y, img=icon, msg_item=item):
+            new_state = not msg_item.is_important
+            self._set_message_important(msg_item.message_id, new_state)
+            if new_state:
+                img.add_css_class("important-active")
+                img.remove_css_class("important-inactive")
+            else:
+                img.add_css_class("important-inactive")
+                img.remove_css_class("important-active")
+
+        icon._click_handler_id = icon._click_gesture.connect("pressed", on_click)
 
     def _on_column_view_selection_changed(
         self,
@@ -2559,13 +2802,34 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         """Handle sort option change."""
         selected = dropdown.get_selected()
         sort_options = ["date", "from", "subject", "size", "favorite", "important"]
+        logger.info(f"Sort dropdown changed: selected index={selected}")
         if 0 <= selected < len(sort_options):
             column = sort_options[selected]
+            self._sort_column = column
             logger.info(f"Sort by: {column}")
             # Sort the displayed messages
             self._sort_messages(column, self._sort_ascending)
             # Also sort the full list to maintain order when search is cleared
             self._sort_all_messages(column, self._sort_ascending)
+
+    def _on_sort_direction_toggled(self, button: Gtk.Button) -> None:
+        """Handle sort direction toggle button click."""
+        # Toggle the sort direction
+        self._sort_ascending = not self._sort_ascending
+
+        # Update button icon and tooltip
+        if self._sort_ascending:
+            button.set_icon_name("pan-up-symbolic")
+            button.set_tooltip_text("Toggle sort direction (currently: oldest first)")
+        else:
+            button.set_icon_name("pan-down-symbolic")
+            button.set_tooltip_text("Toggle sort direction (currently: newest first)")
+
+        logger.info(f"Sort direction toggled: ascending={self._sort_ascending}")
+
+        # Re-sort with the new direction
+        self._sort_messages(self._sort_column, self._sort_ascending)
+        self._sort_all_messages(self._sort_column, self._sort_ascending)
 
     def _on_message_check_toggled(self, check: Gtk.CheckButton, message_id: str) -> None:
         """Handle individual message checkbox toggle."""
