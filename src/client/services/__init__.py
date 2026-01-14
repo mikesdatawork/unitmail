@@ -28,6 +28,13 @@ from .settings_service import (
     ThemeMode,
     get_settings_service,
 )
+from .date_format_service import (
+    DateFormatService,
+    DateFormat,
+    get_date_format_service,
+    format_date,
+    format_date_with_time,
+)
 
 __all__ = [
     # Search service
@@ -51,4 +58,10 @@ __all__ = [
     "AdvancedSettings",
     "ThemeMode",
     "get_settings_service",
+    # Date format service
+    "DateFormatService",
+    "DateFormat",
+    "get_date_format_service",
+    "format_date",
+    "format_date_with_time",
 ]

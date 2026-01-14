@@ -235,6 +235,12 @@ listview.message-list row:selected checkbutton {
 .column-headers {
     border-bottom: 1px solid @borders;
     padding: 4px 0;
+    /* Alignment compensation for message row styling:
+     * Message rows have: margin-left(4px) + border-left(3px) + padding-left(8px) = 15px
+     * But we use margin_start in Python, so only need CSS adjustments here
+     */
+    margin-left: 4px;  /* Match message row margin-left */
+    border-left: 3px solid transparent;  /* Match message row border-left */
 }
 
 .column-header {
@@ -324,7 +330,7 @@ listview.message-list row:selected checkbutton {
 
 /* Sortable column header buttons */
 .column-header-btn {
-    padding: 2px 8px;
+    padding: 2px 8px;  /* Vertical and horizontal padding for clickability */
     font-size: 0.85em;
     font-weight: 600;
     border-radius: 0;

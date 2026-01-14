@@ -92,6 +92,121 @@ class EmptyStateWidget(Gtk.Box):
             self.append(cta_button)
 
 
+class FolderSelectionDialog(Adw.MessageDialog):
+    """
+    Reusable dialog for selecting a destination folder.
+
+    This dialog displays a list of available folders and allows the user
+    to select one as a destination for moving messages. It can be configured
+    to exclude certain folders (e.g., exclude Trash when restoring from Trash).
+
+    Usage:
+        dialog = FolderSelectionDialog(
+            parent=self,
+            title="Move to Folder",
+            exclude_folders=["Trash", "Spam"],
+        )
+        dialog.connect("response", self._on_folder_dialog_response)
+        dialog.present()
+    """
+
+    __gtype_name__ = "FolderSelectionDialog"
+
+    def __init__(
+        self,
+        parent: Gtk.Window,
+        title: str = "Select Folder",
+        exclude_folders: Optional[list[str]] = None,
+    ) -> None:
+        """
+        Initialize the folder selection dialog.
+
+        Args:
+            parent: Parent window.
+            title: Dialog title.
+            exclude_folders: List of folder names to exclude from the list.
+        """
+        super().__init__(
+            transient_for=parent,
+            heading=title,
+            body="Choose a destination folder:",
+        )
+
+        self._selected_folder: Optional[str] = None
+        self._exclude_folders = exclude_folders or []
+
+        self.add_response("cancel", "Cancel")
+        self.add_response("move", "Move")
+        self.set_response_appearance("move", Adw.ResponseAppearance.SUGGESTED)
+        self.set_default_response("move")
+        self.set_close_response("cancel")
+
+        # Disable the move button initially until a folder is selected
+        self.set_response_enabled("move", False)
+
+        # Build the folder list
+        self._build_folder_list()
+
+    def _build_folder_list(self) -> None:
+        """Build the scrollable folder list."""
+        # Scrolled container for folder list
+        scrolled = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            min_content_height=200,
+            max_content_height=300,
+        )
+
+        # List box for folders
+        self._folder_listbox = Gtk.ListBox(
+            selection_mode=Gtk.SelectionMode.SINGLE,
+            css_classes=["boxed-list"],
+        )
+        self._folder_listbox.connect("row-selected", self._on_folder_row_selected)
+
+        # Populate with folders
+        storage = get_local_storage()
+        folders = storage.get_folders()
+
+        for folder in folders:
+            folder_name = folder["name"]
+            # Skip excluded folders
+            if folder_name in self._exclude_folders:
+                continue
+
+            row = Adw.ActionRow(
+                title=folder_name,
+                icon_name=folder.get("icon", "folder-symbolic"),
+            )
+            row.folder_name = folder_name  # Store folder name for retrieval
+            self._folder_listbox.append(row)
+
+        scrolled.set_child(self._folder_listbox)
+        self.set_extra_child(scrolled)
+
+    def _on_folder_row_selected(
+        self,
+        listbox: Gtk.ListBox,
+        row: Optional[Gtk.ListBoxRow],
+    ) -> None:
+        """Handle folder row selection."""
+        if row is not None:
+            action_row = row.get_child() if hasattr(row, 'get_child') else row
+            if hasattr(action_row, 'folder_name'):
+                self._selected_folder = action_row.folder_name
+            else:
+                # For Adw.ActionRow, the row itself has the folder_name
+                self._selected_folder = getattr(row, 'folder_name', None)
+            self.set_response_enabled("move", self._selected_folder is not None)
+        else:
+            self._selected_folder = None
+            self.set_response_enabled("move", False)
+
+    def get_selected_folder(self) -> Optional[str]:
+        """Get the selected folder name."""
+        return self._selected_folder
+
+
 # Empty state configurations for different contexts
 EMPTY_STATES = {
     "inbox": {
@@ -287,14 +402,17 @@ class MessageItem(GObject.Object):
 
     @GObject.Property(type=str)
     def date_string(self) -> str:
-        """Get formatted date string."""
-        now = datetime.now()
-        if self._date.date() == now.date():
-            return self._date.strftime("%H:%M")
-        elif self._date.year == now.year:
-            return self._date.strftime("%b %d")
-        else:
-            return self._date.strftime("%Y-%m-%d")
+        """Get formatted date string using centralized formatter."""
+        try:
+            from client.services.date_format_service import format_date
+            return format_date(self._date, show_time_for_today=True)
+        except ImportError:
+            # Fallback if date format service is not available
+            now = datetime.now()
+            if self._date.date() == now.date():
+                return self._date.strftime("%H:%M")
+            else:
+                return self._date.strftime("%Y-%m-%d")
 
     @GObject.Property(type=bool, default=False)
     def is_read(self) -> bool:
@@ -367,6 +485,10 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._message_store: Gio.ListStore = Gio.ListStore.new(MessageItem)
         self._all_messages: list[MessageItem] = []  # Unfiltered messages for search
         self._selected_messages: set[str] = set()  # Selected message IDs for bulk operations
+
+        # Multi-selection state tracking
+        self._last_selected_index: Optional[int] = None  # For SHIFT+Click range selection
+        self._awaiting_double_click: bool = False  # Debounce for triple-click prevention
 
         # Set up the window
         self._setup_window_actions()
@@ -441,6 +563,10 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             "bulk-mark-unread": self._on_bulk_mark_unread,
             "bulk-favorite": self._on_bulk_favorite,
             "bulk-unfavorite": self._on_bulk_unfavorite,
+            # Trash-specific actions
+            "restore-to-inbox": self._on_restore_to_inbox,
+            "restore-to-folder": self._on_restore_to_folder,
+            "permanent-delete": self._on_permanent_delete,
         }
 
         for name, callback in actions.items():
@@ -601,16 +727,33 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             css_classes=["folder-pane"],
         )
 
-        # Header
+        # Header with title and add button
+        header_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            margin_start=12,
+            margin_end=8,
+            margin_top=8,
+            margin_bottom=8,
+        )
+
         folder_header = Gtk.Label(
             label="Folders",
             xalign=0,
             css_classes=["heading"],
-            margin_start=12,
-            margin_top=8,
-            margin_bottom=8,
+            hexpand=True,
         )
-        folder_box.append(folder_header)
+        header_box.append(folder_header)
+
+        # New folder button (+ icon)
+        self._new_folder_button = Gtk.Button(
+            icon_name="folder-new-symbolic",
+            tooltip_text="Create new folder",
+            css_classes=["flat", "circular"],
+        )
+        self._new_folder_button.connect("clicked", self._on_new_folder_clicked)
+        header_box.append(self._new_folder_button)
+
+        folder_box.append(header_box)
 
         # Scrolled window for folder list
         scrolled = Gtk.ScrolledWindow(
@@ -860,11 +1003,11 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         message_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
         # Column headers for minimal view (hidden by default)
-        # Use same margin as message rows for alignment
+        # Alignment: margin_start matches message row box, CSS handles margin-left/border-left/padding
         self._column_headers = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=0,
-            margin_start=12,  # Match message row margin (4px + 8px padding)
+            margin_start=8,  # Match message row box margin_start
             margin_end=8,
             margin_top=4,
             margin_bottom=4,
@@ -1110,8 +1253,37 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         return list_view
 
     def _setup_message_context_menu(self, list_view: Gtk.ListView) -> None:
-        """Set up right-click context menu for messages."""
-        # Create menu model
+        """Set up right-click context menus for messages.
+
+        Creates two context menus:
+        - Regular context menu for normal folders
+        - Trash context menu with restore and permanent delete options
+        """
+        # Create regular context menu
+        self._message_context_menu = self._create_regular_context_menu()
+        self._message_context_menu.set_parent(list_view)
+
+        # Create Trash-specific context menu
+        self._trash_context_menu = self._create_trash_context_menu()
+        self._trash_context_menu.set_parent(list_view)
+
+        # Add right-click gesture
+        click_gesture = Gtk.GestureClick(button=3)  # Right click
+        click_gesture.connect("pressed", self._on_message_right_click)
+        list_view.add_controller(click_gesture)
+
+        # Add left-click gesture for multi-selection (CTRL+Click, SHIFT+Click)
+        # and double-click for message pop-out
+        left_click_gesture = Gtk.GestureClick(button=1)  # Left click
+        left_click_gesture.connect("pressed", self._on_message_left_click)
+        list_view.add_controller(left_click_gesture)
+
+    def _create_regular_context_menu(self) -> Gtk.PopoverMenu:
+        """Create the regular context menu for non-Trash folders.
+
+        Returns:
+            Configured PopoverMenu for regular message actions.
+        """
         menu = Gio.Menu()
 
         # Read/unread section
@@ -1147,23 +1319,40 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         delete_section.append("Delete", "win.delete-message")
         menu.append_section(None, delete_section)
 
-        # Create popover menu
-        self._message_context_menu = Gtk.PopoverMenu(
+        return Gtk.PopoverMenu(
             menu_model=menu,
             has_arrow=False,
         )
-        self._message_context_menu.set_parent(list_view)
 
-        # Add right-click gesture
-        click_gesture = Gtk.GestureClick(button=3)  # Right click
-        click_gesture.connect("pressed", self._on_message_right_click)
-        list_view.add_controller(click_gesture)
+    def _create_trash_context_menu(self) -> Gtk.PopoverMenu:
+        """Create the Trash-specific context menu with restore options.
 
-        # Add double-click gesture for message pop-out
-        # Use pressed signal to detect double-click (n_press == 2)
-        double_click_gesture = Gtk.GestureClick(button=1)  # Left click
-        double_click_gesture.connect("pressed", self._on_message_double_click)
-        list_view.add_controller(double_click_gesture)
+        Returns:
+            Configured PopoverMenu for Trash message actions.
+        """
+        menu = Gio.Menu()
+
+        # Restore section
+        restore_section = Gio.Menu()
+        restore_section.append("Restore to Inbox", "win.restore-to-inbox")
+        restore_section.append("Move to...", "win.restore-to-folder")
+        menu.append_section(None, restore_section)
+
+        # Read/unread section
+        read_section = Gio.Menu()
+        read_section.append("Mark as Read", "win.mark-read")
+        read_section.append("Mark as Unread", "win.mark-unread")
+        menu.append_section(None, read_section)
+
+        # Delete section (permanent)
+        delete_section = Gio.Menu()
+        delete_section.append("Delete Permanently", "win.permanent-delete")
+        menu.append_section(None, delete_section)
+
+        return Gtk.PopoverMenu(
+            menu_model=menu,
+            has_arrow=False,
+        )
 
     def _on_message_item_setup(
         self,
@@ -1670,6 +1859,20 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Window close
         self.connect("close-request", self._on_close_request)
 
+        # Connect to date format change signal for immediate refresh
+        try:
+            from client.services.date_format_service import get_date_format_service
+            date_service = get_date_format_service()
+            date_service.connect("format-changed", self._on_date_format_changed)
+            logger.debug("Connected to date format change signal")
+        except Exception as e:
+            logger.warning(f"Could not connect to date format service: {e}")
+
+    def _on_date_format_changed(self, service, format_str: str) -> None:
+        """Handle date format change - refresh message list immediately."""
+        logger.info(f"Date format changed to: {format_str}, refreshing message list")
+        self._refresh_message_list()
+
     def _load_sample_data(self) -> None:
         """Load sample data from local storage for development/testing."""
         # Initialize sample data in the database if not already present
@@ -1869,6 +2072,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Clear search and selection when switching folders
         self._search_entry.set_text("")
         self._selected_messages.clear()
+        self._last_selected_index = None  # Reset for SHIFT+Click in new folder
         self._update_select_all_state()
 
         self._update_message_count()
@@ -1897,7 +2101,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._preview_subject.set_label(message.subject or "(No subject)")
         self._preview_from.set_label(message.from_address)
         self._preview_to.set_label("me@unitmail.local")
-        self._preview_date.set_label(message._date.strftime("%B %d, %Y at %H:%M"))
+
+        # Use centralized date formatter for preview pane
+        try:
+            from client.services.date_format_service import format_date_with_time
+            self._preview_date.set_label(format_date_with_time(message._date))
+        except ImportError:
+            self._preview_date.set_label(message._date.strftime("%B %d, %Y at %H:%M"))
 
         # Update favorite button state in reading pane
         if hasattr(self, '_preview_favorite_button'):
@@ -2222,6 +2432,146 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             self._selected_message_id = None
             self._show_preview_placeholder()
 
+    def _on_restore_to_inbox(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Restore a message from Trash to its original folder (or Inbox).
+
+        Uses the restore_from_trash method which automatically restores
+        to the original folder, or Inbox if the original is not available.
+        """
+        if not self._selected_message_id:
+            return
+
+        storage = get_local_storage()
+        result = storage.restore_from_trash(self._selected_message_id)
+
+        if result:
+            logger.info(f"Restored message {self._selected_message_id} from Trash")
+            # Remove from current view
+            self._remove_message_from_view(self._selected_message_id)
+            self._selected_message_id = None
+            self._show_preview_placeholder()
+            self._update_message_count()
+        else:
+            logger.warning(f"Failed to restore message {self._selected_message_id}")
+
+    def _on_restore_to_folder(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Show folder selection dialog to move message from Trash to chosen folder."""
+        if not self._selected_message_id:
+            return
+
+        # Create folder selection dialog, excluding Trash
+        dialog = FolderSelectionDialog(
+            parent=self,
+            title="Move to Folder",
+            exclude_folders=["Trash"],
+        )
+
+        # Store message ID for use in response handler
+        dialog._message_id = self._selected_message_id
+
+        dialog.connect("response", self._on_folder_selection_response)
+        dialog.present()
+
+    def _on_folder_selection_response(
+        self,
+        dialog: FolderSelectionDialog,
+        response: str,
+    ) -> None:
+        """Handle folder selection dialog response."""
+        if response == "move":
+            selected_folder = dialog.get_selected_folder()
+            message_id = getattr(dialog, '_message_id', None)
+
+            if selected_folder and message_id:
+                storage = get_local_storage()
+                result = storage.move_to_folder(message_id, selected_folder)
+
+                if result:
+                    logger.info(f"Moved message {message_id} to {selected_folder}")
+                    # Remove from current view
+                    self._remove_message_from_view(message_id)
+                    self._selected_message_id = None
+                    self._show_preview_placeholder()
+                    self._update_message_count()
+                else:
+                    logger.warning(f"Failed to move message {message_id} to {selected_folder}")
+
+        dialog.destroy()
+
+    def _on_permanent_delete(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Permanently delete a message with confirmation dialog."""
+        if not self._selected_message_id:
+            return
+
+        # Show confirmation dialog
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Delete Permanently?",
+            body="This message will be permanently deleted. This action cannot be undone.",
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("delete", "Delete Permanently")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+
+        # Store message ID for use in response handler
+        dialog._message_id = self._selected_message_id
+
+        dialog.connect("response", self._on_permanent_delete_response)
+        dialog.present()
+
+    def _on_permanent_delete_response(
+        self,
+        dialog: Adw.MessageDialog,
+        response: str,
+    ) -> None:
+        """Handle permanent delete confirmation response."""
+        if response == "delete":
+            message_id = getattr(dialog, '_message_id', None)
+            if message_id:
+                storage = get_local_storage()
+                if storage.permanent_delete(message_id):
+                    logger.info(f"Permanently deleted message: {message_id}")
+                    # Remove from current view
+                    self._remove_message_from_view(message_id)
+                    self._selected_message_id = None
+                    self._show_preview_placeholder()
+                    self._update_message_count()
+                else:
+                    logger.warning(f"Failed to permanently delete message: {message_id}")
+
+        dialog.destroy()
+
+    def _remove_message_from_view(self, message_id: str) -> None:
+        """Remove a message from the current view by its ID.
+
+        This is a helper method that removes a message from both the
+        visible message store and the all_messages list.
+
+        Args:
+            message_id: The ID of the message to remove.
+        """
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item.message_id == message_id:
+                self._message_store.remove(i)
+                break
+        # Also remove from _all_messages
+        self._all_messages = [m for m in self._all_messages if m.message_id != message_id]
+
     def _on_toggle_favorite(
         self,
         action: Gio.SimpleAction,
@@ -2342,35 +2692,178 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         x: float,
         y: float,
     ) -> None:
-        """Handle right-click on message list."""
-        # Position and show the context menu
+        """Handle right-click on message list.
+
+        Shows the appropriate context menu based on the current folder:
+        - Trash folder: Shows restore and permanent delete options
+        - Other folders: Shows regular message actions
+        """
+        # Position the context menu
         rect = Gdk.Rectangle()
         rect.x = int(x)
         rect.y = int(y)
         rect.width = 1
         rect.height = 1
-        self._message_context_menu.set_pointing_to(rect)
-        self._message_context_menu.popup()
 
-    def _on_message_double_click(
+        # Choose the appropriate context menu based on current folder
+        current_folder = self._get_selected_folder_name()
+        if current_folder.lower() == "trash":
+            self._trash_context_menu.set_pointing_to(rect)
+            self._trash_context_menu.popup()
+        else:
+            self._message_context_menu.set_pointing_to(rect)
+            self._message_context_menu.popup()
+
+    def _on_message_left_click(
         self,
         gesture: Gtk.GestureClick,
         n_press: int,
         x: float,
         y: float,
     ) -> None:
-        """Handle double-click on message list to pop out message."""
-        if n_press == 2 and self._selected_message_id:
-            # Find the selected message
-            message_item = None
-            for i in range(self._message_store.get_n_items()):
-                item = self._message_store.get_item(i)
-                if item.message_id == self._selected_message_id:
-                    message_item = item
-                    break
+        """
+        Unified left-click handler for message list.
 
-            if message_item:
+        Handles:
+        - Single click: normal selection (updates _last_selected_index)
+        - CTRL+Click: toggle selection of individual items
+        - SHIFT+Click: range selection from last selected to current
+        - Double-click (n_press == 2): open message pop-out window
+        - Triple-click or more (n_press >= 3): ignored to prevent extra actions
+        """
+        # Prevent triple-click and higher from triggering any action
+        if n_press >= 3:
+            logger.debug(f"Ignoring click with n_press={n_press} (triple-click or more)")
+            return
+
+        # Handle double-click for pop-out
+        if n_press == 2:
+            self._handle_double_click_popout()
+            return
+
+        # Single click handling with modifier keys
+        self._handle_single_click_selection(gesture)
+
+    def _handle_double_click_popout(self) -> None:
+        """
+        Handle double-click to open message in pop-out window or draft editor.
+
+        This is a modular method that delegates to the appropriate handler:
+        - For drafts: opens the composer in edit mode
+        - For other messages: opens a read-only pop-out window
+
+        This separation ensures draft editing logic is independent of message viewing.
+        """
+        if not self._selected_message_id:
+            return
+
+        # Find the selected message
+        message_item = None
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item.message_id == self._selected_message_id:
+                message_item = item
+                break
+
+        if message_item:
+            # Check if we're in the Drafts folder - open for editing if so
+            if self._is_drafts_folder():
+                self._open_draft_for_editing(message_item)
+            else:
                 self._open_message_popout(message_item)
+
+    def _handle_single_click_selection(self, gesture: Gtk.GestureClick) -> None:
+        """
+        Handle single-click with optional modifier keys for multi-selection.
+
+        - No modifiers: regular selection, updates last selected index
+        - CTRL+Click: toggle individual item selection
+        - SHIFT+Click: select range from last selected to current
+
+        This is a modular method for selection handling.
+        """
+        # Get current modifier state
+        state = gesture.get_current_event_state()
+        ctrl_pressed = bool(state & Gdk.ModifierType.CONTROL_MASK)
+        shift_pressed = bool(state & Gdk.ModifierType.SHIFT_MASK)
+
+        # Get the currently focused/selected item from the list view
+        selection_model = self._message_list.get_model()
+        if not isinstance(selection_model, Gtk.SingleSelection):
+            return
+
+        current_index = selection_model.get_selected()
+        if current_index == Gtk.INVALID_LIST_POSITION:
+            return
+
+        current_item = self._message_store.get_item(current_index)
+        if not current_item:
+            return
+
+        message_id = current_item.message_id
+
+        if ctrl_pressed:
+            # CTRL+Click: toggle selection of this item
+            self._handle_ctrl_click_selection(message_id, current_index)
+        elif shift_pressed:
+            # SHIFT+Click: range selection
+            self._handle_shift_click_selection(current_index)
+        else:
+            # Regular click: update last selected index for future SHIFT+Click
+            self._last_selected_index = current_index
+            logger.debug(f"Updated last_selected_index to {current_index}")
+
+    def _handle_ctrl_click_selection(self, message_id: str, current_index: int) -> None:
+        """
+        Handle CTRL+Click to toggle selection of individual item.
+
+        Args:
+            message_id: The message ID to toggle selection for.
+            current_index: The index of the item in the message store.
+        """
+        if message_id in self._selected_messages:
+            self._selected_messages.discard(message_id)
+            logger.debug(f"CTRL+Click: deselected message {message_id}")
+        else:
+            self._selected_messages.add(message_id)
+            logger.debug(f"CTRL+Click: selected message {message_id}")
+
+        # Update last selected index for future SHIFT+Click
+        self._last_selected_index = current_index
+
+        # Refresh UI
+        self._refresh_message_list()
+        self._update_message_count()
+        self._update_select_all_state()
+
+    def _handle_shift_click_selection(self, current_index: int) -> None:
+        """
+        Handle SHIFT+Click to select a range of items.
+
+        Selects all items from _last_selected_index to current_index (inclusive).
+
+        Args:
+            current_index: The current click target index.
+        """
+        # If no previous selection, start from first item
+        start_index = self._last_selected_index if self._last_selected_index is not None else 0
+
+        # Determine range (handle both directions)
+        range_start = min(start_index, current_index)
+        range_end = max(start_index, current_index)
+
+        logger.debug(f"SHIFT+Click: selecting range [{range_start}, {range_end}]")
+
+        # Select all items in the range
+        for i in range(range_start, range_end + 1):
+            item = self._message_store.get_item(i)
+            if item:
+                self._selected_messages.add(item.message_id)
+
+        # Refresh UI
+        self._refresh_message_list()
+        self._update_message_count()
+        self._update_select_all_state()
 
     def _open_message_popout(self, message_item: "MessageItem") -> None:
         """Open a message in a separate pop-out window."""
@@ -2447,6 +2940,70 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         popout_window.set_content(main_box)
         popout_window.present()
         logger.info(f"Opened message pop-out for: {message_item.message_id}")
+
+    def _open_draft_for_editing(self, message_item: "MessageItem") -> None:
+        """
+        Open a draft message in the composer for editing.
+
+        This is a dedicated method for draft editing, separate from the message
+        pop-out viewer. It:
+        - Opens the composer in EDIT mode
+        - Pre-fills all fields from the draft
+        - Tracks the draft message ID for update operations
+
+        Args:
+            message_item: The draft message item to edit.
+        """
+        logger.info(f"Opening draft for editing: {message_item.message_id}")
+
+        # Get the full message data from storage
+        storage = get_local_storage()
+        db_message = storage.get_message(message_item.message_id)
+
+        if not db_message:
+            logger.error(f"Draft message not found in storage: {message_item.message_id}")
+            return
+
+        # Create composer in EDIT mode with draft_message_id
+        composer = ComposerWindow(
+            mode=ComposerMode.EDIT,
+            application=self._application,
+            draft_message_id=message_item.message_id,
+        )
+
+        # Pre-fill the composer fields from the draft
+        # Recipients
+        to_addresses = db_message.get("to_addresses", [])
+        if to_addresses:
+            composer.set_to_recipients(to_addresses)
+
+        cc_addresses = db_message.get("cc_addresses", [])
+        if cc_addresses:
+            composer.set_cc_recipients(cc_addresses)
+
+        bcc_addresses = db_message.get("bcc_addresses", [])
+        if bcc_addresses:
+            composer.set_bcc_recipients(bcc_addresses)
+
+        # Subject
+        subject = db_message.get("subject", "")
+        if subject:
+            composer.set_subject(subject)
+
+        # Body
+        body = db_message.get("body_text", "")
+        if body:
+            composer.set_body(body)
+
+        # Connect signals for draft saving and sending
+        composer.connect('save-draft-requested', self._on_save_draft)
+        composer.connect('send-requested', self._on_send_message)
+
+        # Mark the draft as no longer modified (it was just loaded)
+        composer._is_modified = False
+
+        composer.present()
+        logger.info(f"Opened composer for draft editing: {message_item.message_id}")
 
     def _set_message_starred(self, message_id: str, starred: bool) -> None:
         """Set starred status for a message."""
@@ -2577,6 +3134,109 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 return item.name
         return "Inbox"
 
+    def _is_drafts_folder(self) -> bool:
+        """
+        Check if the currently selected folder is the Drafts folder.
+
+        This is a modular helper method for determining draft-specific behavior.
+
+        Returns:
+            True if the current folder is Drafts, False otherwise.
+        """
+        folder_name = self._get_selected_folder_name()
+        return folder_name.lower() == "drafts"
+
+    # --- Folder Creation Methods ---
+
+    def _on_new_folder_clicked(self, button: Gtk.Button) -> None:
+        """
+        Handle click on the new folder button.
+
+        Opens the FolderCreationDialog to allow user to create a new custom folder.
+        """
+        from .folder_creation_dialog import show_folder_creation_dialog
+
+        show_folder_creation_dialog(
+            parent=self,
+            on_folder_created=self._on_folder_created_callback,
+        )
+
+    def _on_folder_created_callback(self, folder: dict) -> None:
+        """
+        Handle successful folder creation from the dialog.
+
+        This callback is invoked when a new folder is created via
+        the FolderCreationDialog. It refreshes the sidebar folder list.
+
+        Args:
+            folder: The created folder dict from storage.
+        """
+        logger.info(f"Folder created callback: {folder.get('name')}")
+        self._refresh_folder_list()
+
+    def _refresh_folder_list(self) -> None:
+        """
+        Refresh the sidebar folder list from storage.
+
+        This method reloads all folders from the local storage and
+        updates the folder list UI. It preserves the currently selected
+        folder if possible.
+
+        This is a modular method that can be called independently
+        whenever the folder list needs to be updated.
+        """
+        # Remember current selection
+        current_selection_name: Optional[str] = None
+        selection = self._folder_list.get_model()
+        if isinstance(selection, Gtk.SingleSelection):
+            idx = selection.get_selected()
+            if idx != Gtk.INVALID_LIST_POSITION and idx < self._folder_store.get_n_items():
+                item = self._folder_store.get_item(idx)
+                current_selection_name = item.name
+
+        # Clear and reload folders
+        self._folder_store.remove_all()
+
+        storage = get_local_storage()
+        db_folders = storage.get_folders()
+
+        # Icon mapping for folder types
+        icon_map = {
+            "inbox": "mail-inbox-symbolic",
+            "sent": "mail-send-symbolic",
+            "drafts": "mail-drafts-symbolic",
+            "trash": "user-trash-symbolic",
+            "spam": "mail-mark-junk-symbolic",
+            "archive": "folder-symbolic",
+            "custom": "folder-symbolic",
+        }
+
+        new_selection_idx: Optional[int] = None
+
+        for i, db_folder in enumerate(db_folders):
+            folder_name = db_folder["name"]
+            folder_type = db_folder.get("folder_type", "custom")
+            icon = icon_map.get(folder_type, "folder-symbolic")
+
+            folder_item = FolderItem(
+                db_folder["id"],
+                folder_name,
+                icon,
+                db_folder.get("unread_count", 0),
+                folder_type,
+            )
+            self._folder_store.append(folder_item)
+
+            # Track if this matches previous selection
+            if current_selection_name and folder_name == current_selection_name:
+                new_selection_idx = i
+
+        # Restore selection if possible
+        if new_selection_idx is not None and isinstance(selection, Gtk.SingleSelection):
+            selection.set_selected(new_selection_idx)
+
+        logger.debug(f"Refreshed folder list with {len(db_folders)} folders")
+
     def _on_search_focus(
         self,
         action: Gio.SimpleAction,
@@ -2631,34 +3291,68 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         composer.present()
 
     def _on_save_draft(self, composer: ComposerWindow) -> None:
-        """Handle save draft request from composer."""
-        logger.info("Saving draft message")
+        """
+        Handle save draft request from composer.
+
+        This method supports both creating new drafts and updating existing ones:
+        - If composer has a draft_message_id, it updates the existing draft
+        - Otherwise, it creates a new draft message
+
+        This modular approach keeps draft save logic independent and reusable.
+        """
         storage = get_local_storage()
 
-        # Get draft folder
-        drafts_folder = storage.get_folder_by_name("Drafts")
-        if not drafts_folder:
-            logger.error("Drafts folder not found")
-            return
-
         # Get message data from composer
-        email_msg = composer.get_message()
+        email_msg = composer.get_message_data()
 
-        # Create draft message in database
-        storage.create_message({
-            "folder_id": drafts_folder["id"],
-            "from_address": "me@unitmail.local",
-            "to_addresses": email_msg.to if email_msg.to else [],
-            "cc_addresses": email_msg.cc if email_msg.cc else [],
-            "subject": email_msg.subject or "(No subject)",
-            "body_text": email_msg.body or "",
-            "is_read": True,
-            "status": "draft",
-        })
-        logger.info("Draft saved successfully")
+        # Check if we're editing an existing draft
+        draft_message_id = composer.get_draft_message_id()
+
+        if draft_message_id:
+            # Update existing draft
+            logger.info(f"Updating existing draft: {draft_message_id}")
+            update_data = {
+                "to_addresses": email_msg.get('to', []),
+                "cc_addresses": email_msg.get('cc', []),
+                "subject": email_msg.get('subject') or "(No subject)",
+                "body_text": email_msg.get('body') or "",
+            }
+            result = storage.update_message(draft_message_id, update_data)
+            if result:
+                logger.info(f"Draft updated successfully: {draft_message_id}")
+                # Refresh the message list if we're viewing the Drafts folder
+                if self._is_drafts_folder():
+                    self._load_folder_messages("Drafts")
+            else:
+                logger.error(f"Failed to update draft: {draft_message_id}")
+        else:
+            # Create new draft
+            logger.info("Creating new draft message")
+
+            # Get draft folder
+            drafts_folder = storage.get_folder_by_name("Drafts")
+            if not drafts_folder:
+                logger.error("Drafts folder not found")
+                return
+
+            storage.create_message({
+                "folder_id": drafts_folder["id"],
+                "from_address": "me@unitmail.local",
+                "to_addresses": email_msg.get('to', []),
+                "cc_addresses": email_msg.get('cc', []),
+                "subject": email_msg.get('subject') or "(No subject)",
+                "body_text": email_msg.get('body') or "",
+                "is_read": True,
+                "status": "draft",
+            })
+            logger.info("New draft saved successfully")
 
     def _on_send_message(self, composer: ComposerWindow) -> None:
-        """Handle send message request from composer."""
+        """
+        Handle send message request from composer.
+
+        If the composer was editing a draft, the draft is deleted upon sending.
+        """
         logger.info("Send message requested (gateway not configured)")
         # For now, save to Sent folder since gateway isn't available
         storage = get_local_storage()
@@ -2667,19 +3361,32 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             logger.error("Sent folder not found")
             return
 
-        email_msg = composer.get_message()
+        email_msg = composer.get_message_data()
+
+        # Check if we're sending an edited draft - delete the draft after sending
+        draft_message_id = composer.get_draft_message_id()
+
         storage.create_message({
             "folder_id": sent_folder["id"],
             "from_address": "me@unitmail.local",
-            "to_addresses": email_msg.to if email_msg.to else [],
-            "cc_addresses": email_msg.cc if email_msg.cc else [],
-            "subject": email_msg.subject or "(No subject)",
-            "body_text": email_msg.body or "",
+            "to_addresses": email_msg.get('to', []),
+            "cc_addresses": email_msg.get('cc', []),
+            "subject": email_msg.get('subject') or "(No subject)",
+            "body_text": email_msg.get('body') or "",
             "is_read": True,
             "status": "sent",
             "sent_at": datetime.now().isoformat(),
         })
         logger.info("Message saved to Sent (gateway not available)")
+
+        # If we were editing a draft, delete it now that it's been sent
+        if draft_message_id:
+            storage.delete_message(draft_message_id)
+            logger.info(f"Deleted draft after sending: {draft_message_id}")
+            # Refresh the Drafts folder if we're viewing it
+            if self._is_drafts_folder():
+                self._load_folder_messages("Drafts")
+
         composer.close()
 
     def show_settings_dialog(self) -> None:

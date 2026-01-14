@@ -291,6 +291,7 @@ Eve""",
             "hours_ago": 68,
             "is_read": True,
             "is_starred": True,
+            "attachments": [{"filename": "newsletter_draft.docx", "size": 67000, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}],
         },
     ]
 
@@ -579,6 +580,10 @@ Eve - Marketing""",
             "hours_ago": 42,
             "is_read": True,
             "is_starred": True,
+            "attachments": [
+                {"filename": "campaign_metrics.xlsx", "size": 145000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+                {"filename": "top_posts.png", "size": 1200000, "content_type": "image/png"},
+            ],
         },
         {
             "from": CONTACTS[5],
@@ -646,6 +651,7 @@ Action items:
 Henry""",
             "hours_ago": 58,
             "is_read": False,
+            "attachments": [{"filename": "meeting_notes.txt", "size": 12000, "content_type": "text/plain"}],
         },
         {
             "from": CONTACTS[8],
@@ -783,6 +789,11 @@ Let me know if you need specific shots.
 Olivia - Creative""",
             "hours_ago": 82,
             "is_read": True,
+            "attachments": [
+                {"filename": "team_headshots.jpg", "size": 3400000, "content_type": "image/jpeg"},
+                {"filename": "office_tour.jpg", "size": 2800000, "content_type": "image/jpeg"},
+                {"filename": "product_screenshot_1.png", "size": 890000, "content_type": "image/png"},
+            ],
         },
         {
             "from": CONTACTS[0],
@@ -799,6 +810,7 @@ Let me know if you need to reschedule.
 Alice""",
             "hours_ago": 20,
             "is_read": True,
+            "attachments": [{"filename": "agenda.txt", "size": 3400, "content_type": "text/plain"}],
         },
         {
             "from": CONTACTS[1],
@@ -867,6 +879,7 @@ Deadline: January 25th
 Grace - HR""",
             "hours_ago": 15,
             "is_read": False,
+            "attachments": [{"filename": "offsite_proposals.pdf", "size": 670000, "content_type": "application/pdf"}],
         },
         {
             "from": CONTACTS[8],
@@ -918,6 +931,10 @@ Olivia - Creative""",
             "hours_ago": 16,
             "is_read": False,
             "is_starred": True,
+            "attachments": [
+                {"filename": "video_script.docx", "size": 34000, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+                {"filename": "storyboard.pdf", "size": 2300000, "content_type": "application/pdf"},
+            ],
         },
     ]
 

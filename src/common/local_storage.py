@@ -491,6 +491,124 @@ class LocalEmailStorage:
                 return folder
         return None
 
+    def create_folder(self, name: str, parent_id: Optional[str] = None) -> dict:
+        """
+        Create a new custom folder.
+
+        Args:
+            name: Name for the new folder.
+            parent_id: Optional parent folder ID for nested folders.
+
+        Returns:
+            Created folder dict with ID.
+
+        Raises:
+            ValueError: If name is empty or a folder with this name already exists.
+        """
+        # Validate name
+        if not name or not name.strip():
+            raise ValueError("Folder name cannot be empty")
+
+        name = name.strip()
+
+        # Check for duplicate names
+        existing = self.get_folder_by_name(name)
+        if existing:
+            raise ValueError(f"A folder named '{name}' already exists")
+
+        # Determine sort order (place after existing folders)
+        max_sort_order = max((f.get("sort_order", 0) for f in self._folders), default=0)
+
+        # Create new folder
+        folder = {
+            "id": str(uuid4()),
+            "user_id": str(self._default_user_id),
+            "name": name,
+            "folder_type": FolderType.CUSTOM,
+            "icon": "folder-symbolic",
+            "sort_order": max_sort_order + 1,
+            "is_system": False,
+            "message_count": 0,
+            "unread_count": 0,
+            "parent_id": parent_id,
+            "color": None,
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+
+        self._folders.append(folder)
+        self._save_data()
+
+        logger.info(f"Created custom folder: {name}")
+        return folder
+
+    def delete_folder(self, folder_id: str) -> bool:
+        """
+        Delete a custom folder.
+
+        System folders cannot be deleted.
+
+        Args:
+            folder_id: ID of the folder to delete.
+
+        Returns:
+            True if deleted, False if not found or is a system folder.
+        """
+        for i, folder in enumerate(self._folders):
+            if folder["id"] == folder_id:
+                if folder.get("is_system", False):
+                    logger.warning(f"Cannot delete system folder: {folder['name']}")
+                    return False
+
+                del self._folders[i]
+                self._save_data()
+                logger.info(f"Deleted folder: {folder['name']}")
+                return True
+
+        return False
+
+    def rename_folder(self, folder_id: str, new_name: str) -> Optional[dict]:
+        """
+        Rename a custom folder.
+
+        System folders cannot be renamed.
+
+        Args:
+            folder_id: ID of the folder to rename.
+            new_name: New name for the folder.
+
+        Returns:
+            Updated folder dict or None if not found/system folder.
+
+        Raises:
+            ValueError: If new_name is empty or already exists.
+        """
+        if not new_name or not new_name.strip():
+            raise ValueError("Folder name cannot be empty")
+
+        new_name = new_name.strip()
+
+        # Check for duplicate names (excluding current folder)
+        for folder in self._folders:
+            if folder["name"].lower() == new_name.lower() and folder["id"] != folder_id:
+                raise ValueError(f"A folder named '{new_name}' already exists")
+
+        for folder in self._folders:
+            if folder["id"] == folder_id:
+                if folder.get("is_system", False):
+                    logger.warning(f"Cannot rename system folder: {folder['name']}")
+                    return None
+
+                old_name = folder["name"]
+                folder["name"] = new_name
+                folder["updated_at"] = datetime.utcnow().isoformat()
+                self._save_data()
+
+                logger.info(f"Renamed folder: {old_name} -> {new_name}")
+                return folder
+
+        return None
+
     def _update_folder_counts(self) -> None:
         """Update message counts for all folders."""
         for folder in self._folders:

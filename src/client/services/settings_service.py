@@ -82,6 +82,8 @@ class AppearanceSettings:
     column_width_received: int = 120
     column_width_from: int = 250
     column_width_subject: int = -1  # -1 means expand to fill
+    # Date format setting
+    date_format: str = "YYYY-MM-DD"  # ISO format as default
 
 
 @dataclass
@@ -172,6 +174,7 @@ class SettingsService(GObject.Object):
     __gsignals__ = {
         "settings-changed": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "theme-changed": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "date-format-changed": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
     }
 
     # Default config paths
@@ -250,6 +253,9 @@ class SettingsService(GObject.Object):
             self._settings = Settings.from_dict(data)
             self._is_dirty = False
 
+            # Apply date format from loaded settings
+            self._apply_date_format()
+
             logger.info("Settings loaded successfully")
             return True
 
@@ -322,6 +328,44 @@ class SettingsService(GObject.Object):
     def get_theme(self) -> str:
         """Get current theme mode."""
         return self._settings.appearance.theme_mode
+
+    def _apply_date_format(self) -> None:
+        """Apply current date format setting to the date format service."""
+        try:
+            from client.services.date_format_service import get_date_format_service
+            date_service = get_date_format_service()
+            date_service.set_format(self._settings.appearance.date_format)
+            logger.info(f"Applied date format: {self._settings.appearance.date_format}")
+        except Exception as e:
+            logger.warning(f"Could not apply date format: {e}")
+
+    def get_date_format(self) -> str:
+        """Get current date format."""
+        return self._settings.appearance.date_format
+
+    def set_date_format(self, date_format: str) -> None:
+        """
+        Set and apply date format.
+
+        Args:
+            date_format: Date format string (e.g., 'YYYY-MM-DD', 'MM/DD/YYYY').
+        """
+        valid_formats = [
+            "MM/DD/YYYY",
+            "DD/MM/YYYY",
+            "YYYY-MM-DD",
+            "DD MMM YYYY",
+            "MMM DD, YYYY",
+        ]
+        if date_format not in valid_formats:
+            logger.warning(f"Invalid date format: {date_format}")
+            return
+
+        self._settings.appearance.date_format = date_format
+        self._is_dirty = True
+        self._apply_date_format()
+        self.emit("date-format-changed", date_format)
+        self.emit("settings-changed", "appearance.date_format")
 
     def update_account(
         self,
@@ -412,9 +456,11 @@ class SettingsService(GObject.Object):
         column_width_received: Optional[int] = None,
         column_width_from: Optional[int] = None,
         column_width_subject: Optional[int] = None,
+        date_format: Optional[str] = None,
     ) -> None:
         """Update appearance settings."""
         theme_changed = False
+        date_format_changed = False
 
         if theme_mode is not None and theme_mode != self._settings.appearance.theme_mode:
             self._settings.appearance.theme_mode = theme_mode
@@ -435,12 +481,19 @@ class SettingsService(GObject.Object):
             self._settings.appearance.column_width_from = column_width_from
         if column_width_subject is not None:
             self._settings.appearance.column_width_subject = column_width_subject
+        if date_format is not None and date_format != self._settings.appearance.date_format:
+            self._settings.appearance.date_format = date_format
+            date_format_changed = True
 
         self._is_dirty = True
 
         if theme_changed:
             self.apply_theme()
             self.emit("theme-changed", self._settings.appearance.theme_mode)
+
+        if date_format_changed:
+            self._apply_date_format()
+            self.emit("date-format-changed", self._settings.appearance.date_format)
 
         self.emit("settings-changed", "appearance")
 

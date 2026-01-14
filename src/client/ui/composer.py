@@ -27,6 +27,7 @@ class ComposerMode(Enum):
     REPLY = "reply"
     REPLY_ALL = "reply_all"
     FORWARD = "forward"
+    EDIT = "edit"  # For editing existing drafts
 
 
 @dataclass
@@ -69,16 +70,18 @@ class ComposerWindow(Gtk.Window):
                  original_message: Optional[EmailMessage] = None,
                  contacts_provider: Optional[Callable[[], List[dict]]] = None,
                  signature: str = "",
-                 application: Optional[Gtk.Application] = None):
+                 application: Optional[Gtk.Application] = None,
+                 draft_message_id: Optional[str] = None):
         """
         Initialize the composer window.
 
         Args:
-            mode: Composition mode (new, reply, reply_all, forward)
+            mode: Composition mode (new, reply, reply_all, forward, edit)
             original_message: Original message for reply/forward
             contacts_provider: Callable returning contacts for auto-complete
             signature: Default signature to insert
             application: Parent application
+            draft_message_id: Message ID when editing an existing draft (for update operations)
         """
         super().__init__(
             title=self._get_title(mode),
@@ -92,6 +95,7 @@ class ComposerWindow(Gtk.Window):
         self._contacts_provider = contacts_provider
         self._signature = signature
         self._is_modified = False
+        self._draft_message_id = draft_message_id  # For editing existing drafts
 
         # Setup window
         self._setup_header_bar()
@@ -115,6 +119,7 @@ class ComposerWindow(Gtk.Window):
             ComposerMode.REPLY: "Reply",
             ComposerMode.REPLY_ALL: "Reply All",
             ComposerMode.FORWARD: "Forward",
+            ComposerMode.EDIT: "Edit Draft",
         }
         return titles.get(mode, "Compose")
 
@@ -806,6 +811,24 @@ class ComposerWindow(Gtk.Window):
         self.cc_entry.set_contacts_provider(provider)
         self.bcc_entry.set_contacts_provider(provider)
 
+    def get_draft_message_id(self) -> Optional[str]:
+        """
+        Get the draft message ID being edited.
+
+        Returns:
+            Message ID if editing an existing draft, None otherwise.
+        """
+        return self._draft_message_id
+
+    def is_editing_draft(self) -> bool:
+        """
+        Check if this composer is editing an existing draft.
+
+        Returns:
+            True if editing an existing draft, False for new compositions.
+        """
+        return self._draft_message_id is not None
+
 
 # Convenience function for creating composer windows
 def create_composer(mode: str = "new",
@@ -815,7 +838,7 @@ def create_composer(mode: str = "new",
     Create a composer window.
 
     Args:
-        mode: One of "new", "reply", "reply_all", "forward"
+        mode: One of "new", "reply", "reply_all", "forward", "edit"
         original_message: Original message for reply/forward
         **kwargs: Additional arguments passed to ComposerWindow
 
@@ -827,6 +850,7 @@ def create_composer(mode: str = "new",
         "reply": ComposerMode.REPLY,
         "reply_all": ComposerMode.REPLY_ALL,
         "forward": ComposerMode.FORWARD,
+        "edit": ComposerMode.EDIT,
     }
     composer_mode = mode_map.get(mode, ComposerMode.NEW)
     return ComposerWindow(mode=composer_mode, original_message=original_message, **kwargs)

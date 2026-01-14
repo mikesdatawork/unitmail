@@ -488,6 +488,44 @@ class SettingsWindow(Adw.PreferencesWindow):
 
         page.add(density_group)
 
+        # Date Format group
+        date_format_group = Adw.PreferencesGroup(
+            title="Date Format",
+            description="How dates appear in the message list",
+        )
+
+        # Date format dropdown
+        date_formats = [
+            "MM/DD/YYYY (US)",
+            "DD/MM/YYYY (European)",
+            "YYYY-MM-DD (ISO)",
+            "DD MMM YYYY",
+            "MMM DD, YYYY",
+        ]
+        date_format_model = Gtk.StringList.new(date_formats)
+        self._date_format_row = Adw.ComboRow(
+            title="Date Format",
+            subtitle="Select how dates are displayed",
+            model=date_format_model,
+            selected=2,  # Default to ISO format
+        )
+        self._date_format_row.connect("notify::selected", self._on_date_format_changed)
+        date_format_group.add(self._date_format_row)
+
+        # Date format preview
+        self._date_format_preview_row = Adw.ActionRow(
+            title="Preview",
+        )
+        self._date_format_preview_label = Gtk.Label(
+            label="2026-01-13",
+            css_classes=["dim-label"],
+            valign=Gtk.Align.CENTER,
+        )
+        self._date_format_preview_row.add_suffix(self._date_format_preview_label)
+        date_format_group.add(self._date_format_preview_row)
+
+        page.add(date_format_group)
+
         # Text group
         text_group = Adw.PreferencesGroup(
             title="Text",
@@ -868,6 +906,26 @@ class SettingsWindow(Adw.PreferencesWindow):
         if view_density in self._density_buttons:
             self._density_buttons[view_density].set_active(True)
 
+        # Appearance - Date Format
+        date_format = getattr(settings.appearance, 'date_format', 'YYYY-MM-DD')
+        format_index_map = {
+            "MM/DD/YYYY": 0,
+            "DD/MM/YYYY": 1,
+            "YYYY-MM-DD": 2,
+            "DD MMM YYYY": 3,
+            "MMM DD, YYYY": 4,
+        }
+        preview_map = {
+            "MM/DD/YYYY": "01/13/2026",
+            "DD/MM/YYYY": "13/01/2026",
+            "YYYY-MM-DD": "2026-01-13",
+            "DD MMM YYYY": "13 Jan 2026",
+            "MMM DD, YYYY": "Jan 13, 2026",
+        }
+        date_format_index = format_index_map.get(date_format, 2)
+        self._date_format_row.set_selected(date_format_index)
+        self._date_format_preview_label.set_label(preview_map.get(date_format, "2026-01-13"))
+
         self._font_size_row.set_value(settings.appearance.font_size)
         self._preview_lines_row.set_value(settings.appearance.message_preview_lines)
         self._show_avatars_row.set_active(settings.appearance.show_avatars)
@@ -1122,6 +1180,34 @@ class SettingsWindow(Adw.PreferencesWindow):
                 pass
             # Save density to settings for persistence
             self._settings.update_appearance(view_density=density)
+
+    def _on_date_format_changed(self, row: Adw.ComboRow, *args) -> None:
+        """Handle date format combo row selection change."""
+        selected_index = row.get_selected()
+        format_map = {
+            0: "MM/DD/YYYY",
+            1: "DD/MM/YYYY",
+            2: "YYYY-MM-DD",
+            3: "DD MMM YYYY",
+            4: "MMM DD, YYYY",
+        }
+        preview_map = {
+            0: "01/13/2026",
+            1: "13/01/2026",
+            2: "2026-01-13",
+            3: "13 Jan 2026",
+            4: "Jan 13, 2026",
+        }
+        date_format = format_map.get(selected_index, "YYYY-MM-DD")
+        preview = preview_map.get(selected_index, "2026-01-13")
+
+        logger.info(f"Date format changed to: {date_format}")
+
+        # Update preview label
+        self._date_format_preview_label.set_label(preview)
+
+        # Update settings (this will emit date-format-changed signal)
+        self._settings.set_date_format(date_format)
 
     def _on_appearance_changed(self, *args) -> None:
         """Handle appearance settings changes."""
