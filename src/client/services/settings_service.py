@@ -351,11 +351,18 @@ class SettingsService(GObject.Object):
             date_format: Date format string (e.g., 'YYYY-MM-DD', 'MM/DD/YYYY').
         """
         valid_formats = [
+            # Date only formats
             "MM/DD/YYYY",
             "DD/MM/YYYY",
             "YYYY-MM-DD",
             "DD MMM YYYY",
             "MMM DD, YYYY",
+            # Date and time formats
+            "MM/DD/YYYY HH:MM",
+            "DD/MM/YYYY HH:MM",
+            "YYYY-MM-DD HH:MM",
+            "DD MMM YYYY HH:MM",
+            "MMM DD, YYYY HH:MM",
         ]
         if date_format not in valid_formats:
             logger.warning(f"Invalid date format: {date_format}")
