@@ -711,10 +711,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             Container widget with three panes.
         """
         # Outer paned: left (folders) | right (messages + preview)
+        # resize_start_child=False ensures sidebar width persists on window resize
         self._outer_paned = Gtk.Paned(
             orientation=Gtk.Orientation.HORIZONTAL,
             shrink_start_child=False,
             shrink_end_child=False,
+            resize_start_child=False,
+            resize_end_child=True,
         )
         self._outer_paned.set_vexpand(True)
 
@@ -750,8 +753,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         Returns:
             Folder pane widget.
         """
-        # Container
-        folder_box = Gtk.Box(
+        # Container - store reference for width adjustments
+        self._folder_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             css_classes=["folder-pane"],
         )
@@ -782,7 +785,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._new_folder_button.connect("clicked", self._on_new_folder_clicked)
         header_box.append(self._new_folder_button)
 
-        folder_box.append(header_box)
+        self._folder_box.append(header_box)
 
         # Scrolled window for folder list
         scrolled = Gtk.ScrolledWindow(
@@ -795,9 +798,9 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._folder_list = self._create_folder_list()
         scrolled.set_child(self._folder_list)
 
-        folder_box.append(scrolled)
+        self._folder_box.append(scrolled)
 
-        return folder_box
+        return self._folder_box
 
     def _create_folder_list(self) -> Gtk.ListView:
         """
@@ -921,53 +924,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             css_classes=["message-list-pane"],
         )
 
-        # Toolbar with sort/filter options
-        toolbar = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=6,
-            margin_start=8,
-            margin_end=8,
-            margin_top=6,
-            margin_bottom=6,
-            css_classes=["toolbar"],
-        )
-
-        # Select all checkbox
-        self._select_all_check = Gtk.CheckButton(
-            tooltip_text="Select all messages",
-        )
-        self._select_all_check.connect("toggled", self._on_select_all_toggled)
-        toolbar.append(self._select_all_check)
-
-        # Message count label
-        self._message_count_label = Gtk.Label(
-            label="0 messages",
-            xalign=0,
-            hexpand=True,
-            css_classes=["dim-label"],
-        )
-        toolbar.append(self._message_count_label)
-
-        # Sort dropdown
-        sort_items = ["Date", "From", "Subject", "Size", "Favorite", "Important"]
-        sort_store = Gtk.StringList.new(sort_items)
-        self._sort_dropdown = Gtk.DropDown(
-            model=sort_store,
-            tooltip_text="Sort messages by",
-        )
-        self._sort_dropdown.connect("notify::selected", self._on_sort_changed)
-        toolbar.append(self._sort_dropdown)
-
-        # Sort direction toggle button (ascending/descending)
-        self._sort_direction_btn = Gtk.Button(
-            icon_name="pan-down-symbolic",
-            tooltip_text="Toggle sort direction (currently: newest first)",
-            css_classes=["flat"],
-        )
-        self._sort_direction_btn.connect("clicked", self._on_sort_direction_toggled)
-        toolbar.append(self._sort_direction_btn)
-
-        message_box.append(toolbar)
+        # Note: Sort toolbar removed - column headers now provide sorting functionality
 
         # Bulk actions toolbar (hidden by default, shown when messages are selected)
         self._bulk_actions_bar = Gtk.Box(
@@ -2544,29 +2501,27 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             if folder and len(folder.name) > max_length:
                 max_length = len(folder.name)
 
-        # Calculate width: icon (24px) + text (~8px per char) + padding (24px) + unread badge (30px)
-        # Minimum width of 100px, maximum of 250px
-        char_width = 8  # Approximate pixels per character
-        icon_width = 24
-        padding = 24
-        badge_width = 30
+        # Calculate width: icon (20px) + text (~7px per char) + padding (12px) + unread badge (20px)
+        # Minimum width of 90px, maximum of 200px
+        char_width = 7  # Approximate pixels per character
+        icon_width = 20
+        padding = 12
+        badge_width = 20
 
         calculated_width = icon_width + (max_length * char_width) + padding + badge_width
-        sidebar_width = max(100, min(250, calculated_width))
+        sidebar_width = max(90, min(200, calculated_width))
 
+        # Set paned position and enforce minimum width on folder box
         self._outer_paned.set_position(sidebar_width)
+        if hasattr(self, '_folder_box') and self._folder_box:
+            self._folder_box.set_size_request(sidebar_width, -1)
+
         logger.debug(f"Sidebar width set to {sidebar_width}px (longest folder: {max_length} chars)")
 
     def _update_message_count(self) -> None:
-        """Update the message count label and empty state visibility."""
+        """Update the bulk actions bar visibility based on selection."""
         count = self._message_store.get_n_items()
         selected = len(self._selected_messages)
-
-        if selected > 0:
-            text = f"{selected} of {count} selected"
-        else:
-            text = f"{count} message{'s' if count != 1 else ''}"
-        self._message_count_label.set_label(text)
 
         # Show/hide bulk actions bar based on selection
         if hasattr(self, '_bulk_actions_bar'):
@@ -2888,23 +2843,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
     def _update_select_all_state(self) -> None:
         """Update select all checkbox state based on current selection."""
-        total = self._message_store.get_n_items()
-        selected = len(self._selected_messages)
-
-        # Block the signal to avoid triggering _on_select_all_toggled
-        self._select_all_check.handler_block_by_func(self._on_select_all_toggled)
-
-        if selected == 0:
-            self._select_all_check.set_active(False)
-            self._select_all_check.set_inconsistent(False)
-        elif selected == total and total > 0:
-            self._select_all_check.set_active(True)
-            self._select_all_check.set_inconsistent(False)
-        else:
-            self._select_all_check.set_active(False)
-            self._select_all_check.set_inconsistent(True)
-
-        self._select_all_check.handler_unblock_by_func(self._on_select_all_toggled)
+        # Select all checkbox removed - function kept for compatibility
+        pass
 
     def _refresh_message_list(self) -> None:
         """Refresh the message list to update all item widgets."""
