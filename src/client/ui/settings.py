@@ -494,18 +494,23 @@ class SettingsWindow(Adw.PreferencesWindow):
             description="How dates appear in the message list",
         )
 
-        # Date format dropdown with date-only and date+time options
+        # Date format dropdown with date-only, 24-hour, and 12-hour am/pm options
         date_formats = [
             "MM/DD/YYYY (US)",
             "DD/MM/YYYY (European)",
             "YYYY-MM-DD (ISO)",
             "DD MMM YYYY",
             "MMM DD, YYYY",
-            "MM/DD/YYYY HH:MM (US with time)",
-            "DD/MM/YYYY HH:MM (European with time)",
-            "YYYY-MM-DD HH:MM (ISO with time)",
-            "DD MMM YYYY HH:MM",
-            "MMM DD, YYYY HH:MM",
+            "MM/DD/YYYY HH:MM (US 24-hour)",
+            "DD/MM/YYYY HH:MM (European 24-hour)",
+            "YYYY-MM-DD HH:MM (ISO 24-hour)",
+            "DD MMM YYYY HH:MM (24-hour)",
+            "MMM DD, YYYY HH:MM (24-hour)",
+            "MM/DD/YYYY hh:mm am/pm (US 12-hour)",
+            "DD/MM/YYYY hh:mm am/pm (European 12-hour)",
+            "YYYY-MM-DD hh:mm am/pm (ISO 12-hour)",
+            "DD MMM YYYY hh:mm am/pm (12-hour)",
+            "MMM DD, YYYY hh:mm am/pm (12-hour)",
         ]
         date_format_model = Gtk.StringList.new(date_formats)
         self._date_format_row = Adw.ComboRow(
@@ -1200,28 +1205,44 @@ class SettingsWindow(Adw.PreferencesWindow):
         """Handle date format combo row selection change."""
         selected_index = row.get_selected()
         format_map = {
+            # Date only formats
             0: "MM/DD/YYYY",
             1: "DD/MM/YYYY",
             2: "YYYY-MM-DD",
             3: "DD MMM YYYY",
             4: "MMM DD, YYYY",
+            # Date and time formats (24-hour)
             5: "MM/DD/YYYY HH:MM",
             6: "DD/MM/YYYY HH:MM",
             7: "YYYY-MM-DD HH:MM",
             8: "DD MMM YYYY HH:MM",
             9: "MMM DD, YYYY HH:MM",
+            # Date and time formats (12-hour am/pm)
+            10: "MM/DD/YYYY hh:mm am/pm",
+            11: "DD/MM/YYYY hh:mm am/pm",
+            12: "YYYY-MM-DD hh:mm am/pm",
+            13: "DD MMM YYYY hh:mm am/pm",
+            14: "MMM DD, YYYY hh:mm am/pm",
         }
         preview_map = {
+            # Date only previews
             0: "01/13/2026",
             1: "13/01/2026",
             2: "2026-01-13",
             3: "13 Jan 2026",
             4: "Jan 13, 2026",
+            # 24-hour time previews
             5: "01/13/2026 14:30",
             6: "13/01/2026 14:30",
             7: "2026-01-13 14:30",
             8: "13 Jan 2026 14:30",
             9: "Jan 13, 2026 14:30",
+            # 12-hour am/pm previews
+            10: "01/13/2026 02:30 pm",
+            11: "13/01/2026 02:30 pm",
+            12: "2026-01-13 02:30 pm",
+            13: "13 Jan 2026 02:30 pm",
+            14: "Jan 13, 2026 02:30 pm",
         }
         date_format = format_map.get(selected_index, "YYYY-MM-DD")
         preview = preview_map.get(selected_index, "2026-01-13")

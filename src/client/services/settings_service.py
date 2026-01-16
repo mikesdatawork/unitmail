@@ -357,12 +357,18 @@ class SettingsService(GObject.Object):
             "YYYY-MM-DD",
             "DD MMM YYYY",
             "MMM DD, YYYY",
-            # Date and time formats
+            # Date and time formats (24-hour)
             "MM/DD/YYYY HH:MM",
             "DD/MM/YYYY HH:MM",
             "YYYY-MM-DD HH:MM",
             "DD MMM YYYY HH:MM",
             "MMM DD, YYYY HH:MM",
+            # Date and time formats (12-hour am/pm)
+            "MM/DD/YYYY hh:mm am/pm",
+            "DD/MM/YYYY hh:mm am/pm",
+            "YYYY-MM-DD hh:mm am/pm",
+            "DD MMM YYYY hh:mm am/pm",
+            "MMM DD, YYYY hh:mm am/pm",
         ]
         if date_format not in valid_formats:
             logger.warning(f"Invalid date format: {date_format}")

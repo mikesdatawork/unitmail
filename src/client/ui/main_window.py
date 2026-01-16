@@ -1462,6 +1462,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_date_cell_setup)
         factory.connect("bind", self._on_date_cell_bind)
+        factory.connect("unbind", self._on_date_cell_unbind)
         return factory
 
     def _on_date_cell_setup(
@@ -1496,6 +1497,35 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             label.add_css_class("bold")
         else:
             label.remove_css_class("bold")
+
+        # Connect to date-string property changes for immediate updates
+        def on_date_string_changed(obj, pspec, lbl=label):
+            lbl.set_label(obj.date_string)
+
+        # Disconnect any previous handler
+        if hasattr(label, "_date_handler_id") and label._date_handler_id:
+            try:
+                item.disconnect(label._date_handler_id)
+            except Exception:
+                pass
+        label._date_handler_id = item.connect("notify::date-string", on_date_string_changed)
+        label._date_item = item  # Store reference to disconnect later
+
+    def _on_date_cell_unbind(
+        self,
+        factory: Gtk.SignalListItemFactory,
+        list_item: Gtk.ListItem,
+    ) -> None:
+        """Unbind date cell widget - disconnect signal handlers."""
+        label: Gtk.Label = list_item.get_child()
+        if hasattr(label, "_date_handler_id") and label._date_handler_id:
+            try:
+                if hasattr(label, "_date_item") and label._date_item:
+                    label._date_item.disconnect(label._date_handler_id)
+            except Exception:
+                pass
+            label._date_handler_id = None
+            label._date_item = None
 
     def _create_from_column_factory(self) -> Gtk.SignalListItemFactory:
         """
@@ -2441,6 +2471,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     def _on_date_format_changed(self, service, format_str: str) -> None:
         """Handle date format change - refresh message list immediately."""
         logger.info(f"Date format changed to: {format_str}, refreshing message list")
+        # Notify all MessageItems that their date-string property has changed
+        # This forces GTK to re-read the property value from each item
+        for i in range(self._message_store.get_n_items()):
+            item = self._message_store.get_item(i)
+            if item:
+                item.notify("date-string")
         self._refresh_message_list()
 
     def _load_sample_data(self) -> None:

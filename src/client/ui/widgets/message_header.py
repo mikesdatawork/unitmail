@@ -11,6 +11,8 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
+from client.services.date_format_service import get_date_format_service
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -37,13 +39,13 @@ def format_email_address(email: str, name: Optional[str] = None) -> str:
 
 
 def format_date_time(dt: datetime | str | None) -> str:
-    """Format a datetime for display.
+    """Format a datetime for display using the centralized DateFormatService.
 
     Args:
         dt: The datetime to format.
 
     Returns:
-        Formatted date/time string.
+        Formatted date/time string respecting user's date format preference.
     """
     if dt is None:
         return ""
@@ -54,18 +56,13 @@ def format_date_time(dt: datetime | str | None) -> str:
         except ValueError:
             return dt
 
-    now = datetime.now()
-    today = now.date()
-    msg_date = dt.date() if hasattr(dt, "date") else today
-
-    if msg_date == today:
-        return dt.strftime("%I:%M %p")
-    elif (today - msg_date).days < 7:
-        return dt.strftime("%a %I:%M %p")
-    elif msg_date.year == today.year:
-        return dt.strftime("%b %d, %I:%M %p")
-    else:
-        return dt.strftime("%b %d, %Y %I:%M %p")
+    # Use centralized DateFormatService to respect user's format preference
+    try:
+        date_service = get_date_format_service()
+        return date_service.format_date_with_time(dt)
+    except Exception:
+        # Fallback if service unavailable
+        return dt.strftime("%Y-%m-%d %H:%M")
 
 
 def get_initials(name: str) -> str:

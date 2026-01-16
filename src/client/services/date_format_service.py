@@ -31,12 +31,18 @@ class DateFormat(Enum):
     ISO = "YYYY-MM-DD"         # 2026-01-13
     DAY_MONTH_YEAR = "DD MMM YYYY"  # 13 Jan 2026
     MONTH_DAY_YEAR = "MMM DD, YYYY"  # Jan 13, 2026
-    # Date and time formats
+    # Date and time formats (24-hour)
     US_TIME = "MM/DD/YYYY HH:MM"          # 01/13/2026 14:30
     EUROPEAN_TIME = "DD/MM/YYYY HH:MM"    # 13/01/2026 14:30
     ISO_TIME = "YYYY-MM-DD HH:MM"         # 2026-01-13 14:30
     DAY_MONTH_YEAR_TIME = "DD MMM YYYY HH:MM"  # 13 Jan 2026 14:30
     MONTH_DAY_YEAR_TIME = "MMM DD, YYYY HH:MM"  # Jan 13, 2026 14:30
+    # Date and time formats (12-hour am/pm)
+    US_TIME_AMPM = "MM/DD/YYYY hh:mm am/pm"          # 01/13/2026 02:30 pm
+    EUROPEAN_TIME_AMPM = "DD/MM/YYYY hh:mm am/pm"    # 13/01/2026 02:30 pm
+    ISO_TIME_AMPM = "YYYY-MM-DD hh:mm am/pm"         # 2026-01-13 02:30 pm
+    DAY_MONTH_YEAR_TIME_AMPM = "DD MMM YYYY hh:mm am/pm"  # 13 Jan 2026 02:30 pm
+    MONTH_DAY_YEAR_TIME_AMPM = "MMM DD, YYYY hh:mm am/pm"  # Jan 13, 2026 02:30 pm
 
 
 # Format string mappings for strftime
@@ -51,6 +57,11 @@ DATE_FORMAT_PATTERNS = {
     DateFormat.ISO_TIME: "%Y-%m-%d %H:%M",
     DateFormat.DAY_MONTH_YEAR_TIME: "%d %b %Y %H:%M",
     DateFormat.MONTH_DAY_YEAR_TIME: "%b %d, %Y %H:%M",
+    DateFormat.US_TIME_AMPM: "%m/%d/%Y %I:%M %p",
+    DateFormat.EUROPEAN_TIME_AMPM: "%d/%m/%Y %I:%M %p",
+    DateFormat.ISO_TIME_AMPM: "%Y-%m-%d %I:%M %p",
+    DateFormat.DAY_MONTH_YEAR_TIME_AMPM: "%d %b %Y %I:%M %p",
+    DateFormat.MONTH_DAY_YEAR_TIME_AMPM: "%b %d, %Y %I:%M %p",
 }
 
 # Human-readable labels for the UI
@@ -60,11 +71,16 @@ DATE_FORMAT_LABELS = {
     DateFormat.ISO: "YYYY-MM-DD (ISO)",
     DateFormat.DAY_MONTH_YEAR: "DD MMM YYYY",
     DateFormat.MONTH_DAY_YEAR: "MMM DD, YYYY",
-    DateFormat.US_TIME: "MM/DD/YYYY HH:MM (US with time)",
-    DateFormat.EUROPEAN_TIME: "DD/MM/YYYY HH:MM (European with time)",
-    DateFormat.ISO_TIME: "YYYY-MM-DD HH:MM (ISO with time)",
-    DateFormat.DAY_MONTH_YEAR_TIME: "DD MMM YYYY HH:MM",
-    DateFormat.MONTH_DAY_YEAR_TIME: "MMM DD, YYYY HH:MM",
+    DateFormat.US_TIME: "MM/DD/YYYY HH:MM (US 24-hour)",
+    DateFormat.EUROPEAN_TIME: "DD/MM/YYYY HH:MM (European 24-hour)",
+    DateFormat.ISO_TIME: "YYYY-MM-DD HH:MM (ISO 24-hour)",
+    DateFormat.DAY_MONTH_YEAR_TIME: "DD MMM YYYY HH:MM (24-hour)",
+    DateFormat.MONTH_DAY_YEAR_TIME: "MMM DD, YYYY HH:MM (24-hour)",
+    DateFormat.US_TIME_AMPM: "MM/DD/YYYY hh:mm am/pm (US 12-hour)",
+    DateFormat.EUROPEAN_TIME_AMPM: "DD/MM/YYYY hh:mm am/pm (European 12-hour)",
+    DateFormat.ISO_TIME_AMPM: "YYYY-MM-DD hh:mm am/pm (ISO 12-hour)",
+    DateFormat.DAY_MONTH_YEAR_TIME_AMPM: "DD MMM YYYY hh:mm am/pm (12-hour)",
+    DateFormat.MONTH_DAY_YEAR_TIME_AMPM: "MMM DD, YYYY hh:mm am/pm (12-hour)",
 }
 
 # Example dates for preview in settings
@@ -79,6 +95,11 @@ DATE_FORMAT_EXAMPLES = {
     DateFormat.ISO_TIME: "2026-01-13 14:30",
     DateFormat.DAY_MONTH_YEAR_TIME: "13 Jan 2026 14:30",
     DateFormat.MONTH_DAY_YEAR_TIME: "Jan 13, 2026 14:30",
+    DateFormat.US_TIME_AMPM: "01/13/2026 02:30 pm",
+    DateFormat.EUROPEAN_TIME_AMPM: "13/01/2026 02:30 pm",
+    DateFormat.ISO_TIME_AMPM: "2026-01-13 02:30 pm",
+    DateFormat.DAY_MONTH_YEAR_TIME_AMPM: "13 Jan 2026 02:30 pm",
+    DateFormat.MONTH_DAY_YEAR_TIME_AMPM: "Jan 13, 2026 02:30 pm",
 }
 
 
@@ -93,16 +114,24 @@ def get_date_format_from_string(format_str: str) -> DateFormat:
         Corresponding DateFormat enum value.
     """
     format_map = {
+        # Date only formats
         "MM/DD/YYYY": DateFormat.US,
         "DD/MM/YYYY": DateFormat.EUROPEAN,
         "YYYY-MM-DD": DateFormat.ISO,
         "DD MMM YYYY": DateFormat.DAY_MONTH_YEAR,
         "MMM DD, YYYY": DateFormat.MONTH_DAY_YEAR,
+        # Date and time formats (24-hour)
         "MM/DD/YYYY HH:MM": DateFormat.US_TIME,
         "DD/MM/YYYY HH:MM": DateFormat.EUROPEAN_TIME,
         "YYYY-MM-DD HH:MM": DateFormat.ISO_TIME,
         "DD MMM YYYY HH:MM": DateFormat.DAY_MONTH_YEAR_TIME,
         "MMM DD, YYYY HH:MM": DateFormat.MONTH_DAY_YEAR_TIME,
+        # Date and time formats (12-hour am/pm)
+        "MM/DD/YYYY hh:mm am/pm": DateFormat.US_TIME_AMPM,
+        "DD/MM/YYYY hh:mm am/pm": DateFormat.EUROPEAN_TIME_AMPM,
+        "YYYY-MM-DD hh:mm am/pm": DateFormat.ISO_TIME_AMPM,
+        "DD MMM YYYY hh:mm am/pm": DateFormat.DAY_MONTH_YEAR_TIME_AMPM,
+        "MMM DD, YYYY hh:mm am/pm": DateFormat.MONTH_DAY_YEAR_TIME_AMPM,
     }
     return format_map.get(format_str, DateFormat.ISO)
 
@@ -179,7 +208,11 @@ class DateFormatService(GObject.Object):
             return date.strftime("%H:%M")
         else:
             # Use the configured date format
-            return date.strftime(pattern)
+            result = date.strftime(pattern)
+            # Convert AM/PM to lowercase am/pm
+            if "%p" in pattern:
+                result = result.replace("AM", "am").replace("PM", "pm")
+            return result
 
     def format_date_full(self, date: datetime) -> str:
         """
@@ -204,7 +237,11 @@ class DateFormatService(GObject.Object):
             Formatted date and time string.
         """
         pattern = DATE_FORMAT_PATTERNS[self._current_format]
-        return date.strftime(f"{pattern} at %H:%M")
+        result = date.strftime(f"{pattern} at %H:%M")
+        # Convert AM/PM to lowercase am/pm
+        if "%p" in pattern:
+            result = result.replace("AM", "am").replace("PM", "pm")
+        return result
 
     def get_format_label(self, format_value: Optional[DateFormat] = None) -> str:
         """
