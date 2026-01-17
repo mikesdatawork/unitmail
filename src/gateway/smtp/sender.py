@@ -64,7 +64,8 @@ class DeliveryResult:
     recipient: str
     status: DeliveryStatus
     message_id: Optional[str] = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc))
     smtp_code: Optional[int] = None
     smtp_message: Optional[str] = None
     error: Optional[str] = None
@@ -242,12 +243,15 @@ class SMTPSender:
             return mx_records
 
         except dns.resolver.NXDOMAIN:
-            logger.warning("No MX records found for domain: %s (NXDOMAIN)", domain)
-            raise DNSLookupError(domain, "MX", {"reason": "Domain does not exist"})
+            logger.warning(
+                "No MX records found for domain: %s (NXDOMAIN)", domain)
+            raise DNSLookupError(
+                domain, "MX", {"reason": "Domain does not exist"})
 
         except dns.resolver.NoAnswer:
             # Fall back to A record if no MX records
-            logger.info("No MX records for %s, falling back to A record", domain)
+            logger.info(
+                "No MX records for %s, falling back to A record", domain)
             return [MXRecord(priority=0, host=domain)]
 
         except DNSException as e:
@@ -268,7 +272,8 @@ class SMTPSender:
         Returns:
             Tuple of (success, error_message).
         """
-        logger.debug("Verifying connection to %s:%d (TLS=%s)", host, port, use_tls)
+        logger.debug("Verifying connection to %s:%d (TLS=%s)",
+                     host, port, use_tls)
 
         try:
             smtp = aiosmtplib.SMTP(
@@ -301,7 +306,8 @@ class SMTPSender:
 
         except Exception as e:
             error_msg = f"Unexpected error: {e}"
-            logger.error("Unexpected error connecting to %s:%d: %s", host, port, e)
+            logger.error(
+                "Unexpected error connecting to %s:%d: %s", host, port, e)
             return False, error_msg
 
     def _calculate_retry_delay(self, attempt: int) -> int:
@@ -398,14 +404,16 @@ class SMTPSender:
             await smtp.quit()
 
             # Check response for each recipient
-            # aiosmtplib returns dict of {recipient: (code, message)} for failures
+            # aiosmtplib returns dict of {recipient: (code, message)} for
+            # failures
             if response:
                 # Some recipients failed
                 failed_recipient = list(response.keys())[0]
                 code, message = response[failed_recipient]
                 return DeliveryResult(
                     recipient=", ".join(recipients),
-                    status=DeliveryStatus.FAILED if self._is_permanent_failure(code) else DeliveryStatus.DEFERRED,
+                    status=DeliveryStatus.FAILED if self._is_permanent_failure(
+                        code) else DeliveryStatus.DEFERRED,
                     smtp_code=code,
                     smtp_message=message,
                     mx_host=relay.host,
@@ -485,7 +493,8 @@ class SMTPSender:
         last_code: Optional[int] = None
 
         for mx in mx_records:
-            logger.info("Trying MX server %s:%d for %s", mx.host, mx.port, recipient)
+            logger.info("Trying MX server %s:%d for %s",
+                        mx.host, mx.port, recipient)
 
             try:
                 # Create SSL context for STARTTLS
@@ -508,7 +517,8 @@ class SMTPSender:
                     await smtp.starttls(tls_context=ssl_context)
                     await smtp.ehlo(self.hostname)
                 except aiosmtplib.SMTPException as e:
-                    logger.debug("STARTTLS not available on %s: %s", mx.host, e)
+                    logger.debug(
+                        "STARTTLS not available on %s: %s", mx.host, e)
 
                 # Send the message
                 response = await smtp.sendmail(sender, [recipient], message_data)
@@ -559,7 +569,8 @@ class SMTPSender:
                 last_error = e.message
 
             except (aiosmtplib.SMTPConnectError, socket.error, OSError) as e:
-                logger.warning("Connection error to %s for %s: %s", mx.host, recipient, e)
+                logger.warning("Connection error to %s for %s: %s",
+                               mx.host, recipient, e)
                 last_error = str(e)
 
             except Exception as e:
@@ -602,7 +613,8 @@ class SMTPSender:
             "Sending message %s from %s to %d recipients",
             message.message_id,
             message.from_address,
-            len(message.to_addresses) + len(message.cc_addresses) + len(message.bcc_addresses),
+            len(message.to_addresses) + len(message.cc_addresses) +
+            len(message.bcc_addresses),
         )
 
         # Get raw message data if not provided
@@ -654,9 +666,12 @@ class SMTPSender:
             self._delivery_results[f"{message.message_id}:{result.recipient}"] = result
 
         # Log summary
-        delivered = sum(1 for r in results if r.status == DeliveryStatus.DELIVERED)
-        failed = sum(1 for r in results if r.status in (DeliveryStatus.FAILED, DeliveryStatus.BOUNCED))
-        deferred = sum(1 for r in results if r.status == DeliveryStatus.DEFERRED)
+        delivered = sum(1 for r in results if r.status ==
+                        DeliveryStatus.DELIVERED)
+        failed = sum(1 for r in results if r.status in (
+            DeliveryStatus.FAILED, DeliveryStatus.BOUNCED))
+        deferred = sum(1 for r in results if r.status ==
+                       DeliveryStatus.DEFERRED)
 
         logger.info(
             "Message %s: %d delivered, %d failed, %d deferred",
@@ -704,7 +719,8 @@ class SMTPSender:
             result.attempts = attempt
 
             # Success or permanent failure - don't retry
-            if result.status in (DeliveryStatus.DELIVERED, DeliveryStatus.BOUNCED, DeliveryStatus.FAILED):
+            if result.status in (DeliveryStatus.DELIVERED,
+                                 DeliveryStatus.BOUNCED, DeliveryStatus.FAILED):
                 return result
 
             # Temporary failure - retry with backoff
@@ -748,7 +764,8 @@ class SMTPSender:
         Returns:
             BatchDeliveryResult with aggregated results.
         """
-        logger.info("Starting batch send of %d messages (concurrency=%d)", len(messages), concurrency)
+        logger.info("Starting batch send of %d messages (concurrency=%d)", len(
+            messages), concurrency)
 
         semaphore = asyncio.Semaphore(concurrency)
         all_results: list[DeliveryResult] = []
@@ -783,9 +800,12 @@ class SMTPSender:
                 all_results.extend(result)
 
         # Calculate summary
-        successful = sum(1 for r in all_results if r.status == DeliveryStatus.DELIVERED)
-        failed = sum(1 for r in all_results if r.status in (DeliveryStatus.FAILED, DeliveryStatus.BOUNCED))
-        deferred = sum(1 for r in all_results if r.status == DeliveryStatus.DEFERRED)
+        successful = sum(1 for r in all_results if r.status ==
+                         DeliveryStatus.DELIVERED)
+        failed = sum(1 for r in all_results if r.status in (
+            DeliveryStatus.FAILED, DeliveryStatus.BOUNCED))
+        deferred = sum(1 for r in all_results if r.status ==
+                       DeliveryStatus.DEFERRED)
 
         batch_result = BatchDeliveryResult(
             total=len(all_results),
@@ -830,7 +850,8 @@ class SMTPSender:
         ]
         return results if results else None
 
-    def clear_delivery_history(self, older_than: Optional[timedelta] = None) -> int:
+    def clear_delivery_history(
+            self, older_than: Optional[timedelta] = None) -> int:
         """
         Clear delivery history.
 

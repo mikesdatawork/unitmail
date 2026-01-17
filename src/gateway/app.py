@@ -242,7 +242,8 @@ def _register_error_handlers(app: Flask) -> None:
         return jsonify(response), 404
 
     @app.errorhandler(405)
-    def handle_method_not_allowed(error: HTTPException) -> tuple[Response, int]:
+    def handle_method_not_allowed(
+            error: HTTPException) -> tuple[Response, int]:
         """Handle 405 Method Not Allowed errors."""
         response = {
             "error": {
@@ -284,7 +285,8 @@ def _register_error_handlers(app: Flask) -> None:
         return jsonify(response), 500
 
     @app.errorhandler(503)
-    def handle_service_unavailable(error: HTTPException) -> tuple[Response, int]:
+    def handle_service_unavailable(
+            error: HTTPException) -> tuple[Response, int]:
         """Handle 503 Service Unavailable errors."""
         response = {
             "error": {
@@ -342,7 +344,8 @@ def _register_middleware(app: Flask, settings: GatewaySettings) -> None:
         # Calculate response time
         request_start_time = getattr(g, "request_start_time", None)
         if request_start_time:
-            response_time_ms = (time.perf_counter() - request_start_time) * 1000
+            response_time_ms = (time.perf_counter() -
+                                request_start_time) * 1000
             response.headers["X-Response-Time"] = f"{response_time_ms:.2f}ms"
         else:
             response_time_ms = 0

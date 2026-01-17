@@ -174,7 +174,8 @@ class AvatarWidget(Gtk.DrawingArea):
 
         # Draw text
         cr.set_source_rgb(1, 1, 1)  # White text
-        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL,
+                            cairo.FONT_WEIGHT_BOLD)
         cr.set_font_size(radius * 0.8)
 
         # Center the text
@@ -416,7 +417,8 @@ class MessageHeader(Gtk.Box):
         )
         self._attachment_box.set_visible(False)
 
-        attachment_icon = Gtk.Image.new_from_icon_name("mail-attachment-symbolic")
+        attachment_icon = Gtk.Image.new_from_icon_name(
+            "mail-attachment-symbolic")
         attachment_icon.set_pixel_size(16)
         self._attachment_box.append(attachment_icon)
 
@@ -439,7 +441,8 @@ class MessageHeader(Gtk.Box):
             spacing=4,
         )
         self._encryption_box.set_visible(False)
-        self._encryption_icon = Gtk.Image.new_from_icon_name("channel-secure-symbolic")
+        self._encryption_icon = Gtk.Image.new_from_icon_name(
+            "channel-secure-symbolic")
         self._encryption_icon.set_pixel_size(16)
         self._encryption_box.append(self._encryption_icon)
         self._encryption_label = Gtk.Label(label="Encrypted")
@@ -454,7 +457,8 @@ class MessageHeader(Gtk.Box):
             spacing=4,
         )
         self._signature_box.set_visible(False)
-        self._signature_icon = Gtk.Image.new_from_icon_name("security-high-symbolic")
+        self._signature_icon = Gtk.Image.new_from_icon_name(
+            "security-high-symbolic")
         self._signature_icon.set_pixel_size(16)
         self._signature_box.append(self._signature_icon)
         self._signature_label = Gtk.Label(label="Signed")
@@ -468,7 +472,8 @@ class MessageHeader(Gtk.Box):
         self.append(main_header)
 
         # Expand button for full headers
-        self._expand_button = Gtk.Button.new_from_icon_name("pan-down-symbolic")
+        self._expand_button = Gtk.Button.new_from_icon_name(
+            "pan-down-symbolic")
         self._expand_button.set_tooltip_text("Show all headers")
         self._expand_button.add_css_class("flat")
         self._expand_button.add_css_class("circular")
@@ -534,7 +539,8 @@ class MessageHeader(Gtk.Box):
 
         if isinstance(date, str):
             try:
-                self._date = datetime.fromisoformat(date.replace("Z", "+00:00"))
+                self._date = datetime.fromisoformat(
+                    date.replace("Z", "+00:00"))
             except ValueError:
                 self._date = None
         else:
@@ -553,15 +559,18 @@ class MessageHeader(Gtk.Box):
             to_addresses=list(message.to_addresses),
             subject=message.subject,
             date=message.received_at or message.sent_at or message.created_at,
-            cc_addresses=list(message.cc_addresses) if message.cc_addresses else None,
-            attachment_count=len(message.attachments) if message.attachments else 0,
+            cc_addresses=list(
+                message.cc_addresses) if message.cc_addresses else None,
+            attachment_count=len(
+                message.attachments) if message.attachments else 0,
             headers=dict(message.headers) if message.headers else None,
         )
 
     def _update_display(self) -> None:
         """Update the display with current data."""
         # Update avatar
-        initials = get_initials(self._from_name or self._from_address.split("@")[0])
+        initials = get_initials(
+            self._from_name or self._from_address.split("@")[0])
         color = get_avatar_color(self._from_address)
         self._avatar.set_text(initials)
         self._avatar.set_color(color)
@@ -570,10 +579,13 @@ class MessageHeader(Gtk.Box):
         if self._from_name:
             self._from_label.set_markup(
                 f"<b>{GLib.markup_escape_text(self._from_name)}</b> "
-                f"<span size='small'>&lt;{GLib.markup_escape_text(self._from_address)}&gt;</span>"
+                f"<span size='small'>&lt;{
+                    GLib.markup_escape_text(
+                        self._from_address)}&gt;</span>"
             )
         else:
-            self._from_label.set_markup(f"<b>{GLib.markup_escape_text(self._from_address)}</b>")
+            self._from_label.set_markup(
+                f"<b>{GLib.markup_escape_text(self._from_address)}</b>")
 
         # Update subject
         self._subject_label.set_label(self._subject or "(No subject)")
@@ -628,7 +640,8 @@ class MessageHeader(Gtk.Box):
             # Encryption indicator
             if self._is_encrypted:
                 self._encryption_box.set_visible(True)
-                self._encryption_icon.set_from_icon_name("channel-secure-symbolic")
+                self._encryption_icon.set_from_icon_name(
+                    "channel-secure-symbolic")
                 self._encryption_label.set_label("Encrypted")
                 self._encryption_box.remove_css_class("security-warning")
                 self._encryption_box.add_css_class("security-success")
@@ -639,19 +652,22 @@ class MessageHeader(Gtk.Box):
             if self._is_signed:
                 self._signature_box.set_visible(True)
                 if self._signature_valid is True:
-                    self._signature_icon.set_from_icon_name("security-high-symbolic")
+                    self._signature_icon.set_from_icon_name(
+                        "security-high-symbolic")
                     self._signature_label.set_label("Verified signature")
                     self._signature_box.remove_css_class("security-warning")
                     self._signature_box.remove_css_class("security-error")
                     self._signature_box.add_css_class("security-success")
                 elif self._signature_valid is False:
-                    self._signature_icon.set_from_icon_name("security-low-symbolic")
+                    self._signature_icon.set_from_icon_name(
+                        "security-low-symbolic")
                     self._signature_label.set_label("Invalid signature")
                     self._signature_box.remove_css_class("security-success")
                     self._signature_box.remove_css_class("security-warning")
                     self._signature_box.add_css_class("security-error")
                 else:
-                    self._signature_icon.set_from_icon_name("security-medium-symbolic")
+                    self._signature_icon.set_from_icon_name(
+                        "security-medium-symbolic")
                     self._signature_label.set_label("Signed (unverified)")
                     self._signature_box.remove_css_class("security-success")
                     self._signature_box.remove_css_class("security-error")
@@ -717,7 +733,8 @@ class MessageHeader(Gtk.Box):
         # Update button icon
         icon_name = "pan-up-symbolic" if self._expanded else "pan-down-symbolic"
         button.set_icon_name(icon_name)
-        button.set_tooltip_text("Hide headers" if self._expanded else "Show all headers")
+        button.set_tooltip_text(
+            "Hide headers" if self._expanded else "Show all headers")
 
     @property
     def from_address(self) -> str:

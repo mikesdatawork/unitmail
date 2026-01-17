@@ -35,10 +35,8 @@ class BackupError(UnitMailError):
     """Exception raised for backup-related errors."""
 
 
-
 class RestoreError(UnitMailError):
     """Exception raised for restore-related errors."""
-
 
 
 class BackupType(str, Enum):
@@ -213,7 +211,8 @@ class BackupEncryption:
                 cls.SALT_SIZE + cls.NONCE_SIZE:
                 cls.SALT_SIZE + cls.NONCE_SIZE + cls.TAG_SIZE
             ]
-            ciphertext = encrypted_data[cls.SALT_SIZE + cls.NONCE_SIZE + cls.TAG_SIZE:]
+            ciphertext = encrypted_data[cls.SALT_SIZE +
+                                        cls.NONCE_SIZE + cls.TAG_SIZE:]
 
             key = cls.derive_key(password, salt)
 
@@ -263,7 +262,8 @@ class BackupService:
 
         logger.info("BackupService initialized with SQLite storage")
 
-    def set_progress_callback(self, callback: Optional[ProgressCallback]) -> None:
+    def set_progress_callback(
+            self, callback: Optional[ProgressCallback]) -> None:
         """Set the progress callback."""
         self._progress_callback = callback
 
@@ -350,18 +350,22 @@ class BackupService:
 
                 # Backup database file
                 if contents.database:
-                    self._report_progress("backup", "Backing up database", current_step, total_steps)
+                    self._report_progress(
+                        "backup", "Backing up database", current_step, total_steps)
                     if os.path.exists(db_path):
                         # Read the database file
                         with open(db_path, "rb") as f:
                             zf.writestr(self.DATABASE_FILE, f.read())
-                        metadata.contents["database_size"] = os.path.getsize(db_path)
+                        metadata.contents["database_size"] = os.path.getsize(
+                            db_path)
                     current_step += 1
 
                 # Backup configuration
                 if contents.configuration:
-                    self._report_progress("backup", "Backing up configuration", current_step, total_steps)
-                    config_path = os.path.expanduser("~/.config/unitmail/settings.json")
+                    self._report_progress(
+                        "backup", "Backing up configuration", current_step, total_steps)
+                    config_path = os.path.expanduser(
+                        "~/.config/unitmail/settings.json")
                     if os.path.exists(config_path):
                         with open(config_path, "r") as f:
                             zf.writestr(self.CONFIG_FILE, f.read())
@@ -370,33 +374,38 @@ class BackupService:
 
                 # Backup DKIM keys
                 if contents.dkim_keys:
-                    self._report_progress("backup", "Backing up DKIM keys", current_step, total_steps)
+                    self._report_progress(
+                        "backup", "Backing up DKIM keys", current_step, total_steps)
                     dkim_dir = os.path.expanduser("~/.unitmail/keys/dkim")
                     if os.path.exists(dkim_dir):
                         for filename in os.listdir(dkim_dir):
                             filepath = os.path.join(dkim_dir, filename)
                             if os.path.isfile(filepath):
                                 with open(filepath, "rb") as f:
-                                    zf.writestr(f"{self.DKIM_KEYS_DIR}{filename}", f.read())
+                                    zf.writestr(
+                                        f"{self.DKIM_KEYS_DIR}{filename}", f.read())
                         metadata.contents["dkim_keys"] = 1
                     current_step += 1
 
                 # Backup PGP keys
                 if contents.pgp_keys:
-                    self._report_progress("backup", "Backing up PGP keys", current_step, total_steps)
+                    self._report_progress(
+                        "backup", "Backing up PGP keys", current_step, total_steps)
                     pgp_dir = os.path.expanduser("~/.unitmail/keys/pgp")
                     if os.path.exists(pgp_dir):
                         for filename in os.listdir(pgp_dir):
                             filepath = os.path.join(pgp_dir, filename)
                             if os.path.isfile(filepath):
                                 with open(filepath, "rb") as f:
-                                    zf.writestr(f"{self.PGP_KEYS_DIR}{filename}", f.read())
+                                    zf.writestr(
+                                        f"{self.PGP_KEYS_DIR}{filename}", f.read())
                         metadata.contents["pgp_keys"] = 1
                     current_step += 1
 
                 # Calculate checksum of zip contents
                 zip_buffer.seek(0)
-                metadata.checksum = hashlib.sha256(zip_buffer.read()).hexdigest()
+                metadata.checksum = hashlib.sha256(
+                    zip_buffer.read()).hexdigest()
                 zip_buffer.seek(0)
 
                 # Add metadata to zip
@@ -406,12 +415,15 @@ class BackupService:
                 )
 
             # Encrypt the zip
-            self._report_progress("backup", "Encrypting backup", total_steps - 1, total_steps)
+            self._report_progress(
+                "backup", "Encrypting backup", total_steps - 1, total_steps)
             zip_buffer.seek(0)
-            encrypted_data = BackupEncryption.encrypt(zip_buffer.read(), password)
+            encrypted_data = BackupEncryption.encrypt(
+                zip_buffer.read(), password)
 
             # Write to file
-            self._report_progress("backup", "Writing backup file", total_steps, total_steps)
+            self._report_progress(
+                "backup", "Writing backup file", total_steps, total_steps)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, "wb") as f:
                 f.write(encrypted_data)
@@ -424,7 +436,8 @@ class BackupService:
                 metadata.contents,
             )
 
-            self._report_progress("backup", "Backup complete", total_steps, total_steps)
+            self._report_progress(
+                "backup", "Backup complete", total_steps, total_steps)
 
             return metadata
 
@@ -472,7 +485,8 @@ class BackupService:
                 # Get counts from metadata
                 preview.messages_count = metadata.contents.get("messages", 0)
                 preview.folders_count = metadata.contents.get("folders", 0)
-                preview.database_size_bytes = metadata.contents.get("database_size", 0)
+                preview.database_size_bytes = metadata.contents.get(
+                    "database_size", 0)
 
                 preview.has_configuration = self.CONFIG_FILE in zf.namelist()
                 preview.has_dkim_keys = any(
@@ -537,7 +551,8 @@ class BackupService:
 
                 # Restore database
                 if contents.database and self.DATABASE_FILE in zf.namelist():
-                    self._report_progress("restore", "Restoring database", current_step, total_steps)
+                    self._report_progress(
+                        "restore", "Restoring database", current_step, total_steps)
 
                     # Close current storage connection
                     self._storage.close()
@@ -549,7 +564,8 @@ class BackupService:
                     if os.path.exists(db_path):
                         backup_existing = f"{db_path}.pre-restore"
                         shutil.copy2(db_path, backup_existing)
-                        logger.info(f"Backed up existing database to {backup_existing}")
+                        logger.info(
+                            f"Backed up existing database to {backup_existing}")
 
                     # Extract new database
                     db_data = zf.read(self.DATABASE_FILE)
@@ -557,15 +573,19 @@ class BackupService:
                         f.write(db_data)
 
                     restored_counts["database"] = 1
-                    restored_counts["messages"] = metadata.contents.get("messages", 0)
-                    restored_counts["folders"] = metadata.contents.get("folders", 0)
+                    restored_counts["messages"] = metadata.contents.get(
+                        "messages", 0)
+                    restored_counts["folders"] = metadata.contents.get(
+                        "folders", 0)
 
                 current_step += 1
 
                 # Restore configuration
                 if contents.configuration and self.CONFIG_FILE in zf.namelist():
-                    self._report_progress("restore", "Restoring configuration", current_step, total_steps)
-                    config_path = os.path.expanduser("~/.config/unitmail/settings.json")
+                    self._report_progress(
+                        "restore", "Restoring configuration", current_step, total_steps)
+                    config_path = os.path.expanduser(
+                        "~/.config/unitmail/settings.json")
                     os.makedirs(os.path.dirname(config_path), exist_ok=True)
 
                     config_data = zf.read(self.CONFIG_FILE)
@@ -577,9 +597,11 @@ class BackupService:
 
                 # Restore DKIM keys
                 if contents.dkim_keys:
-                    dkim_files = [n for n in zf.namelist() if n.startswith(self.DKIM_KEYS_DIR)]
+                    dkim_files = [n for n in zf.namelist(
+                    ) if n.startswith(self.DKIM_KEYS_DIR)]
                     if dkim_files:
-                        self._report_progress("restore", "Restoring DKIM keys", current_step, total_steps)
+                        self._report_progress(
+                            "restore", "Restoring DKIM keys", current_step, total_steps)
                         dkim_dir = os.path.expanduser("~/.unitmail/keys/dkim")
                         os.makedirs(dkim_dir, exist_ok=True)
 
@@ -595,9 +617,11 @@ class BackupService:
 
                 # Restore PGP keys
                 if contents.pgp_keys:
-                    pgp_files = [n for n in zf.namelist() if n.startswith(self.PGP_KEYS_DIR)]
+                    pgp_files = [n for n in zf.namelist(
+                    ) if n.startswith(self.PGP_KEYS_DIR)]
                     if pgp_files:
-                        self._report_progress("restore", "Restoring PGP keys", current_step, total_steps)
+                        self._report_progress(
+                            "restore", "Restoring PGP keys", current_step, total_steps)
                         pgp_dir = os.path.expanduser("~/.unitmail/keys/pgp")
                         os.makedirs(pgp_dir, exist_ok=True)
 
@@ -611,7 +635,8 @@ class BackupService:
                         restored_counts["pgp_keys"] = len(pgp_files)
                 current_step += 1
 
-            self._report_progress("restore", "Restore complete", total_steps, total_steps)
+            self._report_progress(
+                "restore", "Restore complete", total_steps, total_steps)
 
             logger.info("Restore complete: %s", restored_counts)
 
@@ -643,7 +668,8 @@ class BackupService:
             return False
 
         # Check file size (minimum size for encrypted data)
-        min_size = BackupEncryption.SALT_SIZE + BackupEncryption.NONCE_SIZE + BackupEncryption.TAG_SIZE
+        min_size = BackupEncryption.SALT_SIZE + \
+            BackupEncryption.NONCE_SIZE + BackupEncryption.TAG_SIZE
         if path.stat().st_size < min_size:
             return False
 

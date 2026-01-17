@@ -268,7 +268,8 @@ class InboxPage(BasePage):
 
     async def select_email(self, index: int = 0) -> None:
         """Select an email by its checkbox."""
-        checkbox = self.email_items.nth(index).locator("input[type='checkbox']")
+        checkbox = self.email_items.nth(
+            index).locator("input[type='checkbox']")
         await checkbox.check()
 
     async def select_emails(self, indices: List[int]) -> None:

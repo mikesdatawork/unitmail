@@ -216,12 +216,14 @@ class JWTManager:
             # Check token type if specified
             if expected_type and payload.get("type") != expected_type:
                 raise TokenInvalidError(
-                    details={"reason": f"Expected {expected_type} token, got {payload.get('type')}"}
+                    details={
+                        "reason": f"Expected {expected_type} token, got {payload.get('type')}"}
                 )
 
             # Check if token is revoked
             if self.is_revoked(token):
-                raise TokenInvalidError(details={"reason": "Token has been revoked"})
+                raise TokenInvalidError(
+                    details={"reason": "Token has been revoked"})
 
             logger.debug(
                 "Token verified",
@@ -255,7 +257,8 @@ class JWTManager:
             True if the token was successfully revoked.
         """
         try:
-            # Decode without verification to get the jti (token might be expired)
+            # Decode without verification to get the jti (token might be
+            # expired)
             payload = jwt.decode(
                 token,
                 self.secret,
@@ -274,7 +277,8 @@ class JWTManager:
             # Convert expiration timestamp to ISO format
             expires_at = None
             if exp:
-                expires_at = datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
+                expires_at = datetime.fromtimestamp(
+                    exp, tz=timezone.utc).isoformat()
 
             # Add to SQLite blacklist
             result = self._storage.add_to_blacklist(
@@ -478,7 +482,8 @@ def require_auth(f: F) -> F:
             abort(401, description="Authorization token is required")
 
         try:
-            payload = jwt_manager.verify_token(token, expected_type=JWTManager.TOKEN_TYPE_ACCESS)
+            payload = jwt_manager.verify_token(
+                token, expected_type=JWTManager.TOKEN_TYPE_ACCESS)
 
             # Store user info in Flask's g object
             g.user_id = payload.get("sub")
@@ -498,7 +503,8 @@ def require_auth(f: F) -> F:
         except TokenExpiredError:
             abort(401, description="Token has expired")
         except TokenInvalidError as e:
-            abort(401, description=f"Invalid token: {e.details.get('reason', 'Unknown error')}")
+            abort(
+                401, description=f"Invalid token: {e.details.get('reason', 'Unknown error')}")
         except AuthenticationError as e:
             abort(401, description=str(e.message))
 
@@ -574,7 +580,8 @@ def optional_auth(f: F) -> F:
 
         if token:
             try:
-                payload = jwt_manager.verify_token(token, expected_type=JWTManager.TOKEN_TYPE_ACCESS)
+                payload = jwt_manager.verify_token(
+                    token, expected_type=JWTManager.TOKEN_TYPE_ACCESS)
 
                 g.user_id = payload.get("sub")
                 g.token_payload = payload
@@ -620,7 +627,8 @@ def create_token_response(
     """
     jwt_manager = get_jwt_manager()
 
-    access_token = jwt_manager.generate_token(user_id, additional_claims=additional_claims)
+    access_token = jwt_manager.generate_token(
+        user_id, additional_claims=additional_claims)
 
     response = {
         "access_token": access_token,
@@ -629,7 +637,8 @@ def create_token_response(
     }
 
     if include_refresh:
-        refresh_token = jwt_manager.generate_refresh_token(user_id, additional_claims=additional_claims)
+        refresh_token = jwt_manager.generate_refresh_token(
+            user_id, additional_claims=additional_claims)
         response["refresh_token"] = refresh_token
         response["refresh_expires_in"] = jwt_manager.refresh_token_expiry
 

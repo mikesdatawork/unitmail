@@ -98,8 +98,10 @@ class DNSHealthReport:
     overall_status: RecordStatus
     spf: DNSCheckResult
     dkim: dict[str, DNSCheckResult] = field(default_factory=dict)
-    dmarc: DNSCheckResult = field(default_factory=lambda: DNSCheckResult("DMARC", RecordStatus.MISSING))
-    mx: DNSCheckResult = field(default_factory=lambda: DNSCheckResult("MX", RecordStatus.MISSING))
+    dmarc: DNSCheckResult = field(
+        default_factory=lambda: DNSCheckResult("DMARC", RecordStatus.MISSING))
+    mx: DNSCheckResult = field(
+        default_factory=lambda: DNSCheckResult("MX", RecordStatus.MISSING))
     ptr: dict[str, DNSCheckResult] = field(default_factory=dict)
     recommendations: list[str] = field(default_factory=list)
 
@@ -267,10 +269,12 @@ class DNSChecker:
             elif parsed.all_qualifier == "?":
                 issues.append("Uses ?all which is neutral (not recommended)")
             elif parsed.all_qualifier == "~":
-                issues.append("Uses ~all (softfail) - consider -all for stricter policy")
+                issues.append(
+                    "Uses ~all (softfail) - consider -all for stricter policy")
 
             # Check for too many DNS lookups (limit is 10)
-            lookups = len(parsed.includes) + (1 if parsed.mx else 0) + (1 if parsed.a else 0)
+            lookups = len(parsed.includes) + \
+                (1 if parsed.mx else 0) + (1 if parsed.a else 0)
             if lookups > 10:
                 issues.append(f"Too many DNS lookups ({lookups}/10 max)")
 
@@ -295,7 +299,9 @@ class DNSChecker:
             return DNSCheckResult(
                 record_type="SPF",
                 status=RecordStatus.ERROR,
-                message=f"DNS lookup failed: {e.details.get('reason', str(e))}",
+                message=f"DNS lookup failed: {
+                    e.details.get(
+                        'reason', str(e))}",
             )
 
     def _parse_spf(self, record: str) -> SPFRecord:
@@ -406,7 +412,9 @@ class DNSChecker:
             return DNSCheckResult(
                 record_type="DKIM",
                 status=RecordStatus.MISSING,
-                message=f"DKIM record not found for selector '{selector}': {e.details.get('reason', str(e))}",
+                message=f"DKIM record not found for selector '{selector}': {
+                    e.details.get(
+                        'reason', str(e))}",
                 expected=dkim_domain,
             )
 
@@ -446,7 +454,8 @@ class DNSChecker:
             issues = []
 
             if parsed.policy == "none":
-                issues.append("Policy is 'none' (monitoring only) - consider 'quarantine' or 'reject'")
+                issues.append(
+                    "Policy is 'none' (monitoring only) - consider 'quarantine' or 'reject'")
 
             if not parsed.rua:
                 issues.append("No aggregate report address (rua) configured")
@@ -475,7 +484,9 @@ class DNSChecker:
             return DNSCheckResult(
                 record_type="DMARC",
                 status=RecordStatus.MISSING,
-                message=f"DMARC record not found: {e.details.get('reason', str(e))}",
+                message=f"DMARC record not found: {
+                    e.details.get(
+                        'reason', str(e))}",
                 expected=dmarc_domain,
             )
 
@@ -587,9 +598,11 @@ class DNSChecker:
                     try:
                         ip_obj = ipaddress.ip_address(ip)
                         if ip_obj.is_private:
-                            issues.append(f"MX '{mx.hostname}' resolves to private IP {ip}")
+                            issues.append(
+                                f"MX '{mx.hostname}' resolves to private IP {ip}")
                         if ip_obj.is_loopback:
-                            issues.append(f"MX '{mx.hostname}' resolves to loopback {ip}")
+                            issues.append(
+                                f"MX '{mx.hostname}' resolves to loopback {ip}")
                     except ValueError:
                         pass
 
@@ -689,7 +702,9 @@ class DNSChecker:
             return DNSCheckResult(
                 record_type="PTR",
                 status=RecordStatus.MISSING,
-                message=f"PTR lookup failed: {e.details.get('reason', str(e))}",
+                message=f"PTR lookup failed: {
+                    e.details.get(
+                        'reason', str(e))}",
             )
 
     def get_server_ip(self) -> Optional[str]:

@@ -38,7 +38,8 @@ class TestLoginFlow:
         await login_page.assert_on_login_page()
 
     @pytest.mark.asyncio
-    async def test_login_page_has_required_elements(self, login_page: LoginPage):
+    async def test_login_page_has_required_elements(
+            self, login_page: LoginPage):
         """Test that login page has all required elements."""
         await login_page.goto()
 
@@ -48,7 +49,8 @@ class TestLoginFlow:
         await expect(login_page.login_button).to_be_visible()
 
     @pytest.mark.asyncio
-    async def test_successful_login(self, login_page: LoginPage, inbox_page: InboxPage):
+    async def test_successful_login(
+            self, login_page: LoginPage, inbox_page: InboxPage):
         """Test successful login with valid credentials."""
         await login_page.goto()
         await login_page.login_and_wait(VALID_EMAIL, VALID_PASSWORD)
@@ -82,7 +84,8 @@ class TestLoginFlow:
         await expect(focused).to_be_visible()
 
     @pytest.mark.asyncio
-    async def test_login_with_enter_key(self, login_page: LoginPage, inbox_page: InboxPage):
+    async def test_login_with_enter_key(
+            self, login_page: LoginPage, inbox_page: InboxPage):
         """Test that pressing Enter submits the login form."""
         await login_page.goto()
 
@@ -378,7 +381,8 @@ class TestAuthSecurity:
         assert VALID_PASSWORD not in page.url
 
     @pytest.mark.asyncio
-    async def test_login_over_https_warning(self, page: Page, login_page: LoginPage):
+    async def test_login_over_https_warning(
+            self, page: Page, login_page: LoginPage):
         """Test for HTTPS requirement or warning on login page."""
         await login_page.goto()
 
@@ -435,7 +439,8 @@ class TestAuthAccessibility:
         if await error.count() > 0:
             role = await error.get_attribute("role")
             # Error should have role="alert" or similar
-            assert role in ["alert", "status", None]  # None is acceptable for live regions
+            # None is acceptable for live regions
+            assert role in ["alert", "status", None]
 
     @pytest.mark.asyncio
     async def test_login_keyboard_navigation(self, login_page: LoginPage):
@@ -445,7 +450,8 @@ class TestAuthAccessibility:
         # Tab through form elements
         await login_page.page.keyboard.press("Tab")  # To email
         await login_page.page.keyboard.press("Tab")  # To password
-        await login_page.page.keyboard.press("Tab")  # To login button or remember me
+        # To login button or remember me
+        await login_page.page.keyboard.press("Tab")
 
         # Should be able to reach submit button
         # This test documents expected keyboard behavior
@@ -455,7 +461,8 @@ class TestAuthAccessibility:
 # Cross-Browser Tests
 # =============================================================================
 
-@pytest.mark.parametrize("browser_name", ["chromium", "firefox", "webkit"], indirect=True)
+@pytest.mark.parametrize("browser_name",
+                         ["chromium", "firefox", "webkit"], indirect=True)
 class TestAuthCrossBrowser:
     """Cross-browser authentication tests."""
 

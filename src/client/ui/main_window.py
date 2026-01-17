@@ -166,7 +166,8 @@ class FolderSelectionDialog(Adw.MessageDialog):
             selection_mode=Gtk.SelectionMode.SINGLE,
             css_classes=["boxed-list"],
         )
-        self._folder_listbox.connect("row-selected", self._on_folder_row_selected)
+        self._folder_listbox.connect(
+            "row-selected", self._on_folder_row_selected)
 
         # Populate with folders
         storage = get_storage()
@@ -201,7 +202,8 @@ class FolderSelectionDialog(Adw.MessageDialog):
             else:
                 # For Adw.ActionRow, the row itself has the folder_name
                 self._selected_folder = getattr(row, 'folder_name', None)
-            self.set_response_enabled("move", self._selected_folder is not None)
+            self.set_response_enabled(
+                "move", self._selected_folder is not None)
         else:
             self._selected_folder = None
             self.set_response_enabled("move", False)
@@ -506,12 +508,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Data stores
         self._folder_store: Gio.ListStore = Gio.ListStore.new(FolderItem)
         self._message_store: Gio.ListStore = Gio.ListStore.new(MessageItem)
-        self._all_messages: list[MessageItem] = []  # Unfiltered messages for search
-        self._selected_messages: set[str] = set()  # Selected message IDs for bulk operations
+        # Unfiltered messages for search
+        self._all_messages: list[MessageItem] = []
+        # Selected message IDs for bulk operations
+        self._selected_messages: set[str] = set()
 
         # Multi-selection state tracking
-        self._last_selected_index: Optional[int] = None  # For SHIFT+Click range selection
-        self._awaiting_double_click: bool = False  # Debounce for triple-click prevention
+        # For SHIFT+Click range selection
+        self._last_selected_index: Optional[int] = None
+        # Debounce for triple-click prevention
+        self._awaiting_double_click: bool = False
 
         # Set up the window
         self._setup_window_actions()
@@ -532,7 +538,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             from .view_theme import ViewTheme, get_view_theme_manager
 
             settings = get_settings_service()
-            saved_density = getattr(settings.appearance, 'view_density', 'standard')
+            saved_density = getattr(
+                settings.appearance, 'view_density', 'standard')
 
             theme_map = {
                 "standard": ViewTheme.STANDARD,
@@ -546,16 +553,19 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 # Set the correct view stack based on saved density
                 if hasattr(self, '_view_type_stack'):
                     if saved_density == "minimal":
-                        self._view_type_stack.set_visible_child_name("minimal-view")
+                        self._view_type_stack.set_visible_child_name(
+                            "minimal-view")
                     else:
-                        self._view_type_stack.set_visible_child_name("standard-view")
+                        self._view_type_stack.set_visible_child_name(
+                            "standard-view")
 
                 # If saved density differs from current, apply it
                 if manager.current_theme != target_theme:
                     manager.set_theme(target_theme)
                     logger.info(f"Applied saved view density: {saved_density}")
                 else:
-                    logger.info(f"View density already set to: {saved_density}")
+                    logger.info(
+                        f"View density already set to: {saved_density}")
         except Exception as e:
             logger.warning(f"Could not apply saved view density: {e}")
 
@@ -715,7 +725,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             Container widget with three panes.
         """
         # Outer paned: left (folders) | right (messages + preview)
-        # resize_start_child=False ensures sidebar width persists on window resize
+        # resize_start_child=False ensures sidebar width persists on window
+        # resize
         self._outer_paned = Gtk.Paned(
             orientation=Gtk.Orientation.HORIZONTAL,
             shrink_start_child=False,
@@ -928,9 +939,11 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             css_classes=["message-list-pane"],
         )
 
-        # Note: Sort toolbar removed - column headers now provide sorting functionality
+        # Note: Sort toolbar removed - column headers now provide sorting
+        # functionality
 
-        # Bulk actions toolbar (hidden by default, shown when messages are selected)
+        # Bulk actions toolbar (hidden by default, shown when messages are
+        # selected)
         self._bulk_actions_bar = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=4,
@@ -967,7 +980,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._bulk_actions_bar.append(bulk_unread_btn)
 
         # Separator
-        self._bulk_actions_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        self._bulk_actions_bar.append(Gtk.Separator(
+            orientation=Gtk.Orientation.VERTICAL))
 
         # Bulk favorite button
         bulk_fav_btn = Gtk.Button(
@@ -999,10 +1013,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         message_box.append(self._bulk_actions_bar)
 
         # Separator
-        message_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+        message_box.append(Gtk.Separator(
+            orientation=Gtk.Orientation.HORIZONTAL))
 
         # Column headers for minimal view (hidden by default)
-        # Alignment: margin_start matches message row box, CSS handles margin-left/border-left/padding
+        # Alignment: margin_start matches message row box, CSS handles
+        # margin-left/border-left/padding
         self._column_headers = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=0,
@@ -1012,7 +1028,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             margin_bottom=4,
             css_classes=["column-headers"],
         )
-        self._column_headers.set_visible(False)        # Track current sort column and direction
+        # Track current sort column and direction
+        self._column_headers.set_visible(False)
         self._sort_column = "date"
         self._sort_ascending = False
 
@@ -1028,13 +1045,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._received_header_btn = Gtk.Button(
             css_classes=["flat", "column-header-btn"],
         )
-        received_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        received_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         received_box.append(Gtk.Label(label="Received", xalign=0))
         self._received_sort_icon = Gtk.Image(icon_name="pan-down-symbolic")
         received_box.append(self._received_sort_icon)
         self._received_header_btn.set_child(received_box)
-        self._received_header_btn.set_size_request(self._column_width_received, -1)
-        self._received_header_btn.connect("clicked", self._on_column_header_clicked, "date")
+        self._received_header_btn.set_size_request(
+            self._column_width_received, -1)
+        self._received_header_btn.connect(
+            "clicked", self._on_column_header_clicked, "date")
         self._column_headers.append(self._received_header_btn)
 
         # Resize handle for received column
@@ -1052,7 +1072,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         from_box.append(self._from_sort_icon)
         self._from_header_btn.set_child(from_box)
         self._from_header_btn.set_size_request(self._column_width_from, -1)
-        self._from_header_btn.connect("clicked", self._on_column_header_clicked, "from")
+        self._from_header_btn.connect(
+            "clicked", self._on_column_header_clicked, "from")
         self._column_headers.append(self._from_header_btn)
 
         # Resize handle for from column
@@ -1064,16 +1085,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             css_classes=["flat", "column-header-btn"],
             hexpand=True,
         )
-        subject_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        subject_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         subject_box.append(Gtk.Label(label="Subject", xalign=0, hexpand=True))
         self._subject_sort_icon = Gtk.Image(icon_name="pan-down-symbolic")
         self._subject_sort_icon.set_visible(False)
         subject_box.append(self._subject_sort_icon)
         self._subject_header_btn.set_child(subject_box)
-        self._subject_header_btn.connect("clicked", self._on_column_header_clicked, "subject")
+        self._subject_header_btn.connect(
+            "clicked", self._on_column_header_clicked, "subject")
         self._column_headers.append(self._subject_header_btn)
-
-
 
         message_box.append(self._column_headers)
 
@@ -1084,7 +1105,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             vexpand=True,
         )
 
-        # Inner stack to switch between standard ListView and minimal ColumnView
+        # Inner stack to switch between standard ListView and minimal
+        # ColumnView
         self._view_type_stack = Gtk.Stack(
             transition_type=Gtk.StackTransitionType.CROSSFADE,
             transition_duration=150,
@@ -1111,7 +1133,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         minimal_scrolled.set_child(self._column_view)
         self._view_type_stack.add_named(minimal_scrolled, "minimal-view")
 
-        self._message_list_stack.add_named(self._view_type_stack, "message-list")
+        self._message_list_stack.add_named(
+            self._view_type_stack, "message-list")
 
         # Create default empty state (inbox)
         self._empty_state = EmptyStateWidget(
@@ -1162,9 +1185,11 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             if cv_selection and isinstance(cv_selection, Gtk.SingleSelection):
                 store = cv_selection.get_model()
                 if store and store.get_n_items() > 0:
-                    store.items_changed(0, store.get_n_items(), store.get_n_items())
+                    store.items_changed(
+                        0, store.get_n_items(), store.get_n_items())
 
-    def _on_column_header_clicked(self, button: Gtk.Button, column: str) -> None:
+    def _on_column_header_clicked(
+            self, button: Gtk.Button, column: str) -> None:
         """Handle column header click for sorting."""
         logger.info(f"Sort by column: {column}")
 
@@ -1231,7 +1256,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         for item in items:
             self._message_store.append(item)
 
-        logger.info(f"Sorted {len(items)} messages by {column} ({'asc' if ascending else 'desc'})")
+        logger.info(
+            f"Sorted {len(items)} messages by {column} ({'asc' if ascending else 'desc'})")
 
     def _sort_all_messages(self, column: str, ascending: bool) -> None:
         """Sort the full message list to maintain order when search is cleared."""
@@ -1285,7 +1311,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         date_sorter = Gtk.CustomSorter.new(self._compare_by_date, None)
         from_sorter = Gtk.CustomSorter.new(self._compare_by_from, None)
         favorite_sorter = Gtk.CustomSorter.new(self._compare_by_favorite, None)
-        important_sorter = Gtk.CustomSorter.new(self._compare_by_important, None)
+        important_sorter = Gtk.CustomSorter.new(
+            self._compare_by_important, None)
         subject_sorter = Gtk.CustomSorter.new(self._compare_by_subject, None)
 
         # Store sorters for later updates
@@ -1299,7 +1326,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._sort_list_model = Gtk.SortListModel(model=self._message_store)
 
         # Create selection model on top of the sort model
-        self._column_view_selection = Gtk.SingleSelection(model=self._sort_list_model)
+        self._column_view_selection = Gtk.SingleSelection(
+            model=self._sort_list_model)
         self._column_view_selection.connect(
             "selection-changed", self._on_column_view_selection_changed
         )
@@ -1385,10 +1413,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Set up context menus for ColumnView
         self._setup_column_view_context_menu(column_view)
 
-        logger.info("Created ColumnView for minimal view with resizable columns")
+        logger.info(
+            "Created ColumnView for minimal view with resizable columns")
         return column_view
 
-    def _compare_by_date(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+    def _compare_by_date(self, a: "MessageItem",
+                         b: "MessageItem", user_data) -> int:
         """Compare two messages by date for sorting."""
         if a._date < b._date:
             return -1
@@ -1396,7 +1426,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             return 1
         return 0
 
-    def _compare_by_from(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+    def _compare_by_from(self, a: "MessageItem",
+                         b: "MessageItem", user_data) -> int:
         """Compare two messages by sender for sorting."""
         from_a = a.from_address.lower()
         from_b = b.from_address.lower()
@@ -1406,7 +1437,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             return 1
         return 0
 
-    def _compare_by_subject(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+    def _compare_by_subject(self, a: "MessageItem",
+                            b: "MessageItem", user_data) -> int:
         """Compare two messages by subject for sorting."""
         subj_a = (a.subject or "").lower()
         subj_b = (b.subject or "").lower()
@@ -1416,7 +1448,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             return 1
         return 0
 
-    def _compare_by_favorite(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+    def _compare_by_favorite(self, a: "MessageItem",
+                             b: "MessageItem", user_data) -> int:
         """Compare two messages by favorite/starred status for sorting."""
         # Starred messages come first (True > False, so negate for ascending)
         if a.is_starred and not b.is_starred:
@@ -1425,7 +1458,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             return 1
         return 0
 
-    def _compare_by_important(self, a: "MessageItem", b: "MessageItem", user_data) -> int:
+    def _compare_by_important(self, a: "MessageItem",
+                              b: "MessageItem", user_data) -> int:
         """Compare two messages by important status for sorting."""
         # Important messages come first
         if a.is_important and not b.is_important:
@@ -1434,27 +1468,40 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             return 1
         return 0
 
-    def _on_column_sorter_changed(self, sorter: Gtk.Sorter, change: Gtk.SorterChange) -> None:
+    def _on_column_sorter_changed(
+            self, sorter: Gtk.Sorter, change: Gtk.SorterChange) -> None:
         """Handle column header click for sorting - sync with dropdown and direction."""
         # Get the primary sort column from the ColumnView sorter
-        if hasattr(self, '_cv_date_column') and hasattr(self, '_cv_from_column') and hasattr(self, '_cv_subject_column'):
+        if hasattr(self, '_cv_date_column') and hasattr(
+                self, '_cv_from_column') and hasattr(self, '_cv_subject_column'):
             # Check which column is being sorted by looking at sort order
-            date_order = self._cv_date_column.get_sorter().get_order() if self._cv_date_column.get_sorter() else Gtk.SorterOrder.NONE
-            from_order = self._cv_from_column.get_sorter().get_order() if self._cv_from_column.get_sorter() else Gtk.SorterOrder.NONE
-            favorite_order = self._cv_favorite_column.get_sorter().get_order() if hasattr(self, '_cv_favorite_column') and self._cv_favorite_column.get_sorter() else Gtk.SorterOrder.NONE
-            important_order = self._cv_important_column.get_sorter().get_order() if hasattr(self, '_cv_important_column') and self._cv_important_column.get_sorter() else Gtk.SorterOrder.NONE
-            subject_order = self._cv_subject_column.get_sorter().get_order() if self._cv_subject_column.get_sorter() else Gtk.SorterOrder.NONE
+            date_order = self._cv_date_column.get_sorter().get_order(
+            ) if self._cv_date_column.get_sorter() else Gtk.SorterOrder.NONE
+            from_order = self._cv_from_column.get_sorter().get_order(
+            ) if self._cv_from_column.get_sorter() else Gtk.SorterOrder.NONE
+            favorite_order = self._cv_favorite_column.get_sorter().get_order() if hasattr(
+                self, '_cv_favorite_column') and self._cv_favorite_column.get_sorter() else Gtk.SorterOrder.NONE
+            important_order = self._cv_important_column.get_sorter().get_order() if hasattr(
+                self, '_cv_important_column') and self._cv_important_column.get_sorter() else Gtk.SorterOrder.NONE
+            subject_order = self._cv_subject_column.get_sorter().get_order(
+            ) if self._cv_subject_column.get_sorter() else Gtk.SorterOrder.NONE
 
             # Update column titles to show sort direction
-            self._cv_date_column.set_title("Received ↓" if date_order == Gtk.SorterOrder.TOTAL else "Received")
-            self._cv_from_column.set_title("From ↓" if from_order == Gtk.SorterOrder.TOTAL else "From")
+            self._cv_date_column.set_title(
+                "Received ↓" if date_order == Gtk.SorterOrder.TOTAL else "Received")
+            self._cv_from_column.set_title(
+                "From ↓" if from_order == Gtk.SorterOrder.TOTAL else "From")
             if hasattr(self, '_cv_favorite_column'):
-                self._cv_favorite_column.set_title("★ ↓" if favorite_order == Gtk.SorterOrder.TOTAL else "★")
+                self._cv_favorite_column.set_title(
+                    "★ ↓" if favorite_order == Gtk.SorterOrder.TOTAL else "★")
             if hasattr(self, '_cv_important_column'):
-                self._cv_important_column.set_title("! ↓" if important_order == Gtk.SorterOrder.TOTAL else "!")
-            self._cv_subject_column.set_title("Subject ↓" if subject_order == Gtk.SorterOrder.TOTAL else "Subject")
+                self._cv_important_column.set_title(
+                    "! ↓" if important_order == Gtk.SorterOrder.TOTAL else "!")
+            self._cv_subject_column.set_title(
+                "Subject ↓" if subject_order == Gtk.SorterOrder.TOTAL else "Subject")
 
-            logger.info(f"Column sorter changed: date={date_order}, from={from_order}, favorite={favorite_order}, important={important_order}, subject={subject_order}")
+            logger.info(
+                f"Column sorter changed: date={date_order}, from={from_order}, favorite={favorite_order}, important={important_order}, subject={subject_order}")
 
     def _create_date_column_factory(self) -> Gtk.SignalListItemFactory:
         """
@@ -1512,7 +1559,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 item.disconnect(label._date_handler_id)
             except Exception:
                 pass
-        label._date_handler_id = item.connect("notify::date-string", on_date_string_changed)
+        label._date_handler_id = item.connect(
+            "notify::date-string", on_date_string_changed)
         label._date_item = item  # Store reference to disconnect later
 
     def _on_date_cell_unbind(
@@ -1716,7 +1764,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 img.add_css_class("favorite-inactive")
                 img.remove_css_class("favorite-active")
 
-        icon._click_handler_id = icon._click_gesture.connect("pressed", on_click)
+        icon._click_handler_id = icon._click_gesture.connect(
+            "pressed", on_click)
 
     def _create_important_column_factory(self) -> Gtk.SignalListItemFactory:
         """
@@ -1785,7 +1834,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 img.add_css_class("important-inactive")
                 img.remove_css_class("important-active")
 
-        icon._click_handler_id = icon._click_gesture.connect("pressed", on_click)
+        icon._click_handler_id = icon._click_gesture.connect(
+            "pressed", on_click)
 
     def _on_column_view_selection_changed(
         self,
@@ -1829,7 +1879,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         else:
             self._open_message_popout(item)
 
-    def _setup_column_view_context_menu(self, column_view: Gtk.ColumnView) -> None:
+    def _setup_column_view_context_menu(
+            self, column_view: Gtk.ColumnView) -> None:
         """Set up right-click context menus for the ColumnView."""
         # Create context menus (reuse same menu models as ListView)
         self._cv_message_context_menu = self._create_regular_context_menu()
@@ -2102,7 +2153,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             check.disconnect_by_func(self._on_message_check_toggled)
         except TypeError:
             pass  # No previous handler
-        check.connect("toggled", self._on_message_check_toggled, item.message_id)
+        check.connect("toggled", self._on_message_check_toggled,
+                      item.message_id)
 
         # Favorite button
         favorite_button.set_active(item.is_starred)
@@ -2188,7 +2240,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         preview_box.append(self._preview_header)
 
         # Separator
-        preview_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+        preview_box.append(Gtk.Separator(
+            orientation=Gtk.Orientation.HORIZONTAL))
 
         # Message content
         scrolled = Gtk.ScrolledWindow(
@@ -2267,7 +2320,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             tooltip_text="Add/Remove favorite",
             css_classes=["flat", "favorite-toggle"],
         )
-        self._preview_favorite_button.connect("toggled", self._on_preview_favorite_toggled)
+        self._preview_favorite_button.connect(
+            "toggled", self._on_preview_favorite_toggled)
         action_bar.append(self._preview_favorite_button)
 
         # Important toggle button for reading pane
@@ -2276,7 +2330,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             tooltip_text="Mark as Important",
             css_classes=["flat", "important-toggle"],
         )
-        self._preview_important_button.connect("toggled", self._on_preview_important_toggled)
+        self._preview_important_button.connect(
+            "toggled", self._on_preview_important_toggled)
         action_bar.append(self._preview_important_button)
 
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
@@ -2467,14 +2522,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         try:
             from client.services.date_format_service import get_date_format_service
             date_service = get_date_format_service()
-            date_service.connect("format-changed", self._on_date_format_changed)
+            date_service.connect(
+                "format-changed", self._on_date_format_changed)
             logger.debug("Connected to date format change signal")
         except Exception as e:
             logger.warning(f"Could not connect to date format service: {e}")
 
     def _on_date_format_changed(self, service, format_str: str) -> None:
         """Handle date format change - refresh message list immediately."""
-        logger.info(f"Date format changed to: {format_str}, refreshing message list")
+        logger.info(
+            f"Date format changed to: {format_str}, refreshing message list")
         # Notify all MessageItems that their date-string property has changed
         # This forces GTK to re-read the property value from each item
         for i in range(self._message_store.get_n_items()):
@@ -2548,7 +2605,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         padding = 12
         badge_width = 20
 
-        calculated_width = icon_width + (max_length * char_width) + padding + badge_width
+        calculated_width = icon_width + \
+            (max_length * char_width) + padding + badge_width
         sidebar_width = max(90, min(200, calculated_width))
 
         # Set paned position and enforce minimum width on folder box
@@ -2556,7 +2614,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         if hasattr(self, '_folder_box') and self._folder_box:
             self._folder_box.set_size_request(sidebar_width, -1)
 
-        logger.debug(f"Sidebar width set to {sidebar_width}px (longest folder: {max_length} chars)")
+        logger.debug(
+            f"Sidebar width set to {sidebar_width}px (longest folder: {max_length} chars)")
 
     def _update_message_count(self) -> None:
         """Update the bulk actions bar visibility based on selection."""
@@ -2610,7 +2669,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         }
 
         state_key = folder_to_state.get(folder_name, 'folder_empty')
-        state_config = EMPTY_STATES.get(state_key, EMPTY_STATES['folder_empty'])
+        state_config = EMPTY_STATES.get(
+            state_key, EMPTY_STATES['folder_empty'])
 
         # Remove old empty state and create new one
         self._message_list_stack.remove(self._empty_state)
@@ -2661,7 +2721,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             received_at = db_msg.get("received_at")
             if isinstance(received_at, str):
                 try:
-                    msg_date = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+                    msg_date = datetime.fromisoformat(
+                        received_at.replace("Z", "+00:00"))
                 except ValueError:
                     msg_date = datetime.now()
             else:
@@ -2675,12 +2736,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             # For sent messages, show "me → recipient"
             if folder_name.lower() == "sent":
                 to_addresses = db_msg.get("to_addresses", [])
-                to_display = headers.get("To", ", ".join(to_addresses) if to_addresses else "")
-                from_display = f"me@unitmail.local → {to_display.split('<')[0].strip()}"
+                to_display = headers.get("To", ", ".join(
+                    to_addresses) if to_addresses else "")
+                from_display = f"me@unitmail.local → {
+                    to_display.split('<')[0].strip()}"
 
             # Get preview from body_text
             body_text = db_msg.get("body_text", "")
-            preview = body_text[:100] + "..." if len(body_text) > 100 else body_text
+            preview = body_text[:100] + \
+                "..." if len(body_text) > 100 else body_text
             preview = preview.replace("\n", " ").strip()
 
             # Check for attachments
@@ -2744,24 +2808,29 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             from client.services.date_format_service import format_date_with_time
             self._preview_date.set_label(format_date_with_time(message._date))
         except ImportError:
-            self._preview_date.set_label(message._date.strftime("%B %d, %Y at %H:%M"))
+            self._preview_date.set_label(
+                message._date.strftime("%B %d, %Y at %H:%M"))
 
         # Update favorite button state in reading pane
         if hasattr(self, '_preview_favorite_button'):
             # Block signal to avoid triggering toggle during update
-            self._preview_favorite_button.handler_block_by_func(self._on_preview_favorite_toggled)
+            self._preview_favorite_button.handler_block_by_func(
+                self._on_preview_favorite_toggled)
             self._preview_favorite_button.set_active(message.is_starred)
             # Update icon based on state
             icon_name = "starred-symbolic" if message.is_starred else "non-starred-symbolic"
             self._preview_favorite_button.set_icon_name(icon_name)
-            self._preview_favorite_button.handler_unblock_by_func(self._on_preview_favorite_toggled)
+            self._preview_favorite_button.handler_unblock_by_func(
+                self._on_preview_favorite_toggled)
 
         # Update important button state in reading pane
         if hasattr(self, '_preview_important_button'):
             # Block signal to avoid triggering toggle during update
-            self._preview_important_button.handler_block_by_func(self._on_preview_important_toggled)
+            self._preview_important_button.handler_block_by_func(
+                self._on_preview_important_toggled)
             self._preview_important_button.set_active(message.is_important)
-            self._preview_important_button.handler_unblock_by_func(self._on_preview_important_toggled)
+            self._preview_important_button.handler_unblock_by_func(
+                self._on_preview_important_toggled)
 
         # Get full message body from database
         storage = get_storage()
@@ -2811,7 +2880,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             for message in self._all_messages:
                 if (search_text in message.from_address.lower() or
                     search_text in message.subject.lower() or
-                    search_text in message.preview.lower()):
+                        search_text in message.preview.lower()):
                     self._message_store.append(message)
 
         self._update_message_count()
@@ -2824,7 +2893,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     ) -> None:
         """Handle sort option change."""
         selected = dropdown.get_selected()
-        sort_options = ["date", "from", "subject", "size", "favorite", "important"]
+        sort_options = ["date", "from", "subject",
+                        "size", "favorite", "important"]
         logger.info(f"Sort dropdown changed: selected index={selected}")
         if 0 <= selected < len(sort_options):
             column = sort_options[selected]
@@ -2843,18 +2913,22 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Update button icon and tooltip
         if self._sort_ascending:
             button.set_icon_name("pan-up-symbolic")
-            button.set_tooltip_text("Toggle sort direction (currently: oldest first)")
+            button.set_tooltip_text(
+                "Toggle sort direction (currently: oldest first)")
         else:
             button.set_icon_name("pan-down-symbolic")
-            button.set_tooltip_text("Toggle sort direction (currently: newest first)")
+            button.set_tooltip_text(
+                "Toggle sort direction (currently: newest first)")
 
-        logger.info(f"Sort direction toggled: ascending={self._sort_ascending}")
+        logger.info(
+            f"Sort direction toggled: ascending={self._sort_ascending}")
 
         # Re-sort with the new direction
         self._sort_messages(self._sort_column, self._sort_ascending)
         self._sort_all_messages(self._sort_column, self._sort_ascending)
 
-    def _on_message_check_toggled(self, check: Gtk.CheckButton, message_id: str) -> None:
+    def _on_message_check_toggled(
+            self, check: Gtk.CheckButton, message_id: str) -> None:
         """Handle individual message checkbox toggle."""
         if check.get_active():
             self._selected_messages.add(message_id)
@@ -2911,11 +2985,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
             if is_in_trash:
                 # Permanently delete the message
-                logger.info(f"Permanently deleting message: {self._selected_message_id}")
+                logger.info(
+                    f"Permanently deleting message: {self._selected_message_id}")
                 storage.permanent_delete(self._selected_message_id)
             else:
                 # Move to Trash instead of permanent delete
-                logger.info(f"Moving message to Trash: {self._selected_message_id}")
+                logger.info(
+                    f"Moving message to Trash: {self._selected_message_id}")
                 storage.move_to_trash(self._selected_message_id)
 
             # Remove the message from the current view
@@ -2924,12 +3000,14 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 if item.message_id == self._selected_message_id:
                     self._message_store.remove(i)
                     # Also remove from _all_messages
-                    self._all_messages = [m for m in self._all_messages if m.message_id != self._selected_message_id]
+                    self._all_messages = [
+                        m for m in self._all_messages if m.message_id != self._selected_message_id]
                     # Clear selection and preview
                     self._selected_message_id = None
                     self._show_preview_placeholder()
                     if is_in_trash:
-                        logger.info(f"Permanently deleted message at index {i}")
+                        logger.info(
+                            f"Permanently deleted message at index {i}")
                     else:
                         logger.info(f"Moved message to Trash at index {i}")
                     break
@@ -2947,7 +3025,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 return item
         return None
 
-    def _create_email_message_from_item(self, item: MessageItem) -> EmailMessage:
+    def _create_email_message_from_item(
+            self, item: MessageItem) -> EmailMessage:
         """Create an EmailMessage from a MessageItem for reply/forward."""
         return EmailMessage(
             message_id=item.message_id,
@@ -2976,7 +3055,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         composer.connect('save-draft-requested', self._on_save_draft)
         composer.connect('send-requested', self._on_send_message)
         composer.present()
-        logger.info(f"Opened composer in {mode.value} mode for message: {message.message_id}")
+        logger.info(
+            f"Opened composer in {mode.value} mode for message: {message.message_id}")
 
     def _on_reply(
         self,
@@ -3142,14 +3222,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 result = storage.move_to_folder(message_id, selected_folder)
 
                 if result:
-                    logger.info(f"Moved message {message_id} to {selected_folder}")
+                    logger.info(
+                        f"Moved message {message_id} to {selected_folder}")
                     # Remove from current view
                     self._remove_message_from_view(message_id)
                     self._selected_message_id = None
                     self._show_preview_placeholder()
                     self._update_message_count()
                 else:
-                    logger.warning(f"Failed to move message {message_id} to {selected_folder}")
+                    logger.warning(
+                        f"Failed to move message {message_id} to {selected_folder}")
 
         dialog.destroy()
 
@@ -3170,14 +3252,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         result = storage.restore_from_trash(self._selected_message_id)
 
         if result:
-            logger.info(f"Restored message {self._selected_message_id} from Trash")
+            logger.info(
+                f"Restored message {self._selected_message_id} from Trash")
             # Remove from current view
             self._remove_message_from_view(self._selected_message_id)
             self._selected_message_id = None
             self._show_preview_placeholder()
             self._update_message_count()
         else:
-            logger.warning(f"Failed to restore message {self._selected_message_id}")
+            logger.warning(
+                f"Failed to restore message {self._selected_message_id}")
 
     def _on_restore_to_folder(
         self,
@@ -3216,14 +3300,16 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 result = storage.move_to_folder(message_id, selected_folder)
 
                 if result:
-                    logger.info(f"Moved message {message_id} to {selected_folder}")
+                    logger.info(
+                        f"Moved message {message_id} to {selected_folder}")
                     # Remove from current view
                     self._remove_message_from_view(message_id)
                     self._selected_message_id = None
                     self._show_preview_placeholder()
                     self._update_message_count()
                 else:
-                    logger.warning(f"Failed to move message {message_id} to {selected_folder}")
+                    logger.warning(
+                        f"Failed to move message {message_id} to {selected_folder}")
 
         dialog.destroy()
 
@@ -3244,7 +3330,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("delete", "Delete Permanently")
-        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_response_appearance(
+            "delete", Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.set_default_response("cancel")
         dialog.set_close_response("cancel")
 
@@ -3272,7 +3359,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                     self._show_preview_placeholder()
                     self._update_message_count()
                 else:
-                    logger.warning(f"Failed to permanently delete message: {message_id}")
+                    logger.warning(
+                        f"Failed to permanently delete message: {message_id}")
 
         dialog.destroy()
 
@@ -3291,7 +3379,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 self._message_store.remove(i)
                 break
         # Also remove from _all_messages
-        self._all_messages = [m for m in self._all_messages if m.message_id != message_id]
+        self._all_messages = [
+            m for m in self._all_messages if m.message_id != message_id]
 
     def _on_toggle_favorite(
         self,
@@ -3305,15 +3394,19 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 item = self._message_store.get_item(i)
                 if item.message_id == self._selected_message_id:
                     new_state = not item.is_starred
-                    logger.info(f"Toggle favorite for {self._selected_message_id}: {new_state}")
-                    self._set_message_starred(self._selected_message_id, new_state)
+                    logger.info(
+                        f"Toggle favorite for {self._selected_message_id}: {new_state}")
+                    self._set_message_starred(
+                        self._selected_message_id, new_state)
                     # Update preview pane button
                     if hasattr(self, '_preview_favorite_button'):
-                        self._preview_favorite_button.handler_block_by_func(self._on_preview_favorite_toggled)
+                        self._preview_favorite_button.handler_block_by_func(
+                            self._on_preview_favorite_toggled)
                         self._preview_favorite_button.set_active(new_state)
                         icon_name = "starred-symbolic" if new_state else "non-starred-symbolic"
                         self._preview_favorite_button.set_icon_name(icon_name)
-                        self._preview_favorite_button.handler_unblock_by_func(self._on_preview_favorite_toggled)
+                        self._preview_favorite_button.handler_unblock_by_func(
+                            self._on_preview_favorite_toggled)
                     break
 
     def _on_preview_favorite_toggled(self, button: Gtk.ToggleButton) -> None:
@@ -3322,7 +3415,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             return
 
         is_starred = button.get_active()
-        logger.info(f"Preview favorite toggled for {self._selected_message_id}: {is_starred}")
+        logger.info(
+            f"Preview favorite toggled for {self._selected_message_id}: {is_starred}")
 
         # Update icon
         icon_name = "starred-symbolic" if is_starred else "non-starred-symbolic"
@@ -3337,7 +3431,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             return
 
         is_important = button.get_active()
-        logger.info(f"Preview important toggled for {self._selected_message_id}: {is_important}")
+        logger.info(
+            f"Preview important toggled for {self._selected_message_id}: {is_important}")
 
         # Update message in store and database
         self._set_message_important(self._selected_message_id, is_important)
@@ -3359,7 +3454,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             self._selected_messages.discard(message_id)
 
         # Also remove from _all_messages
-        self._all_messages = [m for m in self._all_messages if m.message_id not in message_ids]
+        self._all_messages = [
+            m for m in self._all_messages if m.message_id not in message_ids]
 
         self._update_message_count()
         self._show_preview_placeholder()
@@ -3387,7 +3483,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         if not self._selected_messages:
             return
 
-        logger.info(f"Bulk mark unread {len(self._selected_messages)} messages")
+        logger.info(
+            f"Bulk mark unread {len(self._selected_messages)} messages")
         for message_id in self._selected_messages:
             self._set_message_read(message_id, False)
 
@@ -3465,7 +3562,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         """
         # Prevent triple-click and higher from triggering any action
         if n_press >= 3:
-            logger.debug(f"Ignoring click with n_press={n_press} (triple-click or more)")
+            logger.debug(
+                f"Ignoring click with n_press={n_press} (triple-click or more)")
             return
 
         # Handle double-click for pop-out
@@ -3504,7 +3602,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             else:
                 self._open_message_popout(message_item)
 
-    def _handle_single_click_selection(self, gesture: Gtk.GestureClick) -> None:
+    def _handle_single_click_selection(
+            self, gesture: Gtk.GestureClick) -> None:
         """
         Handle single-click with optional modifier keys for multi-selection.
 
@@ -3545,7 +3644,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             self._last_selected_index = current_index
             logger.debug(f"Updated last_selected_index to {current_index}")
 
-    def _handle_ctrl_click_selection(self, message_id: str, current_index: int) -> None:
+    def _handle_ctrl_click_selection(
+            self, message_id: str, current_index: int) -> None:
         """
         Handle CTRL+Click to toggle selection of individual item.
 
@@ -3584,7 +3684,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         range_start = min(start_index, current_index)
         range_end = max(start_index, current_index)
 
-        logger.debug(f"SHIFT+Click: selecting range [{range_start}, {range_end}]")
+        logger.debug(
+            f"SHIFT+Click: selecting range [{range_start}, {range_end}]")
 
         # Select all items in the range
         for i in range(range_start, range_end + 1):
@@ -3693,7 +3794,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         db_message = storage.get_message(message_item.message_id)
 
         if not db_message:
-            logger.error(f"Draft message not found in storage: {message_item.message_id}")
+            logger.error(
+                f"Draft message not found in storage: {message_item.message_id}")
             return
 
         # Create composer in EDIT mode with draft_message_id
@@ -3735,7 +3837,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         composer._is_modified = False
 
         composer.present()
-        logger.info(f"Opened composer for draft editing: {message_item.message_id}")
+        logger.info(
+            f"Opened composer for draft editing: {message_item.message_id}")
 
     def _set_message_starred(self, message_id: str, starred: bool) -> None:
         """Set starred status for a message."""
@@ -3824,7 +3927,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         for i in range(self._message_store.get_n_items()):
             item = self._message_store.get_item(i)
             item.is_read = True
-        self._message_store.items_changed(0, self._message_store.get_n_items(), self._message_store.get_n_items())
+        self._message_store.items_changed(
+            0, self._message_store.get_n_items(), self._message_store.get_n_items())
 
     def _on_folder_refresh(
         self,
@@ -3853,7 +3957,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             storage = get_storage()
             if folder == "Trash":
                 deleted_count = storage.empty_trash()
-                logger.info(f"Emptied Trash: permanently deleted {deleted_count} messages")
+                logger.info(
+                    f"Emptied Trash: permanently deleted {deleted_count} messages")
             else:
                 # For Spam, get all spam messages and delete them
                 spam_messages = storage.get_messages_by_folder("Spam")
@@ -3861,7 +3966,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 for msg in spam_messages:
                     if storage.permanent_delete(msg["id"]):
                         deleted_count += 1
-                logger.info(f"Emptied Spam: permanently deleted {deleted_count} messages")
+                logger.info(
+                    f"Emptied Spam: permanently deleted {deleted_count} messages")
 
             # Clear the UI message list
             self._message_store.remove_all()
@@ -3978,7 +4084,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 new_selection_idx = i
 
         # Restore selection if possible
-        if new_selection_idx is not None and isinstance(selection, Gtk.SingleSelection):
+        if new_selection_idx is not None and isinstance(
+                selection, Gtk.SingleSelection):
             selection.set_selected(new_selection_idx)
 
         # Adjust sidebar width for any new/renamed folders
@@ -4112,7 +4219,8 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
         email_msg = composer.get_message_data()
 
-        # Check if we're sending an edited draft - delete the draft after sending
+        # Check if we're sending an edited draft - delete the draft after
+        # sending
         draft_message_id = composer.get_draft_message_id()
 
         storage.create_message({
@@ -4171,10 +4279,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             server: Server name/address if connected.
         """
         if connected:
-            self._connection_icon.set_from_icon_name("network-transmit-receive-symbolic")
-            self._connection_label.set_label(f"Connected to {server or 'server'}")
+            self._connection_icon.set_from_icon_name(
+                "network-transmit-receive-symbolic")
+            self._connection_label.set_label(
+                f"Connected to {server or 'server'}")
         else:
-            self._connection_icon.set_from_icon_name("network-offline-symbolic")
+            self._connection_icon.set_from_icon_name(
+                "network-offline-symbolic")
             self._connection_label.set_label("Disconnected")
 
     def update_queue_depth(self, depth: int) -> None:

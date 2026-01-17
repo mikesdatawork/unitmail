@@ -270,11 +270,16 @@ class GUIFeatureTests:
                     search_term4.lower() in m.get("body_text", "").lower())
             ]
 
-            results_ok = len(filtered_by_sender) > 0 or len(filtered_by_subject) > 0 or len(filtered_by_body) > 0
+            results_ok = len(filtered_by_sender) > 0 or len(
+                filtered_by_subject) > 0 or len(filtered_by_body) > 0
 
             if results_ok:
                 test.status = "PASS"
-                test.actual = f"Sender filter: {len(filtered_by_sender)}, Subject filter: {len(filtered_by_subject)}, Body filter: {len(filtered_by_body)}, Combined: {len(combined_filter)}"
+                test.actual = f"Sender filter: {
+                    len(filtered_by_sender)}, Subject filter: {
+                    len(filtered_by_subject)}, Body filter: {
+                    len(filtered_by_body)}, Combined: {
+                    len(combined_filter)}"
             else:
                 test.status = "FAIL"
                 test.actual = "No search results found for any filter"
@@ -303,15 +308,18 @@ class GUIFeatureTests:
 
                 # Count actual unread
                 messages = self.storage.get_messages_by_folder(folder_name)
-                actual_unread = len([m for m in messages if not m.get("is_read", False)])
+                actual_unread = len(
+                    [m for m in messages if not m.get("is_read", False)])
 
                 if reported_unread != actual_unread:
-                    mismatches.append(f"{folder_name}: reported={reported_unread}, actual={actual_unread}")
+                    mismatches.append(
+                        f"{folder_name}: reported={reported_unread}, actual={actual_unread}")
 
             if not mismatches:
                 test.status = "PASS"
                 test.actual = "All folder unread counts are accurate"
-                test.notes = [f"{f['name']}: {f.get('unread_count', 0)} unread" for f in folders]
+                test.notes = [
+                    f"{f['name']}: {f.get('unread_count', 0)} unread" for f in folders]
             else:
                 test.status = "FAIL"
                 test.actual = f"Mismatches: {'; '.join(mismatches)}"
@@ -332,7 +340,8 @@ class GUIFeatureTests:
 
         try:
             all_messages = self.storage.get_all_messages()
-            messages_with_attachments = [m for m in all_messages if m.get("attachments")]
+            messages_with_attachments = [
+                m for m in all_messages if m.get("attachments")]
 
             if not messages_with_attachments:
                 test.status = "SKIP"
@@ -355,7 +364,11 @@ class GUIFeatureTests:
 
             if valid_attachments:
                 test.status = "PASS"
-                test.actual = f"Found {len(messages_with_attachments)} messages with attachments. Sample: {', '.join(valid_attachments[:3])}"
+                test.actual = f"Found {
+                    len(messages_with_attachments)} messages with attachments. Sample: {
+                    ', '.join(
+                        valid_attachments[
+                            :3])}"
             else:
                 test.status = "FAIL"
                 test.actual = "Attachments missing required fields"
@@ -378,7 +391,8 @@ class GUIFeatureTests:
             all_messages = self.storage.get_all_messages()
 
             # Count starred messages
-            starred_count = len([m for m in all_messages if m.get("is_starred", False)])
+            starred_count = len(
+                [m for m in all_messages if m.get("is_starred", False)])
 
             # Test toggle on a message
             test_msg = all_messages[0]
@@ -386,12 +400,14 @@ class GUIFeatureTests:
             original_starred = test_msg.get("is_starred", False)
 
             # Toggle
-            self.storage.update_message(msg_id, {"is_starred": not original_starred})
+            self.storage.update_message(
+                msg_id, {"is_starred": not original_starred})
             after_toggle = self.storage.get_message(msg_id)
             toggled_starred = after_toggle.get("is_starred", False)
 
             # Restore
-            self.storage.update_message(msg_id, {"is_starred": original_starred})
+            self.storage.update_message(
+                msg_id, {"is_starred": original_starred})
 
             toggle_worked = toggled_starred == (not original_starred)
 
@@ -429,7 +445,8 @@ class GUIFeatureTests:
         print(f"Passed: {passed}")
         print(f"Failed: {failed}")
         print(f"Skipped: {skipped}")
-        print(f"Pass Rate: {(passed/(total-skipped))*100:.1f}%" if (total-skipped) > 0 else "N/A")
+        print(
+            f"Pass Rate: {(passed/(total-skipped))*100:.1f}%" if (total-skipped) > 0 else "N/A")
 
 
 if __name__ == "__main__":

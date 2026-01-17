@@ -145,7 +145,10 @@ class PGPKeyRow(Gtk.ListBoxRow):
         info_box.append(user_label)
 
         # Key ID and algorithm
-        details = f"{self.key.short_key_id} - {self.key.algorithm} {self.key.key_size}"
+        details = f"{
+            self.key.short_key_id} - {
+            self.key.algorithm} {
+            self.key.key_size}"
         details_label = Gtk.Label(
             label=details,
             xalign=0,
@@ -282,7 +285,8 @@ class KeyGenerationDialog(Adw.Window):
             model=algorithm_model,
             selected=1,  # Default to Ed25519
         )
-        self._algorithm_row.connect("notify::selected", self._on_algorithm_changed)
+        self._algorithm_row.connect(
+            "notify::selected", self._on_algorithm_changed)
         key_group.add(self._algorithm_row)
 
         # Key size (only for RSA)
@@ -409,7 +413,8 @@ class KeyGenerationDialog(Adw.Window):
             fingerprint="ABCD1234EFGH5678IJKL9012MNOP3456QRST7890",
             user_id=self._name_row.get_text(),
             email=self._email_row.get_text(),
-            algorithm=["RSA", "Ed25519", "ECDSA"][self._algorithm_row.get_selected()],
+            algorithm=["RSA", "Ed25519",
+                       "ECDSA"][self._algorithm_row.get_selected()],
             key_size=[2048, 3072, 4096][self._key_size_row.get_selected()]
             if self._algorithm_row.get_selected() == 0
             else 256,
@@ -567,8 +572,10 @@ class KeyDetailsDialog(Adw.Window):
         )
 
         details_group.add(self._create_info_row("Key ID", self.key.key_id))
-        details_group.add(self._create_info_row("Algorithm", self.key.algorithm))
-        details_group.add(self._create_info_row("Key Size", f"{self.key.key_size} bits"))
+        details_group.add(self._create_info_row(
+            "Algorithm", self.key.algorithm))
+        details_group.add(self._create_info_row(
+            "Key Size", f"{self.key.key_size} bits"))
         details_group.add(
             self._create_info_row(
                 "Created",
@@ -578,7 +585,8 @@ class KeyDetailsDialog(Adw.Window):
         details_group.add(
             self._create_info_row(
                 "Expires",
-                self.key.expires.strftime("%B %d, %Y") if self.key.expires else "Never",
+                self.key.expires.strftime(
+                    "%B %d, %Y") if self.key.expires else "Never",
             )
         )
         details_group.add(
@@ -597,7 +605,8 @@ class KeyDetailsDialog(Adw.Window):
                 description="How much do you trust this key's owner?",
             )
 
-            trust_items = ["Unknown", "Never Trust", "Marginal", "Full", "Ultimate"]
+            trust_items = ["Unknown", "Never Trust",
+                           "Marginal", "Full", "Ultimate"]
             trust_model = Gtk.StringList.new(trust_items)
             trust_row = Adw.ComboRow(
                 title="Trust Level",
@@ -674,7 +683,8 @@ class KeyDetailsDialog(Adw.Window):
 
         # Show feedback
         button.set_icon_name("emblem-ok-symbolic")
-        GLib.timeout_add(1500, lambda: button.set_icon_name("edit-copy-symbolic") or False)
+        GLib.timeout_add(1500, lambda: button.set_icon_name(
+            "edit-copy-symbolic") or False)
 
     def _on_trust_changed(
         self,
@@ -683,7 +693,8 @@ class KeyDetailsDialog(Adw.Window):
     ) -> None:
         """Handle trust level change."""
         self.key.trust_level = KeyTrustLevel(row.get_selected())
-        logger.info(f"Trust level changed to: {self.key.trust_level.to_display_string()}")
+        logger.info(
+            f"Trust level changed to: {self.key.trust_level.to_display_string()}")
 
     def _on_export_clicked(self, row: Adw.ActionRow) -> None:
         """Handle export button click."""
@@ -728,7 +739,8 @@ class KeyDetailsDialog(Adw.Window):
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("delete", "Delete")
-        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_response_appearance(
+            "delete", Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.connect("response", self._on_delete_response)
         dialog.present()
 
@@ -823,7 +835,8 @@ class PGPKeyManager(Gtk.Box):
             model=filter_model,
             tooltip_text="Filter keys",
         )
-        self._filter_dropdown.connect("notify::selected", self._on_filter_changed)
+        self._filter_dropdown.connect(
+            "notify::selected", self._on_filter_changed)
         toolbar.append(self._filter_dropdown)
 
         self.append(toolbar)

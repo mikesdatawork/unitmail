@@ -222,7 +222,8 @@ class SearchResult:
         # Parse received_at
         received_at = row.get("received_at")
         if isinstance(received_at, str):
-            received_at = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+            received_at = datetime.fromisoformat(
+                received_at.replace("Z", "+00:00"))
         elif received_at is None:
             received_at = datetime.now()
 
@@ -235,7 +236,8 @@ class SearchResult:
             message_id=row.get("message_id", ""),
             folder_id=row.get("folder_id"),
             from_address=row.get("from_address", ""),
-            to_addresses=to_addresses if isinstance(to_addresses, list) else [],
+            to_addresses=to_addresses if isinstance(
+                to_addresses, list) else [],
             subject=row.get("subject"),
             body_preview=body_preview,
             received_at=received_at,
@@ -363,7 +365,8 @@ class SearchResultCache:
         """
         # Evict oldest entries if at capacity
         if len(self._cache) >= self._max_size:
-            oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][1])
+            oldest_key = min(self._cache.keys(),
+                             key=lambda k: self._cache[k][1])
             del self._cache[oldest_key]
 
         self._cache[key] = (results, datetime.now())
@@ -596,7 +599,8 @@ class SearchService:
             logger.error(f"FTS search failed: {e}")
             raise SearchError(f"Search failed: {e}") from e
 
-    def _execute_filter_search(self, criteria: SearchCriteria) -> SearchResults:
+    def _execute_filter_search(
+            self, criteria: SearchCriteria) -> SearchResults:
         """
         Execute a search using filters without FTS.
 
@@ -626,7 +630,8 @@ class SearchService:
                 # Get messages from all folders
                 rows = []
                 for folder in self._storage.get_folders():
-                    rows.extend(self._storage.get_messages_by_folder(folder["name"]))
+                    rows.extend(
+                        self._storage.get_messages_by_folder(folder["name"]))
 
             results = [SearchResult.from_sqlite_row(dict(row)) for row in rows]
 
@@ -680,19 +685,23 @@ class SearchService:
             ]
 
         if criteria.date_from:
-            filtered = [r for r in filtered if r.received_at >= criteria.date_from]
+            filtered = [r for r in filtered if r.received_at >=
+                        criteria.date_from]
 
         if criteria.date_to:
-            filtered = [r for r in filtered if r.received_at <= criteria.date_to]
+            filtered = [
+                r for r in filtered if r.received_at <= criteria.date_to]
 
         if criteria.is_starred is not None:
-            filtered = [r for r in filtered if r.is_starred == criteria.is_starred]
+            filtered = [r for r in filtered if r.is_starred ==
+                        criteria.is_starred]
 
         if criteria.is_unread is not None:
             filtered = [r for r in filtered if r.is_read != criteria.is_unread]
 
         if criteria.is_encrypted is not None:
-            filtered = [r for r in filtered if r.encrypted == criteria.is_encrypted]
+            filtered = [r for r in filtered if r.encrypted ==
+                        criteria.is_encrypted]
 
         if criteria.has_attachments is not None:
             filtered = [
@@ -1096,7 +1105,6 @@ class SearchService:
 
 class SearchError(Exception):
     """Exception raised for search-related errors."""
-
 
 
 # Singleton instance

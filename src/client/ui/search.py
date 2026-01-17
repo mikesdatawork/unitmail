@@ -135,7 +135,8 @@ class SearchDialog(Adw.Window):
 
         # Data stores
         self._folder_store: Gio.ListStore = Gio.ListStore.new(FolderItem)
-        self._saved_search_store: Gio.ListStore = Gio.ListStore.new(SavedSearchItem)
+        self._saved_search_store: Gio.ListStore = Gio.ListStore.new(
+            SavedSearchItem)
 
         # Build UI
         self._build_ui()
@@ -246,7 +247,8 @@ class SearchDialog(Adw.Window):
         self._subject_entry = Adw.EntryRow(
             title="Subject contains",
         )
-        self._subject_entry.connect("entry-activated", self._on_entry_activated)
+        self._subject_entry.connect(
+            "entry-activated", self._on_entry_activated)
         content_group.add(self._subject_entry)
 
         self._body_entry = Adw.EntryRow(
@@ -313,7 +315,8 @@ class SearchDialog(Adw.Window):
             spacing=8,
             valign=Gtk.Align.CENTER,
         )
-        for label, days in [("Today", 0), ("Week", 7), ("Month", 30), ("Year", 365)]:
+        for label, days in [("Today", 0), ("Week", 7),
+                            ("Month", 30), ("Year", 365)]:
             btn = Gtk.Button(
                 label=label,
                 css_classes=["flat"],
@@ -466,7 +469,8 @@ class SearchDialog(Adw.Window):
         )
 
         selection_model = Gtk.SingleSelection(model=self._saved_search_store)
-        selection_model.connect("selection-changed", self._on_saved_search_selected)
+        selection_model.connect("selection-changed",
+                                self._on_saved_search_selected)
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_saved_search_item_setup)
@@ -623,7 +627,8 @@ class SearchDialog(Adw.Window):
             selection_mode=Gtk.SelectionMode.SINGLE,
             css_classes=["boxed-list"],
         )
-        self._history_list.connect("row-activated", self._on_history_row_activated)
+        self._history_list.connect(
+            "row-activated", self._on_history_row_activated)
 
         scrolled.set_child(self._history_list)
         box.append(scrolled)
@@ -781,7 +786,8 @@ class SearchDialog(Adw.Window):
         calendar = Gtk.Calendar()
         calendar.connect(
             "day-selected",
-            lambda cal: self._on_calendar_date_selected(cal, popover, callback),
+            lambda cal: self._on_calendar_date_selected(
+                cal, popover, callback),
         )
 
         popover.set_child(calendar)
@@ -795,7 +801,8 @@ class SearchDialog(Adw.Window):
     ) -> None:
         """Handle calendar date selection."""
         date = calendar.get_date()
-        selected_date = datetime(date.get_year(), date.get_month(), date.get_day_of_month())
+        selected_date = datetime(
+            date.get_year(), date.get_month(), date.get_day_of_month())
         callback(selected_date)
         popover.popdown()
 
@@ -828,7 +835,8 @@ class SearchDialog(Adw.Window):
         now = datetime.now()
         if days == 0:
             # Today
-            self._set_date_from(now.replace(hour=0, minute=0, second=0, microsecond=0))
+            self._set_date_from(now.replace(
+                hour=0, minute=0, second=0, microsecond=0))
             self._set_date_to(now)
         else:
             # Past N days
@@ -862,7 +870,8 @@ class SearchDialog(Adw.Window):
             title=f"Search '{name}' saved",
             timeout=2,
         )
-        self.get_root().add_toast(toast) if hasattr(self.get_root(), 'add_toast') else None
+        self.get_root().add_toast(toast) if hasattr(
+            self.get_root(), 'add_toast') else None
 
     def _on_saved_search_selected(
         self,
@@ -985,7 +994,8 @@ class SearchDialog(Adw.Window):
             self._on_date_to_clear(self._date_to_clear)
 
         # Status switches
-        self._attachments_row.set_active(criteria.get("has_attachments", False))
+        self._attachments_row.set_active(
+            criteria.get("has_attachments", False))
         self._starred_row.set_active(criteria.get("is_starred", False))
         self._unread_row.set_active(criteria.get("is_unread", False))
         self._encrypted_row.set_active(criteria.get("is_encrypted", False))

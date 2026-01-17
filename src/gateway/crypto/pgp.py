@@ -305,7 +305,8 @@ class PGPManager:
         expiration_date = None
         if key_data.get("expires"):
             try:
-                expiration_date = datetime.fromtimestamp(int(key_data["expires"]))
+                expiration_date = datetime.fromtimestamp(
+                    int(key_data["expires"]))
             except (ValueError, TypeError):
                 pass
 
@@ -360,7 +361,8 @@ class PGPManager:
             if success:
                 logger.info("Deleted key %s", key_id)
             else:
-                logger.warning("Failed to delete key %s: %s", key_id, result.status)
+                logger.warning("Failed to delete key %s: %s",
+                               key_id, result.status)
 
             return success
 
@@ -429,7 +431,9 @@ class PGPManager:
 
             if not result.fingerprints:
                 raise CryptoError(
-                    f"Failed to import key: {result.results[0].get('text', 'Unknown error')}"
+                    f"Failed to import key: {
+                        result.results[0].get(
+                            'text', 'Unknown error')}"
                     if result.results
                     else "Failed to import key: No keys found"
                 )
@@ -810,7 +814,8 @@ class PGPManager:
             timestamp = None
             if verified.timestamp:
                 try:
-                    timestamp = datetime.fromtimestamp(float(verified.timestamp))
+                    timestamp = datetime.fromtimestamp(
+                        float(verified.timestamp))
                 except (ValueError, TypeError):
                     pass
 
@@ -821,7 +826,8 @@ class PGPManager:
                 timestamp=timestamp,
                 username=verified.username,
                 status=verified.status,
-                trust_level=verified.trust_level if hasattr(verified, 'trust_level') else "unknown",
+                trust_level=verified.trust_level if hasattr(
+                    verified, 'trust_level') else "unknown",
             )
 
             if result.valid:

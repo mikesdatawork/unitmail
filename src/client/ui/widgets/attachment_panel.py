@@ -178,7 +178,8 @@ class AttachmentPanel(Gtk.Box):
             self._create_header()
 
         # Attachments list
-        self.list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.list_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.append(self.list_box)
 
         # Empty state label
@@ -346,7 +347,7 @@ class AttachmentPanel(Gtk.Box):
         total_size = sum(a.size for a in self._attachments) + size
         if total_size > self._size_limit:
             self.emit('size-limit-exceeded',
-                     f"Total attachment size would exceed limit of {self._format_size(self._size_limit)}")
+                      f"Total attachment size would exceed limit of {self._format_size(self._size_limit)}")
             return False
 
         # Get mime type
@@ -419,7 +420,8 @@ class AttachmentPanel(Gtk.Box):
         """Update the total size label."""
         total_size = sum(a.size for a in self._attachments)
         limit_text = f" / {self._format_size(self._size_limit)}"
-        self.size_label.set_text(f"Total: {self._format_size(total_size)}{limit_text}")
+        self.size_label.set_text(
+            f"Total: {self._format_size(total_size)}{limit_text}")
         self.size_label.set_visible(True)
 
     def _format_size(self, size: int) -> str:

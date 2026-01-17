@@ -65,10 +65,12 @@ def generate_sample_messages(force_regenerate: bool = False) -> int:
     drafts_id = next((f["id"] for f in folders if f["name"] == "Drafts"), None)
     trash_id = next((f["id"] for f in folders if f["name"] == "Trash"), None)
     spam_id = next((f["id"] for f in folders if f["name"] == "Spam"), None)
-    archive_id = next((f["id"] for f in folders if f["name"] == "Archive"), None)
+    archive_id = next((f["id"]
+                      for f in folders if f["name"] == "Archive"), None)
 
     if not inbox_id:
-        raise RuntimeError("Inbox folder not found - ensure storage is initialized")
+        raise RuntimeError(
+            "Inbox folder not found - ensure storage is initialized")
 
     messages_created = 0
     base_time = datetime.now(timezone.utc)
@@ -276,8 +278,10 @@ David - Finance""",
             "is_read": False,
             "priority": MessagePriority.HIGH.value,
             "attachments": [
-                {"filename": "budget_proposal_q1.xlsx", "size": 125000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-                {"filename": "infrastructure_plan.pdf", "size": 890000, "content_type": "application/pdf"},
+                {"filename": "budget_proposal_q1.xlsx", "size": 125000,
+                    "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+                {"filename": "infrastructure_plan.pdf",
+                    "size": 890000, "content_type": "application/pdf"},
             ],
         },
         {
@@ -318,8 +322,10 @@ Iris - Research""",
             "is_read": False,
             "is_starred": True,
             "attachments": [
-                {"filename": "ml_email_classification.pdf", "size": 2450000, "content_type": "application/pdf"},
-                {"filename": "summary_notes.md", "size": 8500, "content_type": "text/markdown"},
+                {"filename": "ml_email_classification.pdf",
+                    "size": 2450000, "content_type": "application/pdf"},
+                {"filename": "summary_notes.md", "size": 8500,
+                    "content_type": "text/markdown"},
             ],
         },
         {
@@ -422,8 +428,10 @@ Olivia - Creative""",
             "hours_ago": 22,
             "is_read": True,
             "attachments": [
-                {"filename": "Brand_Guidelines_v3.pdf", "size": 5400000, "content_type": "application/pdf"},
-                {"filename": "Logo_Pack.zip", "size": 12500000, "content_type": "application/zip"},
+                {"filename": "Brand_Guidelines_v3.pdf",
+                    "size": 5400000, "content_type": "application/pdf"},
+                {"filename": "Logo_Pack.zip", "size": 12500000,
+                    "content_type": "application/zip"},
             ],
         },
         {

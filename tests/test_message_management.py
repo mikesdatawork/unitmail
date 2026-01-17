@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from datetime import datetime
 from common.local_storage import get_local_storage, LocalEmailStorage
 
+
 class MessageTestResult:
     """Stores test result information."""
     def __init__(self, name: str):
@@ -87,9 +88,12 @@ class MessageManagementTests:
 
         count = self.storage.get_message_count()
         folders = self.storage.get_folders()
-        inbox_count = next((f["message_count"] for f in folders if f["name"] == "Inbox"), 0)
-        sent_count = next((f["message_count"] for f in folders if f["name"] == "Sent"), 0)
-        drafts_count = next((f["message_count"] for f in folders if f["name"] == "Drafts"), 0)
+        inbox_count = next((f["message_count"]
+                           for f in folders if f["name"] == "Inbox"), 0)
+        sent_count = next((f["message_count"]
+                          for f in folders if f["name"] == "Sent"), 0)
+        drafts_count = next((f["message_count"]
+                            for f in folders if f["name"] == "Drafts"), 0)
 
         test.actual = f"Database contains {count} messages ({inbox_count} inbox, {sent_count} sent, {drafts_count} drafts)"
 
@@ -138,7 +142,14 @@ class MessageManagementTests:
 
             if all([has_from, has_to, has_subject, has_body, has_date]):
                 test.status = "PASS"
-                test.actual = f"Message '{full_msg['subject'][:40]}...' has all required fields: from='{full_msg['from_address']}', body length={len(full_msg.get('body_text', ''))}"
+                test.actual = f"Message '{
+                    full_msg['subject'][
+                        :40]}...' has all required fields: from='{
+                    full_msg['from_address']}', body length={
+                    len(
+                        full_msg.get(
+                            'body_text',
+                            ''))}"
             else:
                 test.status = "FAIL"
                 missing = []
@@ -148,7 +159,8 @@ class MessageManagementTests:
                 if not has_body: missing.append("body_text")
                 if not has_date: missing.append("received_at")
                 test.actual = f"Missing fields: {', '.join(missing)}"
-                test.bugs.append(f"Message missing required fields: {', '.join(missing)}")
+                test.bugs.append(
+                    f"Message missing required fields: {', '.join(missing)}")
 
         except Exception as e:
             test.status = "FAIL"
@@ -196,7 +208,8 @@ class MessageManagementTests:
             starred_after_remove = updated_msg.get("is_starred", False)
 
             # Restore original state
-            self.storage.update_message(msg_id, {"is_starred": original_starred})
+            self.storage.update_message(
+                msg_id, {"is_starred": original_starred})
 
             if starred_after_add and not starred_after_remove:
                 test.status = "PASS"
@@ -205,9 +218,11 @@ class MessageManagementTests:
                 test.status = "FAIL"
                 test.actual = f"Star toggle failed. After add: {starred_after_add}, After remove: {starred_after_remove}"
                 if not starred_after_add:
-                    test.bugs.append("Starring message did not update database")
+                    test.bugs.append(
+                        "Starring message did not update database")
                 if starred_after_remove:
-                    test.bugs.append("Unstarring message did not update database")
+                    test.bugs.append(
+                        "Unstarring message did not update database")
 
         except Exception as e:
             test.status = "FAIL"
@@ -230,7 +245,8 @@ class MessageManagementTests:
 
         try:
             folders = self.storage.get_folders()
-            inbox_id = next((f["id"] for f in folders if f["name"] == "Inbox"), None)
+            inbox_id = next((f["id"]
+                            for f in folders if f["name"] == "Inbox"), None)
 
             initial_count = self.storage.get_message_count()
 
@@ -270,7 +286,8 @@ class MessageManagementTests:
                 if msg_after_delete is not None:
                     issues.append("Message still exists after deletion")
                 if after_delete_count != initial_count:
-                    issues.append(f"Count mismatch: {after_delete_count} vs expected {initial_count}")
+                    issues.append(
+                        f"Count mismatch: {after_delete_count} vs expected {initial_count}")
                 test.actual = f"Issues: {', '.join(issues)}"
                 test.bugs.extend(issues)
 
@@ -331,9 +348,11 @@ class MessageManagementTests:
                 test.status = "FAIL"
                 test.actual = f"Read/unread toggle failed. After mark_read: {is_read_after}, After mark_unread: {is_unread_after}"
                 if not is_read_after:
-                    test.bugs.append("mark_as_read did not update is_read to True")
+                    test.bugs.append(
+                        "mark_as_read did not update is_read to True")
                 if is_unread_after:
-                    test.bugs.append("mark_as_unread did not update is_read to False")
+                    test.bugs.append(
+                        "mark_as_unread did not update is_read to False")
 
         except Exception as e:
             test.status = "FAIL"
@@ -358,7 +377,8 @@ class MessageManagementTests:
         try:
             folders = self.storage.get_folders()
             _inbox_id = next((f["id"] for f in folders if f["name"] == "Inbox"), None)  # noqa: F841
-            trash_id = next((f["id"] for f in folders if f["name"] == "Trash"), None)
+            trash_id = next((f["id"]
+                            for f in folders if f["name"] == "Trash"), None)
 
             inbox_messages = self.storage.get_messages_by_folder("Inbox")
             if not inbox_messages:
@@ -367,7 +387,8 @@ class MessageManagementTests:
                 self.results.append(test)
                 return
 
-            test_msg = inbox_messages[-1]  # Use last message to minimize impact
+            # Use last message to minimize impact
+            test_msg = inbox_messages[-1]
             msg_id = test_msg["id"]
             _original_folder = test_msg.get("folder_id")  # noqa: F841
 
@@ -447,18 +468,24 @@ class MessageManagementTests:
             ]
 
             # Verify we got results
-            all_searches_work = len(sender_matches) > 0 and len(subject_matches) > 0 and len(body_matches) > 0
+            all_searches_work = len(sender_matches) > 0 and len(
+                subject_matches) > 0 and len(body_matches) > 0
 
             if all_searches_work:
                 test.status = "PASS"
-                test.actual = f"Search works: sender '{search_term}' found {len(sender_matches)}, subject '{subject_term}' found {len(subject_matches)}, body '{body_term}' found {len(body_matches)}"
+                test.actual = f"Search works: sender '{search_term}' found {
+                    len(sender_matches)}, subject '{subject_term}' found {
+                    len(subject_matches)}, body '{body_term}' found {
+                    len(body_matches)}"
             else:
                 test.status = "FAIL"
                 issues = []
                 if len(sender_matches) == 0:
-                    issues.append(f"No results for sender search '{search_term}'")
+                    issues.append(
+                        f"No results for sender search '{search_term}'")
                 if len(subject_matches) == 0:
-                    issues.append(f"No results for subject search '{subject_term}'")
+                    issues.append(
+                        f"No results for subject search '{subject_term}'")
                 if len(body_matches) == 0:
                     issues.append(f"No results for body search '{body_term}'")
                 test.actual = f"Search issues: {', '.join(issues)}"
@@ -487,8 +514,10 @@ class MessageManagementTests:
             folder_names = [f["name"] for f in folders]
 
             # Check required folders exist
-            required_folders = ["Inbox", "Sent", "Drafts", "Trash", "Spam", "Archive"]
-            missing_folders = [f for f in required_folders if f not in folder_names]
+            required_folders = ["Inbox", "Sent",
+                                "Drafts", "Trash", "Spam", "Archive"]
+            missing_folders = [
+                f for f in required_folders if f not in folder_names]
 
             # Get messages for each folder
             folder_data = {}
@@ -508,16 +537,20 @@ class MessageManagementTests:
 
             if not missing_folders and count_matches:
                 test.status = "PASS"
-                counts_str = ", ".join([f"{name}: {data['actual_count']}" for name, data in folder_data.items()])
+                counts_str = ", ".join(
+                    [f"{name}: {data['actual_count']}" for name, data in folder_data.items()])
                 test.actual = f"All folders present. Message counts: {counts_str}"
             else:
                 test.status = "FAIL"
                 issues = []
                 if missing_folders:
-                    issues.append(f"Missing folders: {', '.join(missing_folders)}")
+                    issues.append(
+                        f"Missing folders: {', '.join(missing_folders)}")
                 if not count_matches:
                     mismatches = [
-                        f"{name} (expected {data['expected_count']}, got {data['actual_count']})"
+                        f"{name} (expected {
+                            data['expected_count']}, got {
+                            data['actual_count']})"
                         for name, data in folder_data.items()
                         if data['expected_count'] != data['actual_count']
                     ]
@@ -560,7 +593,8 @@ class MessageManagementTests:
             persisted_starred = msg_from_new.get("is_starred", False)
 
             # Restore original state
-            self.storage.update_message(msg_id, {"is_starred": original_starred})
+            self.storage.update_message(
+                msg_id, {"is_starred": original_starred})
 
             if persisted_starred == new_starred:
                 test.status = "PASS"
@@ -568,7 +602,8 @@ class MessageManagementTests:
             else:
                 test.status = "FAIL"
                 test.actual = f"Change did not persist. Changed to: {new_starred}, After reload: {persisted_starred}"
-                test.bugs.append("Database changes do not persist across instances")
+                test.bugs.append(
+                    "Database changes do not persist across instances")
 
         except Exception as e:
             test.status = "FAIL"

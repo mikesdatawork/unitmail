@@ -55,8 +55,10 @@ class ColumnResizeMixin:
 
         # Add drag gesture for resizing
         drag_gesture = Gtk.GestureDrag()
-        drag_gesture.connect("drag-begin", self._on_resize_drag_begin, column_name)
-        drag_gesture.connect("drag-update", self._on_resize_drag_update, column_name)
+        drag_gesture.connect(
+            "drag-begin", self._on_resize_drag_begin, column_name)
+        drag_gesture.connect(
+            "drag-update", self._on_resize_drag_update, column_name)
         drag_gesture.connect("drag-end", self._on_resize_drag_end, column_name)
         handle.add_controller(drag_gesture)
 
@@ -105,7 +107,8 @@ class ColumnResizeMixin:
         elif column_name == "from":
             self._resize_start_width = self._column_width_from
 
-        logger.debug(f"Started resizing column: {column_name}, start_width: {self._resize_start_width}")
+        logger.debug(
+            f"Started resizing column: {column_name}, start_width: {self._resize_start_width}")
 
     def _on_resize_drag_update(
         self,
@@ -201,11 +204,15 @@ class ColumnResizeMixin:
             self._column_width_from = settings.appearance.column_width_from
             self._column_width_subject = settings.appearance.column_width_subject
             logger.debug(
-                f"Loaded column widths: received={self._column_width_received}, "
-                f"from={self._column_width_from}, subject={self._column_width_subject}"
+                f"Loaded column widths: received={
+                    self._column_width_received}, "
+                f"from={
+                    self._column_width_from}, subject={
+                    self._column_width_subject}"
             )
         except Exception as e:
-            logger.warning(f"Failed to load column widths, using defaults: {e}")
+            logger.warning(
+                f"Failed to load column widths, using defaults: {e}")
             self._column_width_received = 120
             self._column_width_from = 250
             self._column_width_subject = -1

@@ -451,9 +451,12 @@ class SetupWizard(Adw.Window):
         options_group.add(self._mesh_row)
 
         # Connect signals
-        hosted_check.connect("toggled", self._on_deployment_changed, DeploymentModel.HOSTED)
-        self_hosted_check.connect("toggled", self._on_deployment_changed, DeploymentModel.SELF_HOSTED)
-        mesh_check.connect("toggled", self._on_deployment_changed, DeploymentModel.MESH)
+        hosted_check.connect(
+            "toggled", self._on_deployment_changed, DeploymentModel.HOSTED)
+        self_hosted_check.connect(
+            "toggled", self._on_deployment_changed, DeploymentModel.SELF_HOSTED)
+        mesh_check.connect(
+            "toggled", self._on_deployment_changed, DeploymentModel.MESH)
 
         content.append(options_group)
 
@@ -819,7 +822,8 @@ class SetupWizard(Adw.Window):
             title="Key Expiration",
             subtitle="When the key will expire",
         )
-        expiry_options = Gtk.StringList.new(["1 Year", "2 Years", "5 Years", "Never"])
+        expiry_options = Gtk.StringList.new(
+            ["1 Year", "2 Years", "5 Years", "Never"])
         expiry_row.set_model(expiry_options)
         expiry_row.set_selected(1)
         self._pgp_options.add(expiry_row)
@@ -1265,7 +1269,8 @@ class SetupWizard(Adw.Window):
         confirm = self._confirm_entry.get_text()
 
         if len(password) < 8:
-            self._show_validation_error("Password must be at least 8 characters.")
+            self._show_validation_error(
+                "Password must be at least 8 characters.")
             return False
         if password != confirm:
             self._show_validation_error("Passwords do not match.")

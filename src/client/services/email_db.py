@@ -342,7 +342,8 @@ class EmailDatabase:
                 (
                     folder.id, folder.name, folder.folder_type, folder.icon_name,
                     folder.parent_id, folder.message_count, folder.unread_count,
-                    folder.sort_order, folder.color, int(folder.is_system), now, now
+                    folder.sort_order, folder.color, int(
+                        folder.is_system), now, now
                 )
             )
         folder.created_at = datetime.fromisoformat(now)
@@ -460,7 +461,8 @@ class EmailDatabase:
                 SET message_count = ?, unread_count = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (counts['total'], counts['unread'] or 0, self._now_iso(), folder_id)
+                (counts['total'], counts['unread']
+                 or 0, self._now_iso(), folder_id)
             )
 
     # Message operations
@@ -670,7 +672,8 @@ class EmailDatabase:
 
         return deleted
 
-    def move_message(self, message_id: str, new_folder_id: str) -> Optional[Message]:
+    def move_message(self, message_id: str,
+                     new_folder_id: str) -> Optional[Message]:
         """
         Move a message to a different folder.
 
@@ -694,7 +697,8 @@ class EmailDatabase:
                 SET folder_id = ?, updated_at = ?, sync_status = ?
                 WHERE id = ?
                 """,
-                (new_folder_id, self._now_iso(), SyncStatus.PENDING.value, message_id)
+                (new_folder_id, self._now_iso(),
+                 SyncStatus.PENDING.value, message_id)
             )
 
         # Update both folder counts
@@ -980,16 +984,20 @@ class EmailDatabase:
             Dictionary with counts and stats.
         """
         with self.get_connection() as conn:
-            folder_count = conn.execute("SELECT COUNT(*) FROM folders").fetchone()[0]
-            message_count = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+            folder_count = conn.execute(
+                "SELECT COUNT(*) FROM folders").fetchone()[0]
+            message_count = conn.execute(
+                "SELECT COUNT(*) FROM messages").fetchone()[0]
             unread_count = conn.execute(
                 "SELECT COUNT(*) FROM messages WHERE is_read = 0"
             ).fetchone()[0]
             starred_count = conn.execute(
                 "SELECT COUNT(*) FROM messages WHERE is_starred = 1"
             ).fetchone()[0]
-            thread_count = conn.execute("SELECT COUNT(*) FROM threads").fetchone()[0]
-            attachment_count = conn.execute("SELECT COUNT(*) FROM attachments").fetchone()[0]
+            thread_count = conn.execute(
+                "SELECT COUNT(*) FROM threads").fetchone()[0]
+            attachment_count = conn.execute(
+                "SELECT COUNT(*) FROM attachments").fetchone()[0]
             pending_sync = conn.execute(
                 "SELECT COUNT(*) FROM messages WHERE sync_status = 'pending'"
             ).fetchone()[0]
@@ -1021,8 +1029,10 @@ class EmailDatabase:
             sort_order=row['sort_order'],
             color=row['color'],
             is_system=bool(row['is_system']),
-            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
-            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+            created_at=datetime.fromisoformat(
+                row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(
+                row['updated_at']) if row['updated_at'] else None,
         )
 
     def _row_to_message(self, row: sqlite3.Row) -> Message:
@@ -1050,10 +1060,14 @@ class EmailDatabase:
             attachment_count=row['attachment_count'],
             in_reply_to=row['in_reply_to'],
             references=json.loads(row['references_list']),
-            received_at=datetime.fromisoformat(row['received_at']) if row['received_at'] else None,
-            sent_at=datetime.fromisoformat(row['sent_at']) if row['sent_at'] else None,
-            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
-            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+            received_at=datetime.fromisoformat(
+                row['received_at']) if row['received_at'] else None,
+            sent_at=datetime.fromisoformat(
+                row['sent_at']) if row['sent_at'] else None,
+            created_at=datetime.fromisoformat(
+                row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(
+                row['updated_at']) if row['updated_at'] else None,
             sync_status=row['sync_status'],
         )
 
@@ -1066,9 +1080,12 @@ class EmailDatabase:
             message_count=row['message_count'],
             unread_count=row['unread_count'],
             participant_addresses=json.loads(row['participant_addresses']),
-            last_message_at=datetime.fromisoformat(row['last_message_at']) if row['last_message_at'] else None,
-            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
-            updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None,
+            last_message_at=datetime.fromisoformat(
+                row['last_message_at']) if row['last_message_at'] else None,
+            created_at=datetime.fromisoformat(
+                row['created_at']) if row['created_at'] else None,
+            updated_at=datetime.fromisoformat(
+                row['updated_at']) if row['updated_at'] else None,
         )
 
     def _row_to_attachment(self, row: sqlite3.Row) -> Attachment:
@@ -1083,7 +1100,8 @@ class EmailDatabase:
             is_inline=bool(row['is_inline']),
             storage_path=row['storage_path'],
             checksum=row['checksum'],
-            created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+            created_at=datetime.fromisoformat(
+                row['created_at']) if row['created_at'] else None,
         )
 
 

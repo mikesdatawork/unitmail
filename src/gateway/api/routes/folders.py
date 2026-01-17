@@ -28,12 +28,15 @@ logger = logging.getLogger(__name__)
 class CreateFolderRequest(BaseModel):
     """Request model for creating a folder."""
 
-    name: str = Field(..., min_length=1, max_length=100, description="Folder name")
-    parent_id: Optional[str] = Field(None, description="Parent folder ID for nesting")
+    name: str = Field(..., min_length=1, max_length=100,
+                      description="Folder name")
+    parent_id: Optional[str] = Field(
+        None, description="Parent folder ID for nesting")
     color: Optional[str] = Field(
         None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Folder color (hex)"
     )
-    icon: Optional[str] = Field(None, max_length=50, description="Folder icon name")
+    icon: Optional[str] = Field(
+        None, max_length=50, description="Folder icon name")
 
     @field_validator("name")
     @classmethod
@@ -41,7 +44,8 @@ class CreateFolderRequest(BaseModel):
         """Validate folder name."""
         forbidden = ['/', '\\', '<', '>', ':', '"', '|', '?', '*']
         if any(c in v for c in forbidden):
-            raise ValueError(f"Folder name cannot contain: {' '.join(forbidden)}")
+            raise ValueError(
+                f"Folder name cannot contain: {' '.join(forbidden)}")
         return v.strip()
 
 
@@ -55,7 +59,8 @@ class UpdateFolderRequest(BaseModel):
     color: Optional[str] = Field(
         None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Folder color (hex)"
     )
-    icon: Optional[str] = Field(None, max_length=50, description="Folder icon name")
+    icon: Optional[str] = Field(
+        None, max_length=50, description="Folder icon name")
     sort_order: Optional[int] = Field(None, ge=0, description="Sort order")
 
     @field_validator("name")
@@ -66,7 +71,8 @@ class UpdateFolderRequest(BaseModel):
             return v
         forbidden = ['/', '\\', '<', '>', ':', '"', '|', '?', '*']
         if any(c in v for c in forbidden):
-            raise ValueError(f"Folder name cannot contain: {' '.join(forbidden)}")
+            raise ValueError(
+                f"Folder name cannot contain: {' '.join(forbidden)}")
         return v.strip()
 
 
@@ -124,7 +130,8 @@ def create_folders_blueprint() -> Blueprint:
             List of folders with message counts.
         """
         try:
-            include_system = request.args.get("include_system", "true").lower() == "true"
+            include_system = request.args.get(
+                "include_system", "true").lower() == "true"
             parent_id = request.args.get("parent_id")
 
             storage = get_storage()
@@ -143,9 +150,11 @@ def create_folders_blueprint() -> Blueprint:
             if parent_id is not None:
                 if parent_id == "" or parent_id.lower() == "null":
                     # Root level folders
-                    folders = [f for f in folders if f.get("parent_id") is None]
+                    folders = [f for f in folders if f.get(
+                        "parent_id") is None]
                 else:
-                    folders = [f for f in folders if f.get("parent_id") == parent_id]
+                    folders = [f for f in folders if f.get(
+                        "parent_id") == parent_id]
 
             # Calculate totals
             total_messages = sum(f.get("message_count", 0) for f in folders)
@@ -265,7 +274,7 @@ def create_folders_blueprint() -> Blueprint:
 
             for f in existing_folders:
                 if (f["name"].lower() == data.name.lower() and
-                    f.get("parent_id") == data.parent_id):
+                        f.get("parent_id") == data.parent_id):
                     return jsonify({
                         "error": "Duplicate folder",
                         "message": f"A folder named '{data.name}' already exists",
@@ -362,7 +371,8 @@ def create_folders_blueprint() -> Blueprint:
                 }), 404
 
             # Check if it's a system folder (cannot rename system folders)
-            if folder.get("is_system") and data.name and data.name != folder["name"]:
+            if folder.get(
+                    "is_system") and data.name and data.name != folder["name"]:
                 return jsonify({
                     "error": "Cannot modify",
                     "message": "System folders cannot be renamed",
@@ -378,11 +388,12 @@ def create_folders_blueprint() -> Blueprint:
                 else:
                     existing_folders = storage.get_folders()
 
-                target_parent = data.parent_id if data.parent_id is not None else folder.get("parent_id")
+                target_parent = data.parent_id if data.parent_id is not None else folder.get(
+                    "parent_id")
                 for f in existing_folders:
                     if (f["id"] != folder["id"] and
                         f["name"].lower() == data.name.lower() and
-                        f.get("parent_id") == target_parent):
+                            f.get("parent_id") == target_parent):
                         return jsonify({
                             "error": "Duplicate folder",
                             "message": f"A folder named '{data.name}' already exists",
@@ -514,7 +525,8 @@ def create_folders_blueprint() -> Blueprint:
                         }), 400
 
                     # Check ownership of target
-                    if target.get("user_id") and target.get("user_id") != user_id:
+                    if target.get("user_id") and target.get(
+                            "user_id") != user_id:
                         return jsonify({
                             "error": "Invalid target",
                             "message": "Target folder not found",
@@ -526,7 +538,8 @@ def create_folders_blueprint() -> Blueprint:
                         limit=1000,
                     )
                     for msg in messages:
-                        storage.update_message(msg["id"], {"folder_id": move_to})
+                        storage.update_message(
+                            msg["id"], {"folder_id": move_to})
 
                 elif not force:
                     return jsonify({
@@ -541,7 +554,8 @@ def create_folders_blueprint() -> Blueprint:
             else:
                 all_folders = storage.get_folders()
 
-            children = [f for f in all_folders if f.get("parent_id") == folder_id]
+            children = [f for f in all_folders if f.get(
+                "parent_id") == folder_id]
             if children:
                 return jsonify({
                     "error": "Folder has children",

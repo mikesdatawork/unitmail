@@ -265,8 +265,10 @@ class RestoreDialog(Adw.Window):
         self._restore_password_row = Adw.PasswordEntryRow(
             title="Password",
         )
-        self._restore_password_row.connect("changed", self._on_password_changed)
-        self._restore_password_row.connect("entry-activated", self._on_password_activated)
+        self._restore_password_row.connect(
+            "changed", self._on_password_changed)
+        self._restore_password_row.connect(
+            "entry-activated", self._on_password_activated)
         password_group.add(self._restore_password_row)
 
         content.append(password_group)
@@ -818,8 +820,10 @@ class RestoreDialog(Adw.Window):
     def _update_progress_ui(self, progress: BackupProgress) -> None:
         """Update progress UI (must be called from main thread)."""
         self._restore_status_label.set_label(progress.current_step)
-        self._restore_progress_bar.set_fraction(progress.percent_complete / 100)
-        self._restore_progress_bar.set_text(f"{progress.percent_complete:.0f}%")
+        self._restore_progress_bar.set_fraction(
+            progress.percent_complete / 100)
+        self._restore_progress_bar.set_text(
+            f"{progress.percent_complete:.0f}%")
 
         return False
 
@@ -866,7 +870,8 @@ class RestoreDialog(Adw.Window):
             if result.get("folders", 0) > 0:
                 body += f"  Folders: {result['folders']}\n"
             if result.get("configuration", 0) > 0:
-                body += f"  Configuration: {result['configuration']} settings\n"
+                body += f"  Configuration: {
+                    result['configuration']} settings\n"
             if result.get("dkim_keys", 0) > 0:
                 body += "  DKIM Keys: restored\n"
             if result.get("pgp_keys", 0) > 0:

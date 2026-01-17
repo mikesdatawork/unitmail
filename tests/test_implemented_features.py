@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+
 class FeatureTestResults:
     """Track test results."""
     def __init__(self):
@@ -59,9 +60,11 @@ def test_imports(results: FeatureTestResults):
             # Verify classes exist
             missing = [c for c in expected_classes if not hasattr(module, c)]
             if missing:
-                results.add_fail(f"Import {module_name}", f"Missing classes: {missing}")
+                results.add_fail(
+                    f"Import {module_name}", f"Missing classes: {missing}")
             else:
-                results.add_pass(f"Import {module_name}", f"Classes: {', '.join(expected_classes)}")
+                results.add_pass(
+                    f"Import {module_name}", f"Classes: {', '.join(expected_classes)}")
         except Exception as e:
             results.add_fail(f"Import {module_name}", str(e))
 
@@ -94,7 +97,8 @@ def test_widget_instantiation(results: FeatureTestResults):
         )
         assert msg.message_id == "test1"
         assert msg.from_address == "test@example.com"
-        results.add_pass("MessageItem instantiation", f"Created with ID: {msg.message_id}")
+        results.add_pass("MessageItem instantiation",
+                         f"Created with ID: {msg.message_id}")
     except Exception as e:
         results.add_fail("MessageItem instantiation", str(e))
 
@@ -109,7 +113,8 @@ def test_widget_instantiation(results: FeatureTestResults):
         )
         assert folder.folder_id == "inbox"
         assert folder.name == "Inbox"
-        results.add_pass("FolderItem instantiation", f"Created folder: {folder.name}")
+        results.add_pass("FolderItem instantiation",
+                         f"Created folder: {folder.name}")
     except Exception as e:
         results.add_fail("FolderItem instantiation", str(e))
 
@@ -127,13 +132,16 @@ def test_feature_implementation(results: FeatureTestResults):
         methods = inspect.getmembers(MainWindow, predicate=inspect.isfunction)
         method_names = [m[0] for m in methods]
 
-        required_methods = ['_on_mark_starred', '_on_unstar_message', '_set_message_starred']
+        required_methods = ['_on_mark_starred',
+                            '_on_unstar_message', '_set_message_starred']
         missing = [m for m in required_methods if m not in method_names]
 
         if missing:
-            results.add_fail("Favorite toggle feature", f"Missing methods: {missing}")
+            results.add_fail("Favorite toggle feature",
+                             f"Missing methods: {missing}")
         else:
-            results.add_pass("Favorite toggle feature", "All required methods present")
+            results.add_pass("Favorite toggle feature",
+                             "All required methods present")
     except Exception as e:
         results.add_fail("Favorite toggle feature", str(e))
 
@@ -146,9 +154,11 @@ def test_feature_implementation(results: FeatureTestResults):
         method_names = [m[0] for m in methods]
 
         if '_on_delete_message' in method_names:
-            results.add_pass("Delete message feature", "Delete handler implemented")
+            results.add_pass("Delete message feature",
+                             "Delete handler implemented")
         else:
-            results.add_fail("Delete message feature", "Missing _on_delete_message handler")
+            results.add_fail("Delete message feature",
+                             "Missing _on_delete_message handler")
     except Exception as e:
         results.add_fail("Delete message feature", str(e))
 
@@ -164,9 +174,11 @@ def test_feature_implementation(results: FeatureTestResults):
         missing = [m for m in required_methods if m not in method_names]
 
         if missing:
-            results.add_fail("Double-click pop-out feature", f"Missing methods: {missing}")
+            results.add_fail("Double-click pop-out feature",
+                             f"Missing methods: {missing}")
         else:
-            results.add_pass("Double-click pop-out feature", "Pop-out handlers implemented")
+            results.add_pass("Double-click pop-out feature",
+                             "Pop-out handlers implemented")
     except Exception as e:
         results.add_fail("Double-click pop-out feature", str(e))
 
@@ -178,9 +190,11 @@ def test_feature_implementation(results: FeatureTestResults):
         source = inspect.getsource(MainWindow._create_message_list_pane)
 
         if '_column_headers' in source and 'margin_start=12' in source:
-            results.add_pass("Header alignment feature", "Column headers with proper margins")
+            results.add_pass("Header alignment feature",
+                             "Column headers with proper margins")
         else:
-            results.add_warning("Header alignment feature", "Column headers may need margin adjustment")
+            results.add_warning("Header alignment feature",
+                                "Column headers may need margin adjustment")
     except Exception as e:
         results.add_fail("Header alignment feature", str(e))
 
@@ -193,9 +207,11 @@ def test_feature_implementation(results: FeatureTestResults):
         method_names = [m[0] for m in methods]
 
         if '_on_search_focus' in method_names:
-            results.add_pass("Search focus feature", "Search focus handler implemented")
+            results.add_pass("Search focus feature",
+                             "Search focus handler implemented")
         else:
-            results.add_fail("Search focus feature", "Missing _on_search_focus handler")
+            results.add_fail("Search focus feature",
+                             "Missing _on_search_focus handler")
     except Exception as e:
         results.add_fail("Search focus feature", str(e))
 
@@ -208,9 +224,11 @@ def test_feature_implementation(results: FeatureTestResults):
 
         # Check for threaded conversation markers
         if 'thread1-1' in source and 'Project Planning' in source:
-            results.add_pass("Threaded messages feature", "Sample threaded conversation present")
+            results.add_pass("Threaded messages feature",
+                             "Sample threaded conversation present")
         else:
-            results.add_fail("Threaded messages feature", "Threaded conversation not found in sample data")
+            results.add_fail("Threaded messages feature",
+                             "Threaded conversation not found in sample data")
     except Exception as e:
         results.add_fail("Threaded messages feature", str(e))
 
@@ -231,7 +249,8 @@ def test_view_theme_manager(results: FeatureTestResults):
         manager1 = get_view_theme_manager()
         manager2 = get_view_theme_manager()
         assert manager1 is manager2
-        results.add_pass("ViewThemeManager singleton", "Singleton pattern working")
+        results.add_pass("ViewThemeManager singleton",
+                         "Singleton pattern working")
 
         # Test theme switching
         manager1.set_theme(ViewTheme.MINIMAL)
@@ -240,7 +259,8 @@ def test_view_theme_manager(results: FeatureTestResults):
 
     except Exception as e:
         import traceback
-        results.add_fail("View theme manager", f"{str(e)}\n{traceback.format_exc()}")
+        results.add_fail("View theme manager",
+                         f"{str(e)}\n{traceback.format_exc()}")
 
 
 def generate_report(results: FeatureTestResults):
@@ -325,7 +345,8 @@ def generate_report(results: FeatureTestResults):
     # Summary
     print("\n## Summary")
     total_tests = len(results.passed) + len(results.failed)
-    pass_rate = (len(results.passed) / total_tests * 100) if total_tests > 0 else 0
+    pass_rate = (len(results.passed) / total_tests *
+                 100) if total_tests > 0 else 0
 
     print(f"- Total Tests: {total_tests}")
     print(f"- Passed: {len(results.passed)}")

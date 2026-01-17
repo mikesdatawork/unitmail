@@ -216,7 +216,8 @@ class DKIMSigner:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
 
-            logger.info("Generated new DKIM key pair with %d-bit RSA", key_size)
+            logger.info(
+                "Generated new DKIM key pair with %d-bit RSA", key_size)
 
             return DKIMKeyPair(
                 private_key=private_key,
@@ -390,7 +391,8 @@ class DKIMSigner:
                 sig.expiration = sig.timestamp + self.signature_ttl
 
             # Build header string to sign (without b= value)
-            sig_header_value = sig.to_header().replace(f"b={sig.signature}", "b=")
+            sig_header_value = sig.to_header().replace(
+                f"b={sig.signature}", "b=")
 
             # Canonicalize headers
             headers_to_sign = []
@@ -537,7 +539,8 @@ class DKIMVerifier:
             elif tag == "s":
                 sig.selector = value
             elif tag == "h":
-                sig.signed_headers = [h.strip().lower() for h in value.split(":")]
+                sig.signed_headers = [h.strip().lower()
+                                      for h in value.split(":")]
             elif tag == "bh":
                 sig.body_hash = value.replace(" ", "").replace("\t", "")
             elif tag == "b":
@@ -559,7 +562,8 @@ class DKIMVerifier:
         if not sig.body_hash:
             raise SignatureError("Missing body hash (bh=) in DKIM signature")
         if not sig.signed_headers:
-            raise SignatureError("Missing signed headers (h=) in DKIM signature")
+            raise SignatureError(
+                "Missing signed headers (h=) in DKIM signature")
         if "from" not in sig.signed_headers:
             raise SignatureError("'From' header must be signed")
 
@@ -585,9 +589,11 @@ class DKIMVerifier:
         try:
             answers = self._resolver.resolve(dkim_domain, "TXT")
         except dns.resolver.NXDOMAIN:
-            raise DNSLookupError(dkim_domain, "TXT", {"reason": "Domain not found"})
+            raise DNSLookupError(dkim_domain, "TXT", {
+                                 "reason": "Domain not found"})
         except dns.resolver.NoAnswer:
-            raise DNSLookupError(dkim_domain, "TXT", {"reason": "No TXT record"})
+            raise DNSLookupError(dkim_domain, "TXT", {
+                                 "reason": "No TXT record"})
         except dns.resolver.Timeout:
             raise DNSLookupError(dkim_domain, "TXT", {"reason": "Timeout"})
         except Exception as e:
@@ -608,7 +614,8 @@ class DKIMVerifier:
                 break
 
         if not key_data:
-            raise SignatureError(f"No public key (p=) in DKIM record for {dkim_domain}")
+            raise SignatureError(
+                f"No public key (p=) in DKIM record for {dkim_domain}")
 
         if key_data == "":
             raise SignatureError(f"DKIM key revoked for {dkim_domain}")
@@ -818,22 +825,27 @@ def generate_dkim_keys(
         Tuple of (private_key_pem, public_key_pem, dns_record).
     """
     key_pair = DKIMSigner.generate_key_pair(key_size)
-    dns_record = DKIMSigner.generate_dns_record(key_pair.public_key_pem, selector)
+    dns_record = DKIMSigner.generate_dns_record(
+        key_pair.public_key_pem, selector)
 
     if output_dir:
         import os
         os.makedirs(output_dir, exist_ok=True)
 
-        private_key_path = os.path.join(output_dir, f"{selector}.{domain}.private.pem")
-        public_key_path = os.path.join(output_dir, f"{selector}.{domain}.public.pem")
-        dns_record_path = os.path.join(output_dir, f"{selector}.{domain}.dns.txt")
+        private_key_path = os.path.join(
+            output_dir, f"{selector}.{domain}.private.pem")
+        public_key_path = os.path.join(
+            output_dir, f"{selector}.{domain}.public.pem")
+        dns_record_path = os.path.join(
+            output_dir, f"{selector}.{domain}.dns.txt")
 
         with open(private_key_path, "wb") as f:
             f.write(key_pair.private_key_pem)
         with open(public_key_path, "wb") as f:
             f.write(key_pair.public_key_pem)
         with open(dns_record_path, "w") as f:
-            f.write(f"{selector}._domainkey.{domain} IN TXT \"{dns_record}\"\n")
+            f.write(
+                f"{selector}._domainkey.{domain} IN TXT \"{dns_record}\"\n")
 
         logger.info("Saved DKIM keys to %s", output_dir)
 

@@ -61,7 +61,8 @@ class ConnectionPool:
         thread_id = threading.get_ident()
 
         # Check if this thread already has a connection
-        if hasattr(self._local, "connection") and self._local.connection is not None:
+        if hasattr(self._local,
+                   "connection") and self._local.connection is not None:
             return self._local.connection
 
         # Create new connection
@@ -113,7 +114,8 @@ class ConnectionPool:
         # Enable auto-vacuum in incremental mode
         conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
 
-        logger.debug(f"Created new SQLite connection for thread {threading.get_ident()}")
+        logger.debug(
+            f"Created new SQLite connection for thread {threading.get_ident()}")
         return conn
 
     def close_all(self) -> None:
@@ -329,7 +331,8 @@ class DatabaseConnection:
         """
         conn = self.connection
         conn.execute("ANALYZE")
-        conn.execute("INSERT INTO messages_fts(messages_fts) VALUES('optimize')")
+        conn.execute(
+            "INSERT INTO messages_fts(messages_fts) VALUES('optimize')")
         logger.info("Database optimized")
 
     def integrity_check(self) -> bool:

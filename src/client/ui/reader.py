@@ -70,16 +70,25 @@ ALLOWED_ATTRIBUTES = {
 }
 
 # Fallback regex patterns for when nh3 is not available
-SCRIPT_PATTERN = re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
-STYLE_PATTERN = re.compile(r"<style[^>]*>.*?</style>", re.IGNORECASE | re.DOTALL)
-EVENT_HANDLER_PATTERN = re.compile(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', re.IGNORECASE)
-JAVASCRIPT_URL_PATTERN = re.compile(r'href\s*=\s*["\']javascript:[^"\']*["\']', re.IGNORECASE)
-DATA_URL_PATTERN = re.compile(r'src\s*=\s*["\']data:[^"\']*["\']', re.IGNORECASE)
-IFRAME_PATTERN = re.compile(r"<iframe[^>]*>.*?</iframe>", re.IGNORECASE | re.DOTALL)
-OBJECT_PATTERN = re.compile(r"<object[^>]*>.*?</object>", re.IGNORECASE | re.DOTALL)
-EMBED_PATTERN = re.compile(r"<embed[^>]*>.*?</embed>", re.IGNORECASE | re.DOTALL)
+SCRIPT_PATTERN = re.compile(
+    r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
+STYLE_PATTERN = re.compile(
+    r"<style[^>]*>.*?</style>", re.IGNORECASE | re.DOTALL)
+EVENT_HANDLER_PATTERN = re.compile(
+    r'\s+on\w+\s*=\s*["\'][^"\']*["\']', re.IGNORECASE)
+JAVASCRIPT_URL_PATTERN = re.compile(
+    r'href\s*=\s*["\']javascript:[^"\']*["\']', re.IGNORECASE)
+DATA_URL_PATTERN = re.compile(
+    r'src\s*=\s*["\']data:[^"\']*["\']', re.IGNORECASE)
+IFRAME_PATTERN = re.compile(
+    r"<iframe[^>]*>.*?</iframe>", re.IGNORECASE | re.DOTALL)
+OBJECT_PATTERN = re.compile(
+    r"<object[^>]*>.*?</object>", re.IGNORECASE | re.DOTALL)
+EMBED_PATTERN = re.compile(
+    r"<embed[^>]*>.*?</embed>", re.IGNORECASE | re.DOTALL)
 FORM_PATTERN = re.compile(r"<form[^>]*>.*?</form>", re.IGNORECASE | re.DOTALL)
-META_REFRESH_PATTERN = re.compile(r'<meta[^>]+http-equiv\s*=\s*["\']refresh["\'][^>]*>', re.IGNORECASE)
+META_REFRESH_PATTERN = re.compile(
+    r'<meta[^>]+http-equiv\s*=\s*["\']refresh["\'][^>]*>', re.IGNORECASE)
 
 
 def _sanitize_html_with_nh3(html_content: str) -> str:
@@ -312,7 +321,8 @@ class MessageBodyView(Gtk.Box):
 
         load_button = Gtk.Button.new_with_label("Load External Content")
         load_button.connect("clicked", self._on_load_external_clicked)
-        self._external_warning.add_action_widget(load_button, Gtk.ResponseType.OK)
+        self._external_warning.add_action_widget(
+            load_button, Gtk.ResponseType.OK)
 
         self.append(self._external_warning)
 
@@ -364,7 +374,8 @@ class MessageBodyView(Gtk.Box):
             if hasattr(settings, "set_enable_java"):
                 settings.set_enable_java(False)
             if hasattr(settings, "set_auto_load_images"):
-                settings.set_auto_load_images(False)  # Block external images initially
+                # Block external images initially
+                settings.set_auto_load_images(False)
 
             # Connect to navigation signals
             self._web_view.connect("decide-policy", self._on_decide_policy)
@@ -654,21 +665,24 @@ class MessageViewer(Gtk.Box):
         self._toolbar.add_css_class("message-toolbar")
 
         # Reply button
-        self._reply_button = Gtk.Button.new_from_icon_name("mail-reply-sender-symbolic")
+        self._reply_button = Gtk.Button.new_from_icon_name(
+            "mail-reply-sender-symbolic")
         self._reply_button.set_tooltip_text("Reply")
         self._reply_button.add_css_class("flat")
         self._reply_button.connect("clicked", self._on_reply_clicked)
         self._toolbar.append(self._reply_button)
 
         # Reply All button
-        self._reply_all_button = Gtk.Button.new_from_icon_name("mail-reply-all-symbolic")
+        self._reply_all_button = Gtk.Button.new_from_icon_name(
+            "mail-reply-all-symbolic")
         self._reply_all_button.set_tooltip_text("Reply All")
         self._reply_all_button.add_css_class("flat")
         self._reply_all_button.connect("clicked", self._on_reply_all_clicked)
         self._toolbar.append(self._reply_all_button)
 
         # Forward button
-        self._forward_button = Gtk.Button.new_from_icon_name("mail-forward-symbolic")
+        self._forward_button = Gtk.Button.new_from_icon_name(
+            "mail-forward-symbolic")
         self._forward_button.set_tooltip_text("Forward")
         self._forward_button.add_css_class("flat")
         self._forward_button.connect("clicked", self._on_forward_clicked)
@@ -701,7 +715,8 @@ class MessageViewer(Gtk.Box):
         self._toolbar.append(spacer)
 
         # Delete button
-        self._delete_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+        self._delete_button = Gtk.Button.new_from_icon_name(
+            "user-trash-symbolic")
         self._delete_button.set_tooltip_text("Delete")
         self._delete_button.add_css_class("flat")
         self._delete_button.add_css_class("destructive-action")
@@ -742,8 +757,10 @@ class MessageViewer(Gtk.Box):
 
         # Attachment list
         self._attachments = AttachmentList()
-        self._attachments.connect("attachment-download", self._on_attachment_download)
-        self._attachments.connect("attachment-preview", self._on_attachment_preview)
+        self._attachments.connect(
+            "attachment-download", self._on_attachment_download)
+        self._attachments.connect(
+            "attachment-preview", self._on_attachment_preview)
         self._attachments.connect("attachment-open", self._on_attachment_open)
         self._attachments.connect("download-all", self._on_download_all)
         self._attachments.set_visible(False)
@@ -794,19 +811,23 @@ class MessageViewer(Gtk.Box):
         action_group = Gio.SimpleActionGroup()
 
         move_inbox_action = Gio.SimpleAction.new("move-inbox", None)
-        move_inbox_action.connect("activate", lambda a, p: self._on_move_to_folder("inbox"))
+        move_inbox_action.connect(
+            "activate", lambda a, p: self._on_move_to_folder("inbox"))
         action_group.add_action(move_inbox_action)
 
         move_archive_action = Gio.SimpleAction.new("move-archive", None)
-        move_archive_action.connect("activate", lambda a, p: self._on_move_to_folder("archive"))
+        move_archive_action.connect(
+            "activate", lambda a, p: self._on_move_to_folder("archive"))
         action_group.add_action(move_archive_action)
 
         move_spam_action = Gio.SimpleAction.new("move-spam", None)
-        move_spam_action.connect("activate", lambda a, p: self._on_move_to_folder("spam"))
+        move_spam_action.connect("activate", lambda a,
+                                 p: self._on_move_to_folder("spam"))
         action_group.add_action(move_spam_action)
 
         move_trash_action = Gio.SimpleAction.new("move-trash", None)
-        move_trash_action.connect("activate", lambda a, p: self._on_move_to_folder("trash"))
+        move_trash_action.connect(
+            "activate", lambda a, p: self._on_move_to_folder("trash"))
         action_group.add_action(move_trash_action)
 
         self.insert_action_group("message", action_group)
@@ -833,11 +854,13 @@ class MessageViewer(Gtk.Box):
         action_group.add_action(print_action)
 
         view_source_action = Gio.SimpleAction.new("view-source", None)
-        view_source_action.connect("activate", lambda a, p: self._on_view_source())
+        view_source_action.connect(
+            "activate", lambda a, p: self._on_view_source())
         action_group.add_action(view_source_action)
 
         mark_unread_action = Gio.SimpleAction.new("mark-unread", None)
-        mark_unread_action.connect("activate", lambda a, p: self._on_mark_unread())
+        mark_unread_action.connect(
+            "activate", lambda a, p: self._on_mark_unread())
         action_group.add_action(mark_unread_action)
 
     def set_message(self, message: Any) -> None:
@@ -942,7 +965,8 @@ class MessageViewer(Gtk.Box):
             # Add action
             action_group = self.get_action_group("message")
             action = Gio.SimpleAction.new(f"move-{folder_id}", None)
-            action.connect("activate", lambda a, p, fid=folder_id: self._on_move_to_folder(fid))
+            action.connect("activate", lambda a, p,
+                           fid=folder_id: self._on_move_to_folder(fid))
             action_group.add_action(action)
 
     def set_reply_callback(self, callback: Callable[[], None]) -> None:
@@ -1047,7 +1071,8 @@ class MessageViewer(Gtk.Box):
                 if hasattr(Gtk, "show_uri"):
                     Gtk.show_uri(None, f"file://{attachment.file_path}", 0)
                 else:
-                    subprocess.run(["xdg-open", attachment.file_path], check=False)
+                    subprocess.run(
+                        ["xdg-open", attachment.file_path], check=False)
             except Exception as e:
                 print(f"Failed to open attachment: {e}")
 

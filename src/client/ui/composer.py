@@ -248,8 +248,10 @@ class ComposerWindow(Gtk.Window):
         self.attachment_panel.set_margin_start(12)
         self.attachment_panel.set_margin_end(12)
         self.attachment_panel.set_margin_bottom(12)
-        self.attachment_panel.connect('attachments-changed', self._on_attachments_changed)
-        self.attachment_panel.connect('size-limit-exceeded', self._on_size_limit_exceeded)
+        self.attachment_panel.connect(
+            'attachments-changed', self._on_attachments_changed)
+        self.attachment_panel.connect(
+            'size-limit-exceeded', self._on_size_limit_exceeded)
         self.attachment_revealer.set_child(self.attachment_panel)
         main_box.append(self.attachment_revealer)
 
@@ -642,7 +644,8 @@ class ComposerWindow(Gtk.Window):
         """Show confirmation dialog for discarding changes."""
         dialog = Gtk.AlertDialog()
         dialog.set_message("Discard Message?")
-        dialog.set_detail("You have unsaved changes. Are you sure you want to discard this message?")
+        dialog.set_detail(
+            "You have unsaved changes. Are you sure you want to discard this message?")
         dialog.set_buttons(["Cancel", "Discard"])
         dialog.set_cancel_button(0)
         dialog.set_default_button(0)
@@ -708,10 +711,12 @@ class ComposerWindow(Gtk.Window):
                 self.bold_button.set_active(not self.bold_button.get_active())
                 return True
             elif keyval == Gdk.KEY_i:
-                self.italic_button.set_active(not self.italic_button.get_active())
+                self.italic_button.set_active(
+                    not self.italic_button.get_active())
                 return True
             elif keyval == Gdk.KEY_u:
-                self.underline_button.set_active(not self.underline_button.get_active())
+                self.underline_button.set_active(
+                    not self.underline_button.get_active())
                 return True
 
         return False
@@ -832,8 +837,8 @@ class ComposerWindow(Gtk.Window):
 
 # Convenience function for creating composer windows
 def create_composer(mode: str = "new",
-                   original_message: Optional[EmailMessage] = None,
-                   **kwargs) -> ComposerWindow:
+                    original_message: Optional[EmailMessage] = None,
+                    **kwargs) -> ComposerWindow:
     """
     Create a composer window.
 
@@ -853,4 +858,5 @@ def create_composer(mode: str = "new",
         "edit": ComposerMode.EDIT,
     }
     composer_mode = mode_map.get(mode, ComposerMode.NEW)
-    return ComposerWindow(mode=composer_mode, original_message=original_message, **kwargs)
+    return ComposerWindow(mode=composer_mode,
+                          original_message=original_message, **kwargs)

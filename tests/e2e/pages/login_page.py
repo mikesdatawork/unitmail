@@ -184,7 +184,8 @@ class LoginPage(BasePage):
         if error_text:
             await expect(self.login_error).to_contain_text(error_text)
 
-    async def assert_validation_error_shown(self, error_text: str = None) -> None:
+    async def assert_validation_error_shown(
+            self, error_text: str = None) -> None:
         """Assert that validation error is shown."""
         await expect(self.validation_error).to_be_visible()
         if error_text:

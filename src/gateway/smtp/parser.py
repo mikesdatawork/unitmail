@@ -252,7 +252,8 @@ class EmailParser:
                         self._decode_header(v) for v in all_values
                     )
                 else:
-                    parsed.headers[header_name] = self._decode_header(header_value)
+                    parsed.headers[header_name] = self._decode_header(
+                        header_value)
 
     def _extract_content(self, msg: Message, parsed: ParsedEmail) -> None:
         """Extract body content and attachments from the message."""
@@ -273,7 +274,8 @@ class EmailParser:
                 if attachment:
                     parsed.attachments.append(attachment)
 
-    def _extract_multipart_content(self, msg: Message, parsed: ParsedEmail) -> None:
+    def _extract_multipart_content(
+            self, msg: Message, parsed: ParsedEmail) -> None:
         """Extract content from multipart message."""
         for part in msg.walk():
             # Skip the container parts
@@ -394,9 +396,11 @@ class EmailParser:
                 if isinstance(content, bytes):
                     try:
                         charset = charset or "utf-8"
-                        result_parts.append(content.decode(charset, errors="replace"))
+                        result_parts.append(content.decode(
+                            charset, errors="replace"))
                     except (LookupError, UnicodeDecodeError):
-                        result_parts.append(content.decode("utf-8", errors="replace"))
+                        result_parts.append(content.decode(
+                            "utf-8", errors="replace"))
                 else:
                     result_parts.append(content)
 
@@ -495,8 +499,10 @@ class EmailParser:
         # Validate email address format
         email_pattern = re.compile(r"^[\w\.-]+@[\w\.-]+\.\w+$")
 
-        if parsed.from_address and not email_pattern.match(parsed.from_address):
-            errors.append(f"Invalid From address format: {parsed.from_address}")
+        if parsed.from_address and not email_pattern.match(
+                parsed.from_address):
+            errors.append(
+                f"Invalid From address format: {parsed.from_address}")
 
         for addr in parsed.to_addresses:
             if not email_pattern.match(addr):

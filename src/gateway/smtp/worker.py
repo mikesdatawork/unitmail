@@ -207,7 +207,8 @@ class ErrorClassifier:
             ErrorType classification.
         """
         # Connection errors are typically temporary
-        if isinstance(exc, (ConnectionError, socket.timeout, asyncio.TimeoutError)):
+        if isinstance(exc, (ConnectionError, socket.timeout,
+                      asyncio.TimeoutError)):
             return ErrorType.CONNECTION_FAILED
 
         if isinstance(exc, socket.gaierror):
@@ -358,7 +359,8 @@ class BaseQueueWorker(ABC):
             raise
 
         except Exception as e:
-            logger.exception("Worker error processing item %s: %s", item["id"], e)
+            logger.exception(
+                "Worker error processing item %s: %s", item["id"], e)
             error_type = self._error_classifier.classify_exception(e)
             result = DeliveryResult(
                 success=False,
@@ -369,8 +371,10 @@ class BaseQueueWorker(ABC):
             raise
 
         finally:
-            elapsed = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
-            logger.debug("Worker completed item %s in %.2fms", item["id"], elapsed)
+            elapsed = (datetime.now(timezone.utc) -
+                       start_time).total_seconds() * 1000
+            logger.debug("Worker completed item %s in %.2fms",
+                         item["id"], elapsed)
 
     def _handle_success(self, item: dict, result: DeliveryResult) -> None:
         """Handle successful delivery."""
@@ -382,7 +386,8 @@ class BaseQueueWorker(ABC):
                 item.get("recipient", ""),
             )
         except Exception as e:
-            logger.error("Failed to mark item %s as completed: %s", item["id"], e)
+            logger.error(
+                "Failed to mark item %s as completed: %s", item["id"], e)
 
     def _handle_failure(self, item: dict, result: DeliveryResult) -> None:
         """Handle failed delivery."""
@@ -470,7 +475,8 @@ class QueueWorker(BaseQueueWorker):
             # TODO: Implement actual SMTP delivery
             await self._simulate_delivery(message, recipient, domain)
 
-            delivery_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            delivery_time = (datetime.now(timezone.utc) -
+                             start_time).total_seconds() * 1000
 
             return DeliveryResult(
                 success=True,
@@ -486,7 +492,8 @@ class QueueWorker(BaseQueueWorker):
             raise
 
         except Exception as e:
-            delivery_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            delivery_time = (datetime.now(timezone.utc) -
+                             start_time).total_seconds() * 1000
             error_type = self._error_classifier.classify_exception(e)
 
             return DeliveryResult(
@@ -596,5 +603,6 @@ class WorkerPool:
         if not self._running or not self._workers:
             raise RuntimeError("Worker pool is not running")
 
-        # Simple round-robin - in production might use more sophisticated selection
+        # Simple round-robin - in production might use more sophisticated
+        # selection
         return self._workers[0]

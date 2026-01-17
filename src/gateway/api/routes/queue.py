@@ -88,18 +88,21 @@ def create_queue_blueprint() -> Blueprint:
 
             # Build items based on status filter
             if status:
-                valid_statuses = ["pending", "processing", "completed", "failed", "retrying"]
+                valid_statuses = ["pending", "processing",
+                                  "completed", "failed", "retrying"]
                 if status.lower() not in valid_statuses:
                     return jsonify({
                         "error": "Invalid parameter",
                         "message": f"status must be one of: {', '.join(valid_statuses)}",
                     }), 400
-                items = storage.get_queue_items_by_status(status.lower(), limit=per_page)
+                items = storage.get_queue_items_by_status(
+                    status.lower(), limit=per_page)
             else:
                 items = storage.get_pending_queue_items(limit=per_page)
 
             # Get total count
-            total = storage.count_queue_items(status.lower() if status else None)
+            total = storage.count_queue_items(
+                status.lower() if status else None)
 
             return jsonify({
                 "items": [serialize_queue_item(item) for item in items],
@@ -377,7 +380,8 @@ def create_queue_blueprint() -> Blueprint:
 
             if all_failed:
                 # Get all failed items
-                failed_items = storage.get_queue_items_by_status("failed", limit=1000)
+                failed_items = storage.get_queue_items_by_status(
+                    "failed", limit=1000)
                 item_ids = [item["id"] for item in failed_items]
 
             # Reset each item
@@ -454,7 +458,8 @@ def create_queue_blueprint() -> Blueprint:
 
             if status_filter:
                 # Validate status
-                valid_statuses = ["pending", "processing", "completed", "failed", "retrying"]
+                valid_statuses = ["pending", "processing",
+                                  "completed", "failed", "retrying"]
                 if status_filter.lower() not in valid_statuses:
                     return jsonify({
                         "error": "Invalid parameter",
@@ -462,7 +467,8 @@ def create_queue_blueprint() -> Blueprint:
                     }), 400
 
                 # Get all items with this status
-                items = storage.get_queue_items_by_status(status_filter.lower(), limit=1000)
+                items = storage.get_queue_items_by_status(
+                    status_filter.lower(), limit=1000)
                 item_ids = [item["id"] for item in items]
 
             # Delete each item

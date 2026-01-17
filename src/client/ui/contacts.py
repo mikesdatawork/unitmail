@@ -536,7 +536,8 @@ class ContactsWindow(Adw.Window):
 
         # Selection model
         self._selection_model = Gtk.SingleSelection(model=self._filter_model)
-        self._selection_model.connect("selection-changed", self._on_contact_selected)
+        self._selection_model.connect(
+            "selection-changed", self._on_contact_selected)
 
         # List view
         self._contact_list = Gtk.ListView(
@@ -574,7 +575,8 @@ class ContactsWindow(Adw.Window):
 
         # Also check group filter
         if self._selected_group:
-            return (name_match or email_match) and self._selected_group in item.data.groups
+            return (
+                name_match or email_match) and self._selected_group in item.data.groups
 
         return name_match or email_match
 
@@ -659,7 +661,8 @@ class ContactsWindow(Adw.Window):
         ]
         avatar_frame.set_css_classes(["avatar-frame"])
         # Apply color via inline style or CSS class
-        avatar_label.set_css_classes(["avatar-label", f"avatar-color-{color_idx}"])
+        avatar_label.set_css_classes(
+            ["avatar-label", f"avatar-color-{color_idx}"])
 
         # Set name and email
         info_children = self._get_box_children(info_box)
@@ -863,7 +866,8 @@ class ContactsWindow(Adw.Window):
             tooltip_text="Edit contact",
         )
         edit_button.add_css_class("circular")
-        edit_button.connect("clicked", lambda b: self._on_edit_contact_clicked(contact))
+        edit_button.connect(
+            "clicked", lambda b: self._on_edit_contact_clicked(contact))
         actions_box.append(edit_button)
 
         # Delete button
@@ -873,7 +877,8 @@ class ContactsWindow(Adw.Window):
         )
         delete_button.add_css_class("destructive-action")
         delete_button.add_css_class("circular")
-        delete_button.connect("clicked", lambda b: self._on_delete_contact_clicked(contact))
+        delete_button.connect(
+            "clicked", lambda b: self._on_delete_contact_clicked(contact))
         actions_box.append(delete_button)
 
         return actions_box
@@ -920,11 +925,13 @@ class ContactsWindow(Adw.Window):
         # Organization
         if contact.organization:
             grid.attach(
-                Gtk.Label(label="Organization:", xalign=1, css_classes=["dim-label"]),
+                Gtk.Label(label="Organization:", xalign=1,
+                          css_classes=["dim-label"]),
                 0, row, 1, 1
             )
             grid.attach(
-                Gtk.Label(label=contact.organization, xalign=0, selectable=True),
+                Gtk.Label(label=contact.organization,
+                          xalign=0, selectable=True),
                 1, row, 1, 1
             )
             row += 1
@@ -1001,7 +1008,8 @@ class ContactsWindow(Adw.Window):
                 Gtk.Label(label="Key ID:", css_classes=["dim-label"])
             )
             key_id_box.append(
-                Gtk.Label(label=contact.pgp_key_id, selectable=True, css_classes=["monospace"])
+                Gtk.Label(label=contact.pgp_key_id, selectable=True,
+                          css_classes=["monospace"])
             )
             info_box.append(key_id_box)
 
@@ -1011,7 +1019,8 @@ class ContactsWindow(Adw.Window):
                 spacing=4,
             )
             fingerprint_box.append(
-                Gtk.Label(label="Fingerprint:", xalign=0, css_classes=["dim-label"])
+                Gtk.Label(label="Fingerprint:", xalign=0,
+                          css_classes=["dim-label"])
             )
             # Format fingerprint in groups of 4
             fp = contact.pgp_key_fingerprint.replace(" ", "")
@@ -1105,7 +1114,8 @@ class ContactsWindow(Adw.Window):
             tooltip_text="Add to group",
             css_classes=["flat", "circular"],
         )
-        add_button.connect("clicked", lambda b: self._on_add_to_group_clicked(contact))
+        add_button.connect(
+            "clicked", lambda b: self._on_add_to_group_clicked(contact))
         header_box.append(add_button)
 
         section.append(header_box)
@@ -1134,7 +1144,8 @@ class ContactsWindow(Adw.Window):
         section.append(tags_box)
         return section
 
-    def _create_group_tag(self, group: ContactGroup, contact: Contact) -> Gtk.Widget:
+    def _create_group_tag(self, group: ContactGroup,
+                          contact: Contact) -> Gtk.Widget:
         """Create a group tag widget.
 
         Args:
@@ -1160,7 +1171,8 @@ class ContactsWindow(Adw.Window):
         )
         remove_button.connect(
             "clicked",
-            lambda b: self._on_remove_from_group_clicked(contact, group.group_id),
+            lambda b: self._on_remove_from_group_clicked(
+                contact, group.group_id),
         )
         tag_box.append(remove_button)
 
@@ -1238,7 +1250,8 @@ class ContactsWindow(Adw.Window):
 
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("delete", "Delete")
-        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_response_appearance(
+            "delete", Adw.ResponseAppearance.DESTRUCTIVE)
 
         def on_response(dialog: Adw.MessageDialog, response: str) -> None:
             if response == "delete":
@@ -1263,7 +1276,8 @@ class ContactsWindow(Adw.Window):
         )
 
         # Group dropdown
-        group_names = [g.name for g in self._groups if g.group_id not in contact.groups]
+        group_names = [
+            g.name for g in self._groups if g.group_id not in contact.groups]
         if not group_names:
             dialog.set_body("No groups available. Create a group first.")
             dialog.add_response("ok", "OK")
@@ -1282,7 +1296,8 @@ class ContactsWindow(Adw.Window):
         def on_response(dialog: Adw.MessageDialog, response: str) -> None:
             if response == "add":
                 selected_idx = dropdown.get_selected()
-                available_groups = [g for g in self._groups if g.group_id not in contact.groups]
+                available_groups = [
+                    g for g in self._groups if g.group_id not in contact.groups]
                 if 0 <= selected_idx < len(available_groups):
                     group = available_groups[selected_idx]
                     contact.groups.append(group.group_id)
@@ -1294,7 +1309,8 @@ class ContactsWindow(Adw.Window):
         dialog.connect("response", on_response)
         dialog.present()
 
-    def _on_remove_from_group_clicked(self, contact: Contact, group_id: str) -> None:
+    def _on_remove_from_group_clicked(
+            self, contact: Contact, group_id: str) -> None:
         """Handle remove from group button click."""
         if group_id in contact.groups:
             contact.groups.remove(group_id)
@@ -1367,7 +1383,8 @@ class ContactsWindow(Adw.Window):
 
         # Organization entry
         org_group = Adw.PreferencesGroup(title="Organization")
-        org_row = Adw.EntryRow(title="Company/Organization", text=contact.organization)
+        org_row = Adw.EntryRow(
+            title="Company/Organization", text=contact.organization)
         org_group.add(org_row)
         content_box.append(org_group)
 
@@ -1437,8 +1454,10 @@ class ContactsWindow(Adw.Window):
 
             if is_new:
                 self._contacts.append(contact)
-                self._contact_items[contact.contact_id] = ContactListItem(contact)
-                self._contact_store.append(self._contact_items[contact.contact_id])
+                self._contact_items[contact.contact_id] = ContactListItem(
+                    contact)
+                self._contact_store.append(
+                    self._contact_items[contact.contact_id])
                 self.emit("contact-created", contact.contact_id)
             else:
                 self.emit("contact-updated", contact.contact_id)
@@ -1485,7 +1504,8 @@ class ContactsWindow(Adw.Window):
 
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("save", "Save")
-        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_response_appearance(
+            "save", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_default_response("save")
 
         def on_response(dialog: Adw.MessageDialog, response: str) -> None:
@@ -1556,7 +1576,8 @@ class ContactsWindow(Adw.Window):
             contact_id: ID of the contact to delete.
         """
         # Remove from list
-        self._contacts = [c for c in self._contacts if c.contact_id != contact_id]
+        self._contacts = [
+            c for c in self._contacts if c.contact_id != contact_id]
 
         # Remove from store
         item = self._contact_items.get(contact_id)
@@ -1608,7 +1629,8 @@ class ContactsWindow(Adw.Window):
         filter_store.append(vcard_filter)
         dialog.set_filters(filter_store)
 
-        def on_open_finish(dialog: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
+        def on_open_finish(dialog: Gtk.FileDialog,
+                           result: Gio.AsyncResult) -> None:
             try:
                 file = dialog.open_finish(result)
                 if file:
@@ -1681,7 +1703,8 @@ class ContactsWindow(Adw.Window):
             initial_name=f"{self._selected_contact.display_name}.vcf",
         )
 
-        def on_save_finish(dialog: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
+        def on_save_finish(dialog: Gtk.FileDialog,
+                           result: Gio.AsyncResult) -> None:
             try:
                 file = dialog.save_finish(result)
                 if file:
@@ -1711,7 +1734,8 @@ class ContactsWindow(Adw.Window):
             initial_name="contacts.vcf",
         )
 
-        def on_save_finish(dialog: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
+        def on_save_finish(dialog: Gtk.FileDialog,
+                           result: Gio.AsyncResult) -> None:
             try:
                 file = dialog.save_finish(result)
                 if file:
@@ -1719,7 +1743,8 @@ class ContactsWindow(Adw.Window):
                     vcards = "\r\n".join(c.to_vcard() for c in self._contacts)
                     with open(path, "w", encoding="utf-8") as f:
                         f.write(vcards)
-                    logger.info(f"Exported {len(self._contacts)} contacts to {path}")
+                    logger.info(
+                        f"Exported {len(self._contacts)} contacts to {path}")
             except GLib.Error as e:
                 if e.code != Gtk.DialogError.DISMISSED:
                     logger.error(f"Error saving file: {e}")
@@ -1774,7 +1799,8 @@ class ContactsWindow(Adw.Window):
         """
         return self._groups.copy()
 
-    def set_on_contact_saved(self, callback: Callable[[Contact], None]) -> None:
+    def set_on_contact_saved(
+            self, callback: Callable[[Contact], None]) -> None:
         """Set callback for contact save.
 
         Args:

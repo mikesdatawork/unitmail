@@ -183,10 +183,12 @@ class DateFormatService(GObject.Object):
         if format_value != self._current_format:
             old_format = self._current_format
             self._current_format = format_value
-            logger.info(f"Date format changed from {old_format.value} to {format_value.value}")
+            logger.info(
+                f"Date format changed from {old_format.value} to {format_value.value}")
             self.emit("format-changed", format_value.value)
 
-    def format_date(self, date: datetime, show_time_for_today: bool = True) -> str:
+    def format_date(self, date: datetime,
+                    show_time_for_today: bool = True) -> str:
         """
         Format a datetime using the current format setting.
 
@@ -243,7 +245,8 @@ class DateFormatService(GObject.Object):
             result = result.replace("AM", "am").replace("PM", "pm")
         return result
 
-    def get_format_label(self, format_value: Optional[DateFormat] = None) -> str:
+    def get_format_label(
+            self, format_value: Optional[DateFormat] = None) -> str:
         """
         Get the human-readable label for a format.
 
@@ -257,7 +260,8 @@ class DateFormatService(GObject.Object):
             format_value = self._current_format
         return DATE_FORMAT_LABELS.get(format_value, format_value.value)
 
-    def get_format_example(self, format_value: Optional[DateFormat] = None) -> str:
+    def get_format_example(
+            self, format_value: Optional[DateFormat] = None) -> str:
         """
         Get an example date string for a format.
 

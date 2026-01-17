@@ -84,7 +84,8 @@ class FolderData:
     @property
     def icon_name(self) -> str:
         """Get the icon name for this folder type."""
-        return FOLDER_ICONS.get(self.folder_type, FOLDER_ICONS[FolderType.CUSTOM])
+        return FOLDER_ICONS.get(
+            self.folder_type, FOLDER_ICONS[FolderType.CUSTOM])
 
     @property
     def is_system_folder(self) -> bool:
@@ -265,7 +266,8 @@ class FolderTree(Gtk.Box):
 
         # Single selection model
         self._selection_model = Gtk.SingleSelection(model=self._folder_store)
-        self._selection_model.connect("selection-changed", self._on_selection_changed)
+        self._selection_model.connect(
+            "selection-changed", self._on_selection_changed)
 
         # Create list view
         self._list_view = Gtk.ListView(
@@ -429,10 +431,12 @@ class FolderTree(Gtk.Box):
         selected = selection.get_selected_item()
         if selected:
             self._selected_folder_id = selected.folder_id
-            self.emit("folder-selected", selected.folder_id, selected.folder_type)
+            self.emit("folder-selected", selected.folder_id,
+                      selected.folder_type)
             logger.info(f"Selected folder: {selected.name}")
 
-    def _on_expander_clicked(self, button: Gtk.Button, item: FolderTreeItem) -> None:
+    def _on_expander_clicked(self, button: Gtk.Button,
+                             item: FolderTreeItem) -> None:
         """Handle expander button click."""
         item.expanded = not item.expanded
         self.emit("folder-expanded-changed", item.folder_id, item.expanded)
@@ -499,9 +503,12 @@ class FolderTree(Gtk.Box):
         if self._selected_folder_id:
             # Parse message IDs from dropped data
             message_ids = str(value).split(",")
-            self.emit("messages-dropped", self._selected_folder_id, message_ids)
+            self.emit("messages-dropped",
+                      self._selected_folder_id, message_ids)
             logger.info(
-                f"Dropped {len(message_ids)} messages to folder {self._selected_folder_id}"
+                f"Dropped {
+                    len(message_ids)} messages to folder {
+                    self._selected_folder_id}"
             )
             return True
 
@@ -591,9 +598,11 @@ class FolderTree(Gtk.Box):
         if folder.parent_id:
             parent = self._find_folder_by_id(folder.parent_id)
             if parent:
-                parent.children = [c for c in parent.children if c.folder_id != folder_id]
+                parent.children = [
+                    c for c in parent.children if c.folder_id != folder_id]
         else:
-            self._folders = [f for f in self._folders if f.folder_id != folder_id]
+            self._folders = [
+                f for f in self._folders if f.folder_id != folder_id]
 
         self._rebuild_flat_list()
         logger.info(f"Removed folder: {folder.name}")
@@ -638,7 +647,8 @@ class FolderTree(Gtk.Box):
             The folder data, or None if not found.
         """
 
-        def search_recursive(folders: list[FolderData]) -> Optional[FolderData]:
+        def search_recursive(
+                folders: list[FolderData]) -> Optional[FolderData]:
             for folder in folders:
                 if folder.folder_id == folder_id:
                     return folder

@@ -73,7 +73,8 @@ class QueueEvent(BaseModel):
     message_id: Optional[str] = None
     status: Optional[str] = None
     error: Optional[str] = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -88,7 +89,8 @@ class QueueConfig:
 
     # Retry configuration
     max_retries: int = DEFAULT_MAX_RETRIES
-    retry_intervals: list[int] = field(default_factory=lambda: RETRY_INTERVALS.copy())
+    retry_intervals: list[int] = field(
+        default_factory=lambda: RETRY_INTERVALS.copy())
 
     # Timeout configuration
     processing_timeout: float = 300.0  # 5 minutes
@@ -180,7 +182,8 @@ class QueueManager:
         if self._running:
             raise MessageQueueError("Queue manager is already running")
 
-        logger.info("Starting queue manager with %d workers", self.config.num_workers)
+        logger.info("Starting queue manager with %d workers",
+                    self.config.num_workers)
 
         self._running = True
         self._started_at = datetime.now(timezone.utc)
@@ -343,11 +346,15 @@ class QueueManager:
 
             # Query database for counts (synchronous SQLite calls)
             try:
-                self._stats.pending = self._storage.count_queue_items("pending")
-                self._stats.processing = self._storage.count_queue_items("processing")
-                self._stats.completed = self._storage.count_queue_items("completed")
+                self._stats.pending = self._storage.count_queue_items(
+                    "pending")
+                self._stats.processing = self._storage.count_queue_items(
+                    "processing")
+                self._stats.completed = self._storage.count_queue_items(
+                    "completed")
                 self._stats.failed = self._storage.count_queue_items("failed")
-                self._stats.deferred = self._storage.count_queue_items("retrying")
+                self._stats.deferred = self._storage.count_queue_items(
+                    "retrying")
             except Exception as e:
                 logger.warning("Failed to fetch queue counts: %s", e)
 
@@ -414,7 +421,8 @@ class QueueManager:
                         )))
 
                     except Exception as e:
-                        logger.error("Failed to queue retry for %s: %s", item["id"], e)
+                        logger.error(
+                            "Failed to queue retry for %s: %s", item["id"], e)
 
                 logger.info("Queued %d items for retry", retry_count)
                 return retry_count
@@ -502,7 +510,8 @@ class QueueManager:
             logger.error("Failed to purge old items: %s", e)
             raise MessageQueueError(f"Failed to purge old items: {e}")
 
-    def move_to_dead_letter(self, queue_item_id: str, error: str) -> Optional[dict]:
+    def move_to_dead_letter(self, queue_item_id: str,
+                            error: str) -> Optional[dict]:
         """
         Move a queue item to the dead letter queue.
 
@@ -637,7 +646,8 @@ class QueueManager:
                 logger.debug("Item %s already claimed, skipping", item["id"])
                 return
 
-            logger.info("Processing queue item %s (attempt %d)", item["id"], item["attempts"] + 1)
+            logger.info("Processing queue item %s (attempt %d)",
+                        item["id"], item["attempts"] + 1)
 
             # Emit processing event
             await self._emit_event(QueueEvent(
@@ -656,7 +666,8 @@ class QueueManager:
                 self._mark_completed(item["id"])
 
             # Track processing time
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            processing_time = (datetime.now(timezone.utc) -
+                               start_time).total_seconds() * 1000
             async with self._stats_lock:
                 self._processing_times.append(processing_time)
                 if len(self._processing_times) > 1000:
@@ -727,7 +738,8 @@ class QueueManager:
         else:
             # Schedule retry with exponential backoff
             retry_interval = self._get_retry_interval(new_attempts)
-            next_attempt = datetime.now(timezone.utc) + timedelta(seconds=retry_interval)
+            next_attempt = datetime.now(
+                timezone.utc) + timedelta(seconds=retry_interval)
 
             try:
                 self._storage.update_queue_item(
@@ -764,7 +776,8 @@ class QueueManager:
                 )))
 
             except Exception as e:
-                logger.error("Failed to schedule retry for item %s: %s", item["id"], e)
+                logger.error(
+                    "Failed to schedule retry for item %s: %s", item["id"], e)
 
     def _get_retry_interval(self, attempt: int) -> int:
         """
@@ -781,7 +794,8 @@ class QueueManager:
     def _calculate_uptime(self) -> float:
         """Calculate uptime in seconds since start."""
         if self._started_at:
-            return (datetime.now(timezone.utc) - self._started_at).total_seconds()
+            return (datetime.now(timezone.utc) -
+                    self._started_at).total_seconds()
         return 0.0
 
     async def _emit_event(self, event: QueueEvent) -> None:
@@ -795,7 +809,8 @@ class QueueManager:
             else:
                 self._event_handler(event)
         except Exception as e:
-            logger.warning("Event handler failed for %s: %s", event.event_type, e)
+            logger.warning("Event handler failed for %s: %s",
+                           event.event_type, e)
 
 
 # Convenience function for creating a queue manager with default settings
@@ -816,4 +831,5 @@ def create_queue_manager(
         Configured QueueManager instance.
     """
     config = QueueConfig(num_workers=num_workers)
-    return QueueManager(config=config, event_handler=event_handler, storage=storage)
+    return QueueManager(
+        config=config, event_handler=event_handler, storage=storage)

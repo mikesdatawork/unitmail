@@ -116,9 +116,11 @@ class InMemoryRateLimiter:
             self._last_cleanup = current_time
 
             if expired_keys:
-                logger.debug(f"Cleaned up {len(expired_keys)} expired rate limit entries")
+                logger.debug(
+                    f"Cleaned up {len(expired_keys)} expired rate limit entries")
 
-    def is_allowed(self, key: Optional[str] = None) -> tuple[bool, dict[str, Any]]:
+    def is_allowed(self, key: Optional[str]
+                   = None) -> tuple[bool, dict[str, Any]]:
         """
         Check if a request is allowed under rate limiting.
 
@@ -212,7 +214,8 @@ class RedisRateLimiter:
                 import redis
                 self._redis = redis.from_url(self._redis_url)
             except ImportError:
-                raise RuntimeError("redis package is required for Redis rate limiting")
+                raise RuntimeError(
+                    "redis package is required for Redis rate limiting")
         return self._redis
 
     def _get_client_key(self) -> str:
@@ -229,7 +232,8 @@ class RedisRateLimiter:
 
         return f"{self.key_prefix}ip:{client_ip}"
 
-    def is_allowed(self, key: Optional[str] = None) -> tuple[bool, dict[str, Any]]:
+    def is_allowed(self, key: Optional[str]
+                   = None) -> tuple[bool, dict[str, Any]]:
         """
         Check if a request is allowed under rate limiting.
 
@@ -376,7 +380,8 @@ def rate_limit(
                         "limit": info["limit"],
                     },
                 )
-                abort(429, description="Rate limit exceeded. Please try again later.")
+                abort(
+                    429, description="Rate limit exceeded. Please try again later.")
 
             return f(*args, **kwargs)
 
@@ -437,7 +442,8 @@ class RequestValidator:
                     if missing:
                         abort(
                             400,
-                            description=f"Missing required fields: {', '.join(missing)}",
+                            description=f"Missing required fields: {
+                                ', '.join(missing)}",
                         )
 
                 # Store validated data in g for access in route
@@ -476,7 +482,8 @@ class RequestValidator:
                     if missing:
                         abort(
                             400,
-                            description=f"Missing required query parameters: {', '.join(missing)}",
+                            description=f"Missing required query parameters: {
+                                ', '.join(missing)}",
                         )
 
                 # Type conversion
@@ -546,7 +553,8 @@ def validate_content_type(allowed_types: list[str]) -> Callable[[F], F]:
             ):
                 abort(
                     415,
-                    description=f"Unsupported Content-Type. Allowed: {', '.join(allowed_types)}",
+                    description=f"Unsupported Content-Type. Allowed: {
+                        ', '.join(allowed_types)}",
                 )
 
             return f(*args, **kwargs)

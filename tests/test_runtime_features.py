@@ -113,7 +113,8 @@ def test_message_operations():
 
         # Test favorite toggle
         initial_starred = first_message.is_starred
-        window._set_message_starred(first_message.message_id, not initial_starred)
+        window._set_message_starred(
+            first_message.message_id, not initial_starred)
         assert first_message.is_starred == (not initial_starred)
         logger.info("✓ Favorite toggle works")
 

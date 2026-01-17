@@ -136,7 +136,8 @@ class Attachment:
     @property
     def icon_name(self) -> str:
         """Get the icon name for this attachment type."""
-        return ATTACHMENT_ICONS.get(self.attachment_type, ATTACHMENT_ICONS[AttachmentType.UNKNOWN])
+        return ATTACHMENT_ICONS.get(
+            self.attachment_type, ATTACHMENT_ICONS[AttachmentType.UNKNOWN])
 
     @property
     def size_display(self) -> str:
@@ -270,7 +271,8 @@ class AttachmentRow(Gtk.Box):
             actions_box.append(preview_button)
 
         # Download button
-        download_button = Gtk.Button.new_from_icon_name("folder-download-symbolic")
+        download_button = Gtk.Button.new_from_icon_name(
+            "folder-download-symbolic")
         download_button.set_tooltip_text("Download")
         download_button.add_css_class("flat")
         download_button.add_css_class("circular")
@@ -366,7 +368,8 @@ class AttachmentList(Gtk.Box):
         # Download all button
         self._download_all_button = Gtk.Button.new_with_label("Download All")
         self._download_all_button.add_css_class("flat")
-        self._download_all_button.connect("clicked", self._on_download_all_clicked)
+        self._download_all_button.connect(
+            "clicked", self._on_download_all_clicked)
         self._download_all_button.set_sensitive(False)
         self._header.append(self._download_all_button)
 
@@ -420,7 +423,8 @@ class AttachmentList(Gtk.Box):
         """Get the total size of all attachments."""
         return sum(a.size for a in self._attachments)
 
-    def set_attachments(self, attachments: list[Attachment | dict[str, Any]]) -> None:
+    def set_attachments(
+            self, attachments: list[Attachment | dict[str, Any]]) -> None:
         """Set the list of attachments to display.
 
         Args:
@@ -494,7 +498,8 @@ class AttachmentList(Gtk.Box):
             self._size_label.set_label(format_file_size(self.total_size))
             self._download_all_button.set_sensitive(True)
 
-    def set_download_callback(self, callback: Callable[[Attachment], None]) -> None:
+    def set_download_callback(
+            self, callback: Callable[[Attachment], None]) -> None:
         """Set the callback for download requests.
 
         Args:
@@ -502,7 +507,8 @@ class AttachmentList(Gtk.Box):
         """
         self._download_callback = callback
 
-    def set_preview_callback(self, callback: Callable[[Attachment], None]) -> None:
+    def set_preview_callback(
+            self, callback: Callable[[Attachment], None]) -> None:
         """Set the callback for preview requests.
 
         Args:
@@ -510,13 +516,15 @@ class AttachmentList(Gtk.Box):
         """
         self._preview_callback = callback
 
-    def _on_row_download(self, row: AttachmentRow, attachment: Attachment) -> None:
+    def _on_row_download(self, row: AttachmentRow,
+                         attachment: Attachment) -> None:
         """Handle download request from a row."""
         self.emit("attachment-download", attachment)
         if self._download_callback:
             self._download_callback(attachment)
 
-    def _on_row_preview(self, row: AttachmentRow, attachment: Attachment) -> None:
+    def _on_row_preview(self, row: AttachmentRow,
+                        attachment: Attachment) -> None:
         """Handle preview request from a row."""
         self.emit("attachment-preview", attachment)
         if self._preview_callback:
@@ -631,7 +639,8 @@ class AttachmentPreviewDialog(Gtk.Dialog):
                 self._show_error(scrolled, f"Error loading image: {e}")
         elif self._attachment.file_path and os.path.exists(self._attachment.file_path):
             try:
-                image = Gtk.Picture.new_for_filename(self._attachment.file_path)
+                image = Gtk.Picture.new_for_filename(
+                    self._attachment.file_path)
                 image.set_can_shrink(True)
                 scrolled.set_child(image)
             except Exception as e:

@@ -30,9 +30,12 @@ class CreateContactRequest(BaseModel):
     """Request model for creating a contact."""
 
     email: EmailStr = Field(..., description="Contact email address")
-    name: Optional[str] = Field(None, max_length=200, description="Contact name")
-    display_name: Optional[str] = Field(None, max_length=200, description="Display name")
-    phone: Optional[str] = Field(None, max_length=20, description="Phone number")
+    name: Optional[str] = Field(
+        None, max_length=200, description="Contact name")
+    display_name: Optional[str] = Field(
+        None, max_length=200, description="Display name")
+    phone: Optional[str] = Field(
+        None, max_length=20, description="Phone number")
     organization: Optional[str] = Field(
         None, max_length=200, description="Organization name"
     )
@@ -43,10 +46,14 @@ class CreateContactRequest(BaseModel):
 class UpdateContactRequest(BaseModel):
     """Request model for updating a contact."""
 
-    email: Optional[EmailStr] = Field(None, description="Contact email address")
-    name: Optional[str] = Field(None, max_length=200, description="Contact name")
-    display_name: Optional[str] = Field(None, max_length=200, description="Display name")
-    phone: Optional[str] = Field(None, max_length=20, description="Phone number")
+    email: Optional[EmailStr] = Field(
+        None, description="Contact email address")
+    name: Optional[str] = Field(
+        None, max_length=200, description="Contact name")
+    display_name: Optional[str] = Field(
+        None, max_length=200, description="Display name")
+    phone: Optional[str] = Field(
+        None, max_length=20, description="Phone number")
     organization: Optional[str] = Field(
         None, max_length=200, description="Organization name"
     )
@@ -113,7 +120,8 @@ def create_contacts_blueprint() -> Blueprint:
             page = max(1, int(request.args.get("page", 1)))
             per_page = min(100, max(1, int(request.args.get("per_page", 50))))
             search = request.args.get("search", "").strip()
-            favorites_only = request.args.get("favorites", "").lower() == "true"
+            favorites_only = request.args.get(
+                "favorites", "").lower() == "true"
 
             offset = (page - 1) * per_page
 
@@ -341,7 +349,8 @@ def create_contacts_blueprint() -> Blueprint:
 
             # Check for email conflict if changing email
             if data.email and str(data.email) != contact.get("email"):
-                existing = storage.get_contact_by_email(str(data.email), user_id)
+                existing = storage.get_contact_by_email(
+                    str(data.email), user_id)
                 if existing and existing["id"] != contact_id:
                     return jsonify({
                         "error": "Duplicate contact",

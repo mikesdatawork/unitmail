@@ -34,7 +34,8 @@ class RecipientChip(Gtk.Box):
         self.label = Gtk.Label(label=display_text)
         self.label.set_ellipsize(Pango.EllipsizeMode.END)
         self.label.set_max_width_chars(25)
-        self.label.set_tooltip_text(f"{display_name} <{email}>" if display_name else email)
+        self.label.set_tooltip_text(
+            f"{display_name} <{email}>" if display_name else email)
         self.append(self.label)
 
         # Remove button
@@ -129,7 +130,8 @@ class RecipientEntry(Gtk.Box):
 
         # Scrollable container for chips
         self.scrolled = Gtk.ScrolledWindow()
-        self.scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.scrolled.set_policy(
+            Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
         self.scrolled.set_hexpand(True)
         self.scrolled.set_min_content_height(36)
 

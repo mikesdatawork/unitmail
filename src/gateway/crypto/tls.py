@@ -108,7 +108,8 @@ class TLSConfig:
 
     # Cipher configuration
     ciphers: list[str] = field(default_factory=lambda: TLS_1_2_CIPHERS.copy())
-    ciphersuites: list[str] = field(default_factory=lambda: TLS_1_3_CIPHERS.copy())
+    ciphersuites: list[str] = field(
+        default_factory=lambda: TLS_1_3_CIPHERS.copy())
 
     # Verification settings
     verify_mode: ssl.VerifyMode = ssl.CERT_REQUIRED
@@ -122,7 +123,8 @@ class TLSConfig:
     session_timeout: int = 300
 
     # ALPN protocols
-    alpn_protocols: list[str] = field(default_factory=lambda: ["h2", "http/1.1"])
+    alpn_protocols: list[str] = field(
+        default_factory=lambda: ["h2", "http/1.1"])
 
     # SNI callback
     sni_callback: Optional[callable] = None
@@ -179,7 +181,8 @@ class CertificateManager:
             return cert
 
         except Exception as e:
-            raise CryptoError(f"Failed to load certificate from {cert_path}: {e}")
+            raise CryptoError(
+                f"Failed to load certificate from {cert_path}: {e}")
 
     def load_private_key(
         self,
@@ -212,7 +215,8 @@ class CertificateManager:
             return private_key
 
         except Exception as e:
-            raise CryptoError(f"Failed to load private key from {key_path}: {e}")
+            raise CryptoError(
+                f"Failed to load private key from {key_path}: {e}")
 
     def get_certificate_info(
         self,
@@ -328,21 +332,26 @@ class CertificateManager:
 
                     if isinstance(private_key, rsa.RSAPrivateKey):
                         if not isinstance(cert_public_key, rsa.RSAPublicKey):
-                            issues.append("Private key type does not match certificate")
+                            issues.append(
+                                "Private key type does not match certificate")
                         elif (
                             private_key.public_key().public_numbers()
                             != cert_public_key.public_numbers()
                         ):
-                            issues.append("Private key does not match certificate")
+                            issues.append(
+                                "Private key does not match certificate")
 
                     elif isinstance(private_key, ec.EllipticCurvePrivateKey):
-                        if not isinstance(cert_public_key, ec.EllipticCurvePublicKey):
-                            issues.append("Private key type does not match certificate")
+                        if not isinstance(cert_public_key,
+                                          ec.EllipticCurvePublicKey):
+                            issues.append(
+                                "Private key type does not match certificate")
                         elif (
                             private_key.public_key().public_numbers()
                             != cert_public_key.public_numbers()
                         ):
-                            issues.append("Private key does not match certificate")
+                            issues.append(
+                                "Private key does not match certificate")
 
                 except CryptoError as e:
                     issues.append(f"Failed to load private key: {e}")
@@ -350,7 +359,8 @@ class CertificateManager:
         except CryptoError as e:
             issues.append(f"Failed to load certificate: {e}")
 
-        is_valid = len([i for i in issues if "expires in" not in i.lower()]) == 0
+        is_valid = len(
+            [i for i in issues if "expires in" not in i.lower()]) == 0
         return is_valid, issues
 
     def generate_self_signed_certificate(
@@ -449,7 +459,8 @@ class CertificateManager:
         )
 
         # Sign certificate
-        certificate = cert_builder.sign(private_key, hashes.SHA256(), default_backend())
+        certificate = cert_builder.sign(
+            private_key, hashes.SHA256(), default_backend())
 
         # Serialize to PEM
         cert_pem = certificate.public_bytes(serialization.Encoding.PEM)
@@ -789,7 +800,8 @@ class TLSContextFactory:
             try:
                 context.set_ciphersuites(self.config.get_ciphersuites_string())
             except ssl.SSLError as e:
-                logger.warning("Failed to set TLS 1.3 ciphersuites: %s", str(e))
+                logger.warning(
+                    "Failed to set TLS 1.3 ciphersuites: %s", str(e))
 
         # Disable compression (CRIME attack mitigation)
         context.options |= ssl.OP_NO_COMPRESSION

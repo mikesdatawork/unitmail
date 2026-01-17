@@ -121,7 +121,8 @@ class Settings:
     server: ServerSettings = field(default_factory=ServerSettings)
     security: SecuritySettings = field(default_factory=SecuritySettings)
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
-    notifications: NotificationSettings = field(default_factory=NotificationSettings)
+    notifications: NotificationSettings = field(
+        default_factory=NotificationSettings)
     advanced: AdvancedSettings = field(default_factory=AdvancedSettings)
 
     def to_dict(self) -> dict[str, Any]:
@@ -149,7 +150,8 @@ class Settings:
         if "appearance" in data:
             settings.appearance = AppearanceSettings(**data["appearance"])
         if "notifications" in data:
-            settings.notifications = NotificationSettings(**data["notifications"])
+            settings.notifications = NotificationSettings(
+                **data["notifications"])
         if "advanced" in data:
             settings.advanced = AdvancedSettings(**data["advanced"])
 
@@ -192,7 +194,8 @@ class SettingsService(GObject.Object):
         # Ensure config directory exists
         self._config_path.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Settings service initialized, config path: {self._config_path}")
+        logger.info(
+            f"Settings service initialized, config path: {self._config_path}")
 
     def _get_config_path(self) -> Path:
         """Get the configuration file path."""
@@ -334,7 +337,8 @@ class SettingsService(GObject.Object):
             from client.services.date_format_service import get_date_format_service
             date_service = get_date_format_service()
             date_service.set_format(self._settings.appearance.date_format)
-            logger.info(f"Applied date format: {self._settings.appearance.date_format}")
+            logger.info(
+                f"Applied date format: {self._settings.appearance.date_format}")
         except Exception as e:
             logger.warning(f"Could not apply date format: {e}")
 
@@ -505,7 +509,8 @@ class SettingsService(GObject.Object):
 
         if date_format_changed:
             self._apply_date_format()
-            self.emit("date-format-changed", self._settings.appearance.date_format)
+            self.emit("date-format-changed",
+                      self._settings.appearance.date_format)
 
         self.emit("settings-changed", "appearance")
 

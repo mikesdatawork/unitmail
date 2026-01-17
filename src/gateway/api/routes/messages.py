@@ -30,17 +30,22 @@ logger = logging.getLogger(__name__)
 class SendMessageRequest(BaseModel):
     """Request model for sending a new message."""
 
-    to: list[EmailStr] = Field(..., min_length=1, description="Recipient addresses")
-    cc: list[EmailStr] = Field(default_factory=list, description="CC addresses")
-    bcc: list[EmailStr] = Field(default_factory=list, description="BCC addresses")
-    subject: str = Field(default="", max_length=998, description="Message subject")
+    to: list[EmailStr] = Field(..., min_length=1,
+                               description="Recipient addresses")
+    cc: list[EmailStr] = Field(
+        default_factory=list, description="CC addresses")
+    bcc: list[EmailStr] = Field(
+        default_factory=list, description="BCC addresses")
+    subject: str = Field(default="", max_length=998,
+                         description="Message subject")
     body_text: Optional[str] = Field(None, description="Plain text body")
     body_html: Optional[str] = Field(None, description="HTML body")
     priority: str = Field(default="normal", description="Message priority")
     attachments: list[dict[str, Any]] = Field(
         default_factory=list, description="Attachment metadata"
     )
-    save_draft: bool = Field(default=False, description="Save as draft instead of sending")
+    save_draft: bool = Field(
+        default=False, description="Save as draft instead of sending")
 
 
 class UpdateMessageRequest(BaseModel):
@@ -54,7 +59,8 @@ class UpdateMessageRequest(BaseModel):
 class ToggleStarRequest(BaseModel):
     """Request model for toggling star status."""
 
-    starred: Optional[bool] = Field(None, description="Set specific star state")
+    starred: Optional[bool] = Field(
+        None, description="Set specific star state")
 
 
 class MarkReadRequest(BaseModel):
@@ -156,16 +162,21 @@ def create_messages_blueprint() -> Blueprint:
 
             # Search or filter
             if search:
-                messages = storage.search_messages(query=search, limit=per_page)
+                messages = storage.search_messages(
+                    query=search, limit=per_page)
                 # Apply additional filters to search results
                 if user_id:
-                    messages = [m for m in messages if m.get("user_id") == user_id]
+                    messages = [m for m in messages if m.get(
+                        "user_id") == user_id]
                 if folder_id:
-                    messages = [m for m in messages if m.get("folder_id") == folder_id]
+                    messages = [m for m in messages if m.get(
+                        "folder_id") == folder_id]
                 if is_read is not None:
-                    messages = [m for m in messages if m.get("is_read") == is_read]
+                    messages = [m for m in messages if m.get(
+                        "is_read") == is_read]
                 if is_starred is not None:
-                    messages = [m for m in messages if m.get("is_starred") == is_starred]
+                    messages = [m for m in messages if m.get(
+                        "is_starred") == is_starred]
                 total = len(messages)
             else:
                 # Get messages with filters
@@ -293,7 +304,8 @@ def create_messages_blueprint() -> Blueprint:
 
             # Validate priority
             valid_priorities = ["low", "normal", "high", "urgent"]
-            priority = data.priority.lower() if data.priority.lower() in valid_priorities else "normal"
+            priority = data.priority.lower() if data.priority.lower(
+            ) in valid_priorities else "normal"
 
             # Determine folder and status
             if data.save_draft:
@@ -339,7 +351,8 @@ def create_messages_blueprint() -> Blueprint:
                     [str(addr) for addr in data.bcc]
                 )
                 for recipient in all_recipients:
-                    queue_priority = 50 if priority == "high" else (100 if priority == "urgent" else 0)
+                    queue_priority = 50 if priority == "high" else (
+                        100 if priority == "urgent" else 0)
                     storage.create_queue_item({
                         "message_id": message["id"],
                         "user_id": user_id,
@@ -474,7 +487,8 @@ def create_messages_blueprint() -> Blueprint:
             Success message.
         """
         try:
-            permanent = request.args.get("permanent", "false").lower() == "true"
+            permanent = request.args.get(
+                "permanent", "false").lower() == "true"
 
             storage = get_storage()
             user_id = getattr(g, "user_id", None)
@@ -565,7 +579,8 @@ def create_messages_blueprint() -> Blueprint:
             data = request.get_json(silent=True) or {}
             if "starred" in data:
                 new_starred = bool(data["starred"])
-                message = storage.update_message(message_id, {"is_starred": new_starred})
+                message = storage.update_message(
+                    message_id, {"is_starred": new_starred})
             else:
                 # Toggle
                 message = storage.toggle_starred(message_id)

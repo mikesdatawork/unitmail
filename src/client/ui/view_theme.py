@@ -63,7 +63,8 @@ class ViewThemeManager(GObject.Object):
         self._initialized = True
         self._current_theme = ViewTheme.STANDARD
         self._managed_widgets: list[Gtk.Widget] = []
-        self._settings = Gio.Settings.new("org.unitmail.client") if self._settings_exist() else None
+        self._settings = Gio.Settings.new(
+            "org.unitmail.client") if self._settings_exist() else None
 
         # Load saved theme
         if self._settings:
@@ -98,7 +99,8 @@ class ViewThemeManager(GObject.Object):
         """
         logger.info(f"ViewThemeManager.set_theme called with: {theme.value}")
         current_value = self._current_theme.value if self._current_theme else "None"
-        logger.info(f"Current theme: {current_value}, managed widgets: {len(self._managed_widgets)}")
+        logger.info(
+            f"Current theme: {current_value}, managed widgets: {len(self._managed_widgets)}")
 
         if theme == self._current_theme:
             logger.info("Theme unchanged, skipping")
@@ -113,7 +115,8 @@ class ViewThemeManager(GObject.Object):
 
         # Update all managed widgets
         for widget in self._managed_widgets:
-            logger.info(f"Applying theme to widget: {widget}, has parent: {widget.get_parent() is not None}")
+            logger.info(
+                f"Applying theme to widget: {widget}, has parent: {widget.get_parent() is not None}")
             self._apply_theme_to_widget(widget, old_theme, theme)
 
         # Save to settings
@@ -135,7 +138,8 @@ class ViewThemeManager(GObject.Object):
         if widget not in self._managed_widgets:
             self._managed_widgets.append(widget)
             self._apply_theme_to_widget(widget, None, self._current_theme)
-            logger.info(f"Widget registered, applying theme: {self._current_theme.value}")
+            logger.info(
+                f"Widget registered, applying theme: {self._current_theme.value}")
 
             # Clean up when widget is destroyed
             widget.connect("destroy", self._on_widget_destroyed)
@@ -229,12 +233,14 @@ class ViewThemeSelector(Gtk.Box):
 
             self.append(box)
 
-    def _on_radio_toggled(self, button: Gtk.CheckButton, theme: ViewTheme) -> None:
+    def _on_radio_toggled(self, button: Gtk.CheckButton,
+                          theme: ViewTheme) -> None:
         """Handle radio button toggle."""
         if button.get_active():
             self._manager.set_theme(theme)
 
-    def _on_theme_changed(self, manager: ViewThemeManager, theme_name: str) -> None:
+    def _on_theme_changed(self, manager: ViewThemeManager,
+                          theme_name: str) -> None:
         """Handle external theme change."""
         # Update radio buttons if changed externally
         pass  # Radio buttons handle their own state

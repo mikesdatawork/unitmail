@@ -11,7 +11,8 @@ from typing import Any, Optional
 class UnitMailError(Exception):
     """Base exception for all unitMail errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, message: str,
+                 details: Optional[dict[str, Any]] = None) -> None:
         """
         Initialize the base exception.
 
@@ -34,10 +35,8 @@ class DatabaseError(UnitMailError):
     """Base exception for database-related errors."""
 
 
-
 class ConnectionError(DatabaseError):
     """Raised when database connection fails."""
-
 
 
 class QueryError(DatabaseError):
@@ -116,11 +115,9 @@ class TransactionError(DatabaseError):
     """Raised when a database transaction fails."""
 
 
-
 # Authentication Exceptions
 class AuthenticationError(UnitMailError):
     """Base exception for authentication-related errors."""
-
 
 
 class InvalidCredentialsError(AuthenticationError):
@@ -174,7 +171,6 @@ class ConfigurationError(UnitMailError):
     """Base exception for configuration-related errors."""
 
 
-
 class MissingConfigError(ConfigurationError):
     """Raised when a required configuration value is missing."""
 
@@ -188,7 +184,8 @@ class MissingConfigError(ConfigurationError):
             config_key: The missing configuration key.
             details: Optional dictionary with additional error details.
         """
-        super().__init__(f"Missing required configuration: '{config_key}'", details)
+        super().__init__(
+            f"Missing required configuration: '{config_key}'", details)
         self.config_key = config_key
 
 
@@ -225,10 +222,8 @@ class MessageError(UnitMailError):
     """Base exception for message-related errors."""
 
 
-
 class InvalidMessageError(MessageError):
     """Raised when a message is malformed or invalid."""
-
 
 
 class MessageDeliveryError(MessageError):
@@ -260,27 +255,22 @@ class MessageQueueError(MessageError):
     """Raised when message queue operations fail."""
 
 
-
 # SMTP Exceptions
 class SMTPError(UnitMailError):
     """Base exception for SMTP-related errors."""
-
 
 
 class SMTPConnectionError(SMTPError):
     """Raised when SMTP connection fails."""
 
 
-
 class SMTPAuthError(SMTPError):
     """Raised when SMTP authentication fails."""
-
 
 
 # DNS Exceptions
 class DNSError(UnitMailError):
     """Base exception for DNS-related errors."""
-
 
 
 class DNSLookupError(DNSError):
@@ -310,7 +300,6 @@ class DNSLookupError(DNSError):
 # Mesh Network Exceptions
 class MeshError(UnitMailError):
     """Base exception for mesh network-related errors."""
-
 
 
 class PeerConnectionError(MeshError):
@@ -360,25 +349,20 @@ class CryptoError(UnitMailError):
     """Base exception for cryptography-related errors."""
 
 
-
 class EncryptionError(CryptoError):
     """Raised when encryption fails."""
-
 
 
 class DecryptionError(CryptoError):
     """Raised when decryption fails."""
 
 
-
 class SignatureError(CryptoError):
     """Raised when signature verification fails."""
 
 
-
 class KeyError(CryptoError):
     """Raised when there's an issue with cryptographic keys."""
-
 
 
 # Validation Exceptions

@@ -47,25 +47,20 @@ class ConnectionTestError(SetupError):
     """Error during connection testing."""
 
 
-
 class DNSVerificationError(SetupError):
     """Error during DNS verification."""
-
 
 
 class DatabaseInitError(SetupError):
     """Error during database initialization."""
 
 
-
 class KeyGenerationError(SetupError):
     """Error during key generation."""
 
 
-
 class ConfigurationError(SetupError):
     """Error during configuration."""
-
 
 
 @dataclass
@@ -308,7 +303,8 @@ class SetupService:
                 )
 
             # Send request
-            conn.request("GET", "/health", headers={"User-Agent": "unitMail-Setup/1.0"})
+            conn.request("GET", "/health",
+                         headers={"User-Agent": "unitMail-Setup/1.0"})
             response = conn.getresponse()
 
             # Get TLS info
@@ -845,7 +841,8 @@ class SetupService:
                 dns_record = f"v=DKIM1; k=rsa; p={key_data}"
 
             # Calculate fingerprint
-            fingerprint = hashlib.sha256(public_key_pem.encode()).hexdigest()[:40]
+            fingerprint = hashlib.sha256(
+                public_key_pem.encode()).hexdigest()[:40]
 
             # Save keys
             keys_dir = self.DATA_DIR / self.KEYS_DIR
@@ -957,9 +954,11 @@ class SetupService:
             ]
 
             if config.pgp_key_id:
-                config_items.append(("pgp_key_id", config.pgp_key_id, "security", False))
+                config_items.append(
+                    ("pgp_key_id", config.pgp_key_id, "security", False))
             if config.mesh_peer_id:
-                config_items.append(("mesh_peer_id", config.mesh_peer_id, "mesh", False))
+                config_items.append(
+                    ("mesh_peer_id", config.mesh_peer_id, "mesh", False))
 
             for key, value, category, is_secret in config_items:
                 cursor.execute("""

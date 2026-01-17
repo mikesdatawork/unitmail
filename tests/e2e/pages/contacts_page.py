@@ -400,7 +400,8 @@ class ContactsPage(BasePage):
         await self.edit_contact_button.click()
         await expect(self.contact_form).to_be_visible()
 
-    async def delete_contact(self, index: int = 0, confirm: bool = True) -> None:
+    async def delete_contact(self, index: int = 0,
+                             confirm: bool = True) -> None:
         """Delete a contact by index."""
         await self.click_contact(index)
         await self.delete_contact_button.click()
@@ -410,7 +411,8 @@ class ContactsPage(BasePage):
             await self.cancel_delete_button.click()
         await self.wait_for_loading_complete()
 
-    async def delete_contact_by_name(self, name: str, confirm: bool = True) -> None:
+    async def delete_contact_by_name(
+            self, name: str, confirm: bool = True) -> None:
         """Delete a contact by name."""
         await self.click_contact_by_name(name)
         await self.delete_contact_button.click()
@@ -487,7 +489,8 @@ class ContactsPage(BasePage):
         """Assert that contact form is hidden."""
         await expect(self.contact_form).to_be_hidden()
 
-    async def assert_validation_error(self, error_text: Optional[str] = None) -> None:
+    async def assert_validation_error(
+            self, error_text: Optional[str] = None) -> None:
         """Assert that validation error is shown."""
         await expect(self.validation_errors.first).to_be_visible()
         if error_text:

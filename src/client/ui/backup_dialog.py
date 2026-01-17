@@ -343,7 +343,8 @@ class BackupDialog(Adw.Window):
             strength += 1
         if len(password) >= 12:
             strength += 1
-        if any(c.isupper() for c in password) and any(c.islower() for c in password):
+        if any(c.isupper() for c in password) and any(c.islower()
+                                                      for c in password):
             strength += 1
         if any(c.isdigit() for c in password):
             strength += 0.5
@@ -415,7 +416,8 @@ class BackupDialog(Adw.Window):
             )
             dialog.add_response("continue", "Continue Backup")
             dialog.add_response("cancel", "Cancel Backup")
-            dialog.set_response_appearance("cancel", Adw.ResponseAppearance.DESTRUCTIVE)
+            dialog.set_response_appearance(
+                "cancel", Adw.ResponseAppearance.DESTRUCTIVE)
             dialog.connect("response", self._on_cancel_confirmed)
             dialog.present()
         else:

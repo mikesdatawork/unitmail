@@ -78,11 +78,13 @@ class SMTPAuthenticator:
                     user = default_user
 
             if not user:
-                logger.warning("Authentication failed: user not found: %s", username)
+                logger.warning(
+                    "Authentication failed: user not found: %s", username)
                 return AuthResult(success=False, handled=True)
 
             if not user.get("is_active", True):
-                logger.warning("Authentication failed: user inactive: %s", username)
+                logger.warning(
+                    "Authentication failed: user inactive: %s", username)
                 return AuthResult(success=False, handled=True)
 
             # TODO: Implement proper password verification
@@ -295,7 +297,8 @@ class SMTPHandler:
             # Validate parsed message
             validation_errors = self._parser.validate_message(parsed)
             if validation_errors:
-                logger.warning("Message validation failed: %s", validation_errors)
+                logger.warning("Message validation failed: %s",
+                               validation_errors)
                 return f"550 5.6.0 Message rejected: {validation_errors[0]}"
 
             # Store message for each recipient
@@ -480,7 +483,8 @@ class SMTPReceiver:
         SMTPHandler.MAX_MESSAGE_SIZE = max_message_size
 
     @classmethod
-    def from_settings(cls, settings: Optional[SMTPSettings] = None) -> "SMTPReceiver":
+    def from_settings(
+            cls, settings: Optional[SMTPSettings] = None) -> "SMTPReceiver":
         """
         Create an SMTPReceiver from application settings.
 
@@ -506,14 +510,16 @@ class SMTPReceiver:
     def _create_tls_context(self) -> Optional[ssl.SSLContext]:
         """Create TLS context for STARTTLS support."""
         if not self.tls_cert_file or not self.tls_key_file:
-            logger.warning("TLS certificate or key not configured, STARTTLS disabled")
+            logger.warning(
+                "TLS certificate or key not configured, STARTTLS disabled")
             return None
 
         cert_path = Path(self.tls_cert_file)
         key_path = Path(self.tls_key_file)
 
         if not cert_path.exists():
-            logger.error("TLS certificate file not found: %s", self.tls_cert_file)
+            logger.error("TLS certificate file not found: %s",
+                         self.tls_cert_file)
             return None
 
         if not key_path.exists():
@@ -615,7 +621,8 @@ class SMTPReceiver:
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any,
+                        exc_tb: Any) -> None:
         """Async context manager exit."""
         await self.stop()
 

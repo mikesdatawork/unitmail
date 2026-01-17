@@ -268,7 +268,8 @@ class SearchBar(Gtk.Box):
             model=self._suggestion_store,
             autoselect=False,
         )
-        selection_model.connect("selection-changed", self._on_suggestion_selected)
+        selection_model.connect("selection-changed",
+                                self._on_suggestion_selected)
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_suggestion_item_setup)

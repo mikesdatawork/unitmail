@@ -45,7 +45,8 @@ DEFAULT_TIMEOUT = int(os.environ.get("E2E_TIMEOUT", "30000"))
 
 # Test user credentials
 TEST_USER_EMAIL = os.environ.get("E2E_TEST_USER_EMAIL", "test@unitmail.local")
-TEST_USER_PASSWORD = os.environ.get("E2E_TEST_USER_PASSWORD", "testpassword123")
+TEST_USER_PASSWORD = os.environ.get(
+    "E2E_TEST_USER_PASSWORD", "testpassword123")
 
 
 # =============================================================================
@@ -108,7 +109,8 @@ async def playwright() -> AsyncGenerator[Playwright, None]:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def browser_chromium(playwright: Playwright) -> AsyncGenerator[Browser, None]:
+async def browser_chromium(
+        playwright: Playwright) -> AsyncGenerator[Browser, None]:
     """Launch Chromium browser for tests."""
     browser = await playwright.chromium.launch(
         headless=HEADLESS,
@@ -119,7 +121,8 @@ async def browser_chromium(playwright: Playwright) -> AsyncGenerator[Browser, No
 
 
 @pytest_asyncio.fixture(scope="session")
-async def browser_firefox(playwright: Playwright) -> AsyncGenerator[Browser, None]:
+async def browser_firefox(
+        playwright: Playwright) -> AsyncGenerator[Browser, None]:
     """Launch Firefox browser for tests."""
     browser = await playwright.firefox.launch(
         headless=HEADLESS,
@@ -130,7 +133,8 @@ async def browser_firefox(playwright: Playwright) -> AsyncGenerator[Browser, Non
 
 
 @pytest_asyncio.fixture(scope="session")
-async def browser_webkit(playwright: Playwright) -> AsyncGenerator[Browser, None]:
+async def browser_webkit(
+        playwright: Playwright) -> AsyncGenerator[Browser, None]:
     """Launch WebKit browser for tests."""
     browser = await playwright.webkit.launch(
         headless=HEADLESS,
@@ -169,7 +173,8 @@ async def context(browser: Browser) -> AsyncGenerator[BrowserContext, None]:
         locale="en-US",
         timezone_id="America/New_York",
         # Enable recording for debugging
-        record_video_dir="test-results/videos" if os.environ.get("E2E_RECORD_VIDEO") else None,
+        record_video_dir="test-results/videos" if os.environ.get(
+            "E2E_RECORD_VIDEO") else None,
     )
 
     # Set default timeout
@@ -416,11 +421,13 @@ class APIClient:
         """Delete an email."""
         return await self.delete(f"emails/{email_id}")
 
-    async def mark_email_read(self, email_id: str, read: bool = True) -> Dict[str, Any]:
+    async def mark_email_read(
+            self, email_id: str, read: bool = True) -> Dict[str, Any]:
         """Mark email as read/unread."""
         return await self.patch(f"emails/{email_id}", {"is_read": read})
 
-    async def star_email(self, email_id: str, starred: bool = True) -> Dict[str, Any]:
+    async def star_email(self, email_id: str,
+                         starred: bool = True) -> Dict[str, Any]:
         """Star/unstar an email."""
         return await self.patch(f"emails/{email_id}", {"is_starred": starred})
 
@@ -509,7 +516,8 @@ async def test_db(api_client: APIClient) -> AsyncGenerator[None, None]:
 
 
 @pytest_asyncio.fixture
-async def seeded_db(api_client: APIClient) -> AsyncGenerator[Dict[str, Any], None]:
+async def seeded_db(
+        api_client: APIClient) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Set up database with seed data for tests.
 

@@ -53,7 +53,8 @@ class LoginRequest(BaseModel):
 class PasswordChangeRequest(BaseModel):
     """Password change request model."""
 
-    current_password: str = Field(..., min_length=1, description="Current password")
+    current_password: str = Field(..., min_length=1,
+                                  description="Current password")
     new_password: str = Field(
         ..., min_length=8, max_length=128, description="New password"
     )
@@ -71,7 +72,8 @@ class RefreshTokenRequest(BaseModel):
 # =============================================================================
 
 
-def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
+def hash_password(
+        password: str, salt: Optional[str] = None) -> tuple[str, str]:
     """
     Hash a password using PBKDF2.
 
@@ -195,7 +197,8 @@ def decode_token(token: str, token_type: str = "access") -> dict[str, Any]:
         if jti:
             storage = get_storage()
             if storage.is_token_blacklisted(jti):
-                raise TokenInvalidError(details={"reason": "Token has been revoked"})
+                raise TokenInvalidError(
+                    details={"reason": "Token has been revoked"})
 
         return payload
 
@@ -225,7 +228,8 @@ def blacklist_token(token: str) -> None:
             # Convert exp timestamp to datetime
             expires_at = None
             if exp:
-                expires_at = datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
+                expires_at = datetime.fromtimestamp(
+                    exp, tz=timezone.utc).isoformat()
             storage.add_to_blacklist(jti, expires_at)
     except Exception:
         pass
@@ -303,7 +307,8 @@ def create_auth_blueprint() -> Blueprint:
     bp = Blueprint("auth", __name__, url_prefix="/auth")
 
     @bp.route("/login", methods=["POST"])
-    @rate_limit(max_requests=10, window_seconds=60)  # Stricter rate limit for login
+    # Stricter rate limit for login
+    @rate_limit(max_requests=10, window_seconds=60)
     def login() -> tuple[Response, int]:
         """
         Authenticate user with email and password.
@@ -348,7 +353,8 @@ def create_auth_blueprint() -> Blueprint:
                 }), 401
 
             # Verify password
-            if not verify_password(data.password, user.get("password_hash", "")):
+            if not verify_password(
+                    data.password, user.get("password_hash", "")):
                 logger.warning(
                     "Login attempt with invalid password",
                     extra={"user_id": user["id"]},
@@ -612,7 +618,8 @@ def create_auth_blueprint() -> Blueprint:
                 }), 404
 
             # Verify current password
-            if not verify_password(data.current_password, user.get("password_hash", "")):
+            if not verify_password(data.current_password,
+                                   user.get("password_hash", "")):
                 return jsonify({
                     "error": "Authentication failed",
                     "message": "Current password is incorrect",
