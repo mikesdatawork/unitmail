@@ -15,7 +15,7 @@ import secrets
 import ssl
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -868,7 +868,7 @@ class SetupService:
                 public_key_pem=public_key_pem,
                 dns_record=dns_record,
                 fingerprint=fingerprint,
-                created_at=datetime.utcnow().isoformat(),
+                created_at=datetime.now(timezone.utc).isoformat(),
             )
 
             logger.info(f"DKIM keys generated and saved to {keys_dir}")
@@ -932,7 +932,7 @@ class SetupService:
 
         try:
             # Set created timestamp
-            config.created_at = datetime.utcnow().isoformat()
+            config.created_at = datetime.now(timezone.utc).isoformat()
 
             # Save to config file
             config_path = self.CONFIG_DIR / "setup.json"

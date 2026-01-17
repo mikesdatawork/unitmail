@@ -9,7 +9,7 @@ Uses SQLite for persistence.
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 from uuid import UUID
@@ -77,7 +77,7 @@ class QueueEvent(BaseModel):
     message_id: Optional[str] = None
     status: Optional[str] = None
     error: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -187,7 +187,7 @@ class QueueManager:
         logger.info("Starting queue manager with %d workers", self.config.num_workers)
 
         self._running = True
-        self._started_at = datetime.utcnow()
+        self._started_at = datetime.now(timezone.utc)
         self._shutdown_event = asyncio.Event()
         self._worker_semaphore = asyncio.Semaphore(self.config.num_workers)
 
@@ -443,12 +443,12 @@ class QueueManager:
             Dictionary with counts of purged items by type.
         """
         if completed_before is None:
-            completed_before = datetime.utcnow() - timedelta(
+            completed_before = datetime.now(timezone.utc) - timedelta(
                 hours=self.config.completed_retention_hours
             )
 
         if failed_before is None:
-            failed_before = datetime.utcnow() - timedelta(
+            failed_before = datetime.now(timezone.utc) - timedelta(
                 days=self.config.dead_letter_retention_days
             )
 
@@ -609,7 +609,7 @@ class QueueManager:
 
             ready_items = list(pending_items)
 
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             for item in retrying_items:
                 next_attempt = item.get("next_attempt_at")
                 if next_attempt and next_attempt <= now:
@@ -632,7 +632,7 @@ class QueueManager:
 
         This method handles claiming, processing, and updating the item status.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Claim the item atomically
@@ -660,7 +660,7 @@ class QueueManager:
                 self._mark_completed(item["id"])
 
             # Track processing time
-            processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             async with self._stats_lock:
                 self._processing_times.append(processing_time)
                 if len(self._processing_times) > 1000:
@@ -731,7 +731,7 @@ class QueueManager:
         else:
             # Schedule retry with exponential backoff
             retry_interval = self._get_retry_interval(new_attempts)
-            next_attempt = datetime.utcnow() + timedelta(seconds=retry_interval)
+            next_attempt = datetime.now(timezone.utc) + timedelta(seconds=retry_interval)
 
             try:
                 self._storage.update_queue_item(
@@ -739,7 +739,7 @@ class QueueManager:
                     {
                         "status": "retrying",
                         "attempts": new_attempts,
-                        "last_attempt": datetime.utcnow().isoformat(),
+                        "last_attempt": datetime.now(timezone.utc).isoformat(),
                         "next_attempt_at": next_attempt.isoformat(),
                         "error_message": error,
                     },
@@ -785,7 +785,7 @@ class QueueManager:
     def _calculate_uptime(self) -> float:
         """Calculate uptime in seconds since start."""
         if self._started_at:
-            return (datetime.utcnow() - self._started_at).total_seconds()
+            return (datetime.now(timezone.utc) - self._started_at).total_seconds()
         return 0.0
 
     async def _emit_event(self, event: QueueEvent) -> None:

@@ -10,7 +10,7 @@ import logging
 import socket
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional, TYPE_CHECKING
 
@@ -325,7 +325,7 @@ class BaseQueueWorker(ABC):
             item.get("recipient", ""),
         )
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Fetch the message (synchronous SQLite call)
@@ -370,7 +370,7 @@ class BaseQueueWorker(ABC):
             raise
 
         finally:
-            elapsed = (datetime.utcnow() - start_time).total_seconds() * 1000
+            elapsed = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.debug("Worker completed item %s in %.2fms", item["id"], elapsed)
 
     def _handle_success(self, item: dict, result: DeliveryResult) -> None:
@@ -448,7 +448,7 @@ class QueueWorker(BaseQueueWorker):
         Returns:
             DeliveryResult with delivery status.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Extract domain from recipient
@@ -471,7 +471,7 @@ class QueueWorker(BaseQueueWorker):
             # TODO: Implement actual SMTP delivery
             await self._simulate_delivery(message, recipient, domain)
 
-            delivery_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            delivery_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
             return DeliveryResult(
                 success=True,
@@ -487,7 +487,7 @@ class QueueWorker(BaseQueueWorker):
             raise
 
         except Exception as e:
-            delivery_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            delivery_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             error_type = self._error_classifier.classify_exception(e)
 
             return DeliveryResult(

@@ -19,7 +19,7 @@ import json
 import logging
 import os
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
@@ -112,7 +112,7 @@ class EmailStorage:
         existing_folders = self.get_folders()
         existing_names = {f["name"].lower() for f in existing_folders}
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         for folder_data in DEFAULT_FOLDERS:
             if folder_data["name"].lower() not in existing_names:
@@ -237,7 +237,7 @@ class EmailStorage:
             return self.get_user_by_id(user_id)
 
         set_clauses.append("updated_at = ?")
-        params.append(datetime.utcnow().isoformat())
+        params.append(datetime.now(timezone.utc).isoformat())
         params.append(user_id)
 
         self._db.execute(
@@ -250,7 +250,7 @@ class EmailStorage:
     def update_user_last_login(self, user_id: str) -> Optional[dict]:
         """Update user's last login timestamp."""
         return self.update_user(user_id, {
-            "last_login": datetime.utcnow().isoformat()
+            "last_login": datetime.now(timezone.utc).isoformat()
         })
 
     def get_folders_by_user(self, user_id: str) -> list[dict]:
@@ -280,7 +280,7 @@ class EmailStorage:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.utcnow().isoformat(), folder_id),
+                (datetime.now(timezone.utc).isoformat(), folder_id),
             )
         else:
             self._db.execute(
@@ -290,7 +290,7 @@ class EmailStorage:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.utcnow().isoformat(), folder_id),
+                (datetime.now(timezone.utc).isoformat(), folder_id),
             )
 
     # =========================================================================
@@ -308,7 +308,7 @@ class EmailStorage:
             Created message with ID.
         """
         message_id = str(uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Get folder_id
         folder_id = message.get("folder_id")
@@ -618,7 +618,7 @@ class EmailStorage:
             return self.get_message(message_id)
 
         set_clauses.append("updated_at = ?")
-        params.append(datetime.utcnow().isoformat())
+        params.append(datetime.now(timezone.utc).isoformat())
         params.append(message_id)
 
         self._db.execute(
@@ -664,7 +664,7 @@ class EmailStorage:
         return self.update_message(message_id, {
             "original_folder_id": msg["folder_id"],
             "folder_id": trash["id"],
-            "deleted_at": datetime.utcnow().isoformat(),
+            "deleted_at": datetime.now(timezone.utc).isoformat(),
         })
 
     def restore_from_trash(self, message_id: str) -> Optional[dict]:
@@ -852,7 +852,7 @@ class EmailStorage:
         next_order = (result[0] or 0) + 1
 
         folder_id = str(uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         self._db.execute(
             """
@@ -916,7 +916,7 @@ class EmailStorage:
 
         self._db.execute(
             "UPDATE folders SET name = ?, updated_at = ? WHERE id = ?",
-            (new_name, datetime.utcnow().isoformat(), folder_id),
+            (new_name, datetime.now(timezone.utc).isoformat(), folder_id),
         )
 
         logger.info(f"Renamed folder: {folder['name']} -> {new_name}")
@@ -958,7 +958,7 @@ class EmailStorage:
             return folder
 
         set_clauses.append("updated_at = ?")
-        params.append(datetime.utcnow().isoformat())
+        params.append(datetime.now(timezone.utc).isoformat())
         params.append(folder_id)
 
         self._db.execute(
@@ -983,7 +983,7 @@ class EmailStorage:
                     ),
                     updated_at = ?
                 """,
-                (datetime.utcnow().isoformat(),),
+                (datetime.now(timezone.utc).isoformat(),),
             )
 
     # =========================================================================
@@ -1064,7 +1064,7 @@ class EmailStorage:
             Created contact dict.
         """
         contact_id = str(uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         user_id = contact_data.get("user_id") or self._default_user_id
 
         self._db.execute(
@@ -1124,7 +1124,7 @@ class EmailStorage:
             return self.get_contact(contact_id)
 
         set_clauses.append("updated_at = ?")
-        params.append(datetime.utcnow().isoformat())
+        params.append(datetime.now(timezone.utc).isoformat())
         params.append(contact_id)
 
         self._db.execute(
@@ -1259,7 +1259,7 @@ class EmailStorage:
         sent_folder = self.get_folder_by_name("Sent")
         sent_folder_id = sent_folder["id"] if sent_folder else None
 
-        start_date = (datetime.utcnow() - timedelta(days=days - 1)).date()
+        start_date = (datetime.now(timezone.utc) - timedelta(days=days - 1)).date()
 
         # Get all messages in date range
         rows = self._db.fetchall(
@@ -1324,7 +1324,7 @@ class EmailStorage:
         avg_msg_size = 5000
         result = []
 
-        current = datetime.utcnow()
+        current = datetime.now(timezone.utc)
         for i in range(months - 1, -1, -1):
             month_offset = current.month - i - 1
             year = current.year
@@ -1393,7 +1393,7 @@ class EmailStorage:
             Created queue item dictionary.
         """
         item_id = str(uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         metadata_json = json.dumps(metadata or {})
 
         self._db.execute(
@@ -1443,7 +1443,7 @@ class EmailStorage:
 
     def mark_queue_item_processing(self, item_id: str) -> Optional[dict]:
         """Mark a queue item as processing."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._db.execute(
             """
             UPDATE queue SET
@@ -1458,7 +1458,7 @@ class EmailStorage:
 
     def mark_queue_item_completed(self, item_id: str) -> Optional[dict]:
         """Mark a queue item as completed."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._db.execute(
             """
             UPDATE queue SET
@@ -1483,7 +1483,7 @@ class EmailStorage:
         Returns:
             Updated queue item or None.
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Get current item to check attempts
         item = self.get_queue_item(item_id)
@@ -1518,7 +1518,7 @@ class EmailStorage:
         Returns:
             Updated queue item or None.
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._db.execute(
             """
             UPDATE queue SET
@@ -1589,7 +1589,7 @@ class EmailStorage:
         Returns:
             Updated queue item or None.
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._db.execute(
             """
             UPDATE queue SET
@@ -1630,7 +1630,7 @@ class EmailStorage:
             return self.get_queue_item(item_id)
 
         set_clauses.append("updated_at = ?")
-        params.append(datetime.utcnow().isoformat())
+        params.append(datetime.now(timezone.utc).isoformat())
         params.append(item_id)
 
         self._db.execute(
@@ -1684,7 +1684,7 @@ class EmailStorage:
         """
         try:
             item_id = str(uuid4())
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
 
             self._db.execute(
                 """
@@ -1722,7 +1722,7 @@ class EmailStorage:
         Returns:
             Number of entries removed.
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         cursor = self._db.execute(
             """
             DELETE FROM token_blacklist

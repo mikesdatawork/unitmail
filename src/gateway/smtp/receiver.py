@@ -9,7 +9,7 @@ validation, message parsing, and database storage via SQLite.
 import asyncio
 import logging
 import ssl
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -396,7 +396,7 @@ class SMTPHandler:
             "is_read": False,
             "is_starred": False,
             "is_encrypted": False,
-            "received_at": datetime.utcnow().isoformat(),
+            "received_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Create the message in SQLite database

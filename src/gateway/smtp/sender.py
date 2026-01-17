@@ -12,7 +12,7 @@ import random
 import socket
 import ssl
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -64,7 +64,7 @@ class DeliveryResult:
     recipient: str
     status: DeliveryStatus
     message_id: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     smtp_code: Optional[int] = None
     smtp_message: Optional[str] = None
     error: Optional[str] = None
@@ -845,7 +845,7 @@ class SMTPSender:
             self._delivery_results.clear()
             return count
 
-        cutoff = datetime.utcnow() - older_than
+        cutoff = lambda: datetime.now(timezone.utc)() - older_than
         keys_to_remove = [
             key
             for key, result in self._delivery_results.items()

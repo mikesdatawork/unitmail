@@ -5,7 +5,7 @@ This module defines all data models used throughout the application,
 providing validation, serialization, and type safety.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -76,10 +76,10 @@ class BaseDBModel(BaseModel):
 
     id: UUID = Field(default_factory=uuid4, description="Unique identifier")
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation timestamp"
+        default_factory=lambda: datetime.now(timezone.utc), description="Creation timestamp"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last update timestamp"
+        default_factory=lambda: datetime.now(timezone.utc), description="Last update timestamp"
     )
 
     def to_dict(self) -> dict[str, Any]:

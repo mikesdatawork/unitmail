@@ -729,11 +729,11 @@ class DNSChecker:
         Returns:
             Complete DNSHealthReport.
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         report = DNSHealthReport(
             domain=domain,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             overall_status=RecordStatus.VALID,
             spf=self.check_spf(domain),
         )

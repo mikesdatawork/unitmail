@@ -15,7 +15,7 @@ import secrets
 import shutil
 import zipfile
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
@@ -325,7 +325,7 @@ class BackupService:
 
             # Create metadata
             metadata = BackupMetadata(
-                created_at=datetime.utcnow().isoformat(),
+                created_at=datetime.now(timezone.utc).isoformat(),
                 backup_type=BackupType.FULL.value,
                 database_path=db_path,
             )

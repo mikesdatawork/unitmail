@@ -7,7 +7,7 @@ with threads, attachments, and various states.
 """
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from .storage import get_storage
@@ -71,7 +71,7 @@ def generate_sample_messages(force_regenerate: bool = False) -> int:
         raise RuntimeError("Inbox folder not found - ensure storage is initialized")
 
     messages_created = 0
-    base_time = datetime.utcnow()
+    base_time = datetime.now(timezone.utc)
 
     # Thread 1: Project Planning (5 messages in Inbox)
     thread1_id = str(uuid4())

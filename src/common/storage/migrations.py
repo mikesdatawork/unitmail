@@ -18,7 +18,7 @@ import json
 import logging
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 from uuid import uuid4
@@ -205,8 +205,8 @@ def _migrate_json_data() -> None:
                             folder_id_map.get(folder.get("parent_id")),
                             folder.get("message_count", 0),
                             folder.get("unread_count", 0),
-                            folder.get("created_at", datetime.utcnow().isoformat()),
-                            folder.get("updated_at", datetime.utcnow().isoformat()),
+                            folder.get("created_at", datetime.now(timezone.utc).isoformat()),
+                            folder.get("updated_at", datetime.now(timezone.utc).isoformat()),
                         ),
                     )
 
@@ -281,11 +281,11 @@ def _migrate_json_data() -> None:
                             msg.get("in_reply_to"),
                             json.dumps(msg.get("references", [])),
                             folder_id_map.get(msg.get("original_folder_id")),
-                            msg.get("received_at", datetime.utcnow().isoformat()),
+                            msg.get("received_at", datetime.now(timezone.utc).isoformat()),
                             msg.get("sent_at"),
                             msg.get("deleted_at"),
-                            msg.get("created_at", datetime.utcnow().isoformat()),
-                            msg.get("updated_at", datetime.utcnow().isoformat()),
+                            msg.get("created_at", datetime.now(timezone.utc).isoformat()),
+                            msg.get("updated_at", datetime.now(timezone.utc).isoformat()),
                         ),
                     )
 
@@ -404,7 +404,7 @@ def _backup_json_files(data_dir: Path) -> None:
     for filename in json_files:
         src = data_dir / filename
         if src.exists():
-            dst = backup_dir / f"{filename}.{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            dst = backup_dir / f"{filename}.{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
             try:
                 shutil.move(str(src), str(dst))
                 logger.info(f"Backed up {filename} to {dst}")

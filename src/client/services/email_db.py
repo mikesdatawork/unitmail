@@ -12,7 +12,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Generator, Optional
@@ -317,7 +317,7 @@ class EmailDatabase:
 
     def _now_iso(self) -> str:
         """Get current UTC time in ISO format."""
-        return datetime.utcnow().isoformat()
+        return datetime.now(timezone.utc).isoformat()
 
     # Folder operations
 
