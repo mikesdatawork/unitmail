@@ -152,7 +152,7 @@ class GUIFeatureTests:
                 test.actual = f"Forward subject: '{fwd_subject[:40]}...'"
             else:
                 test.status = "FAIL"
-                test.actual = f"Subject did not get Fwd: prefix"
+                test.actual = "Subject did not get Fwd: prefix"
 
         except Exception as e:
             test.status = "FAIL"

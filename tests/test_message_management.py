@@ -36,14 +36,14 @@ class MessageTestResult:
         result = f"\n{'='*70}\n"
         result += f"TEST: {self.name}\n"
         result += f"{'='*70}\n"
-        result += f"Steps Performed:\n"
+        result += "Steps Performed:\n"
         for i, step in enumerate(self.steps, 1):
             result += f"  {i}. {step}\n"
         result += f"\nExpected Result: {self.expected}\n"
         result += f"Actual Result: {self.actual}\n"
         result += f"Status: {self.status}\n"
         if self.bugs:
-            result += f"Bugs/Issues:\n"
+            result += "Bugs/Issues:\n"
             for bug in self.bugs:
                 result += f"  - {bug}\n"
         return result

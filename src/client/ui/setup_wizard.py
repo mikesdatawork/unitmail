@@ -1070,7 +1070,7 @@ class SetupWizard(Adw.Window):
         # Update DNS record previews
         if domain:
             self._mx_row.set_subtitle(f"@ MX 10 mail.{domain}")
-            self._spf_row.set_subtitle(f"@ TXT \"v=spf1 mx -all\"")
+            self._spf_row.set_subtitle("@ TXT \"v=spf1 mx -all\"")
             self._dkim_row.set_subtitle(
                 f"unitmail._domainkey.{domain} TXT \"v=DKIM1; ...\""
             )

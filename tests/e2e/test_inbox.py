@@ -331,7 +331,7 @@ class TestMarkReadUnread:
         email_reader_page: EmailReaderPage, api_client
     ):
         """Test marking an email as unread."""
-        _test_email = await api_client.create_test_email()  # noqa: F841
+        test_email = await api_client.create_test_email()
         # Mark as read via API first
         await api_client.mark_email_read(test_email.id, True)
 
@@ -346,7 +346,7 @@ class TestMarkReadUnread:
 
         # Go back and verify
         await email_reader_page.go_back()
-        _is_unread = await inbox_page.is_email_unread(0)  # noqa: F841
+        is_unread = await inbox_page.is_email_unread(0)
         assert is_unread
 
     @pytest.mark.asyncio
@@ -363,7 +363,7 @@ class TestMarkReadUnread:
         await inbox_page.mark_email_read(0)
 
         # Verify it's marked as read
-        _is_unread = await inbox_page.is_email_unread(0)  # noqa: F841
+        is_unread = await inbox_page.is_email_unread(0)
         assert not is_unread
 
     @pytest.mark.asyncio
@@ -417,7 +417,7 @@ class TestStarring:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test unstarring a starred email."""
-        _test_email = await api_client.create_test_email()  # noqa: F841
+        test_email = await api_client.create_test_email()
         await api_client.star_email(test_email.id, True)
 
         inbox_page.page = authenticated_page

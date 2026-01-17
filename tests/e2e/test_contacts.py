@@ -207,7 +207,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test opening edit form for a contact."""
-        _contact = await api_client.create_test_contact()  # noqa: F841
+        contact = await api_client.create_test_contact()
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -240,7 +240,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test editing contact email."""
-        _contact = await api_client.create_test_contact(  # noqa: F841
+        contact = await api_client.create_test_contact(
             email="original@example.com"
         )
 
@@ -261,7 +261,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test editing contact phone number."""
-        _contact = await api_client.create_test_contact()  # noqa: F841
+        contact = await api_client.create_test_contact()
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -314,7 +314,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test validation when editing contact."""
-        _contact = await api_client.create_test_contact()  # noqa: F841
+        contact = await api_client.create_test_contact()
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -358,7 +358,7 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test that delete shows confirmation dialog."""
-        _contact = await api_client.create_test_contact()  # noqa: F841
+        contact = await api_client.create_test_contact()
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -403,7 +403,7 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test deleting contact with keyboard shortcut."""
-        _contact = await api_client.create_test_contact()  # noqa: F841
+        contact = await api_client.create_test_contact()
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()

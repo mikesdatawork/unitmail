@@ -188,7 +188,7 @@ class ColumnResizeMixin:
                 column_width_subject=self._column_width_subject,
             )
             settings.save()
-            logger.debug(f"Saved column widths to settings")
+            logger.debug("Saved column widths to settings")
         except Exception as e:
             logger.warning(f"Failed to save column widths: {e}")
 
