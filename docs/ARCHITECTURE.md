@@ -22,7 +22,7 @@ unitMail uses a hybrid architecture combining local client software with a light
 │           └───────────┬───────────────────┘                  │
 │                       ▼                                      │
 │           ┌──────────────────────┐                          │
-│           │  PostgreSQL Database     │                          │
+│           │  SQLite Database     │                          │
 │           │  - messages          │                          │
 │           │  - contacts          │                          │
 │           │  - queue             │                          │
@@ -51,7 +51,7 @@ unitMail uses a hybrid architecture combining local client software with a light
 User's Machine (Static IP: 203.0.113.50)
 ├── GTK Client
 ├── Gateway Service (ports 25, 587, 993)
-└── PostgreSQL Database
+└── SQLite Database
 
 DNS:
   mail.example.com  A     203.0.113.50
@@ -82,7 +82,7 @@ DNS:
 User's Home Machine                    User's VPS ($5/mo)
 ┌──────────────────┐                  ┌─────────────────┐
 │ GTK Client       │                  │ Gateway Service │
-│ PostgreSQL Database  │                  │ (SMTP relay)    │
+│ SQLite Database  │                  │ (SMTP relay)    │
 │                  │                  │                 │
 │ Encrypted Store  │◄────HTTPS/TLS───►│ No Storage      │
 └──────────────────┘                  │ Port 25 Open    │
@@ -180,7 +180,7 @@ Direct SMTP over encrypted mesh (no internet required)
 - Python 3.11+
 - GTK 4.0
 - PyGObject
-- SQLAlchemy (database ORM)
+- SQLite3 (database)
 - Requests (HTTP client)
 - python-gnupg (encryption)
 
@@ -226,7 +226,7 @@ unitmail-client/
 - Python 3.11+
 - Postfix (SMTP MTA)
 - Flask (REST API)
-- PostgreSQL (local queue)
+- SQLite (local queue)
 - python-daemon (service management)
 
 **Components**
@@ -246,10 +246,10 @@ unitmail-client/
 **Protocol Converter**
 ```python
 # Inbound flow
-SMTP (external) → Parse → Store in PostgreSQL → Notify client via socket
+SMTP (external) → Parse → Store in SQLite → Notify client via socket
 
 # Outbound flow
-Client request → Queue in PostgreSQL → SMTP delivery → Status update
+Client request → Queue in SQLite → SMTP delivery → Status update
 ```
 
 **File Structure**
@@ -294,7 +294,7 @@ WantedBy=multi-user.target
 
 ### Database Schema
 
-**PostgreSQL Database**: `/var/lib/unitmail/mail.db`
+**SQLite Database**: `~/.unitmail/data/unitmail.db`
 
 ```sql
 -- Messages table
@@ -408,9 +408,9 @@ _dmarc.example.com. IN TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com
 - Modern cipher suites only (TLS 1.2+)
 
 **2. Storage Layer**
-- PostgreSQL database encrypted at rest (pgcrypto)
-- User password required to unlock
-- Automatic lock after inactivity
+- SQLite database with optional SQLCipher encryption
+- Single-file storage for easy backup
+- WAL mode for concurrent access
 
 **3. End-to-End Layer (Optional)**
 - PGP/GPG for message encryption
@@ -523,7 +523,7 @@ unitmail-1.0.0/
 ### Backup Strategy
 
 **What Gets Backed Up**
-- PostgreSQL database (messages, contacts, config)
+- SQLite database (messages, contacts, config) - single file copy
 - DKIM private keys
 - PGP keys
 - Configuration files
@@ -610,11 +610,13 @@ unitmail-1.0.0/
 - Active development
 - Accessibility support
 
-**Why PostgreSQL?**
+**Why SQLite?**
 - Serverless (no daemon)
 - Single-file database
 - Fast for single-user
 - Built-in backup (copy file)
+- FTS5 for full-text search
+- Built into Python
 
 **Why Postfix?**
 - Battle-tested (25+ years)

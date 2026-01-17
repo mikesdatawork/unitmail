@@ -3,6 +3,7 @@ Email queue management system for unitMail.
 
 This module provides the QueueManager class for managing outbound email queue
 processing with worker patterns, retry logic, and status tracking.
+Uses SQLite for persistence.
 """
 
 import asyncio
@@ -15,13 +16,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from common.database import get_db, QueueTable
+from common.storage import EmailStorage, get_storage
 from common.exceptions import (
     MessageQueueError,
     RecordNotFoundError,
     QueryError,
 )
-from common.models import QueueItem, QueueItemStatus
+from common.models import QueueItemStatus
 
 
 logger = logging.getLogger(__name__)
@@ -72,8 +73,8 @@ class QueueEvent(BaseModel):
     """Event emitted by the queue manager for real-time updates."""
 
     event_type: str
-    queue_item_id: Optional[UUID] = None
-    message_id: Optional[UUID] = None
+    queue_item_id: Optional[str] = None
+    message_id: Optional[str] = None
     status: Optional[str] = None
     error: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -115,12 +116,14 @@ class QueueManager:
     - Dead letter queue for permanently failed messages
     - Real-time event emission for status updates
     - Graceful shutdown handling
+    - SQLite-backed persistence
     """
 
     def __init__(
         self,
         config: Optional[QueueConfig] = None,
         event_handler: Optional[Callable[[QueueEvent], None]] = None,
+        storage: Optional[EmailStorage] = None,
     ) -> None:
         """
         Initialize the queue manager.
@@ -128,10 +131,11 @@ class QueueManager:
         Args:
             config: Queue configuration options.
             event_handler: Optional callback for queue events.
+            storage: EmailStorage instance (uses default if not provided).
         """
         self.config = config or QueueConfig()
         self._event_handler = event_handler
-        self._db = get_db()
+        self._storage = storage or get_storage()
 
         # State management
         self._running = False
@@ -264,14 +268,14 @@ class QueueManager:
 
         logger.info("Queue manager stopped")
 
-    async def enqueue(
+    def enqueue(
         self,
-        message_id: UUID,
-        user_id: UUID,
+        message_id: str,
+        user_id: str,
         recipient: str,
         priority: int = 0,
         metadata: Optional[dict[str, Any]] = None,
-    ) -> QueueItem:
+    ) -> dict:
         """
         Add a message to the queue for delivery.
 
@@ -283,39 +287,36 @@ class QueueManager:
             metadata: Additional metadata for the queue item.
 
         Returns:
-            The created queue item.
+            The created queue item dict.
 
         Raises:
             MessageQueueError: If enqueueing fails.
         """
         try:
-            data = {
-                "message_id": str(message_id),
-                "user_id": str(user_id),
-                "recipient": recipient,
-                "status": QueueItemStatus.PENDING.value,
-                "priority": priority,
-                "max_attempts": self.config.max_retries,
-                "metadata": metadata or {},
-            }
-
-            item = await self._db.queue.create(data)
+            item = self._storage.create_queue_item(
+                message_id=str(message_id),
+                recipient=recipient,
+                user_id=str(user_id),
+                priority=priority,
+                max_attempts=self.config.max_retries,
+                metadata=metadata,
+            )
 
             logger.info(
                 "Enqueued message %s for recipient %s (queue_id=%s)",
                 message_id,
                 recipient,
-                item.id,
+                item["id"],
             )
 
-            # Emit enqueue event
-            await self._emit_event(QueueEvent(
+            # Emit enqueue event (sync, don't await)
+            asyncio.create_task(self._emit_event(QueueEvent(
                 event_type="message_enqueued",
-                queue_item_id=item.id,
-                message_id=message_id,
+                queue_item_id=item["id"],
+                message_id=str(message_id),
                 status=DeliveryStatus.PENDING.value,
                 metadata={"recipient": recipient, "priority": priority},
-            ))
+            )))
 
             return item
 
@@ -344,31 +345,21 @@ class QueueManager:
                     sum(self._processing_times) / len(self._processing_times)
                 )
 
-            # Query database for counts
+            # Query database for counts (synchronous SQLite calls)
             try:
-                self._stats.pending = await self._db.queue.count(
-                    filters={"status": QueueItemStatus.PENDING.value}
-                )
-                self._stats.processing = await self._db.queue.count(
-                    filters={"status": QueueItemStatus.PROCESSING.value}
-                )
-                self._stats.completed = await self._db.queue.count(
-                    filters={"status": QueueItemStatus.COMPLETED.value}
-                )
-                self._stats.failed = await self._db.queue.count(
-                    filters={"status": QueueItemStatus.FAILED.value}
-                )
-                self._stats.deferred = await self._db.queue.count(
-                    filters={"status": QueueItemStatus.RETRYING.value}
-                )
+                self._stats.pending = self._storage.count_queue_items("pending")
+                self._stats.processing = self._storage.count_queue_items("processing")
+                self._stats.completed = self._storage.count_queue_items("completed")
+                self._stats.failed = self._storage.count_queue_items("failed")
+                self._stats.deferred = self._storage.count_queue_items("retrying")
             except Exception as e:
                 logger.warning("Failed to fetch queue counts: %s", e)
 
             return self._stats.model_copy()
 
-    async def retry_failed(
+    def retry_failed(
         self,
-        queue_item_id: Optional[UUID] = None,
+        queue_item_id: Optional[str] = None,
         max_items: int = 100,
     ) -> int:
         """
@@ -384,59 +375,59 @@ class QueueManager:
         try:
             if queue_item_id:
                 # Retry specific item
-                item = await self._db.queue.get_by_id(queue_item_id)
-                if item.status != QueueItemStatus.FAILED.value:
+                item = self._storage.get_queue_item(queue_item_id)
+                if not item:
+                    logger.error("Queue item %s not found", queue_item_id)
+                    return 0
+
+                if item["status"] != "failed":
                     logger.warning(
                         "Queue item %s is not in failed state: %s",
                         queue_item_id,
-                        item.status,
+                        item["status"],
                     )
                     return 0
 
-                await self._db.queue.retry(queue_item_id)
+                self._storage.retry_queue_item(queue_item_id)
                 logger.info("Queued retry for failed item %s", queue_item_id)
 
-                await self._emit_event(QueueEvent(
+                asyncio.create_task(self._emit_event(QueueEvent(
                     event_type="message_retry_queued",
                     queue_item_id=queue_item_id,
-                    message_id=item.message_id,
-                ))
+                    message_id=item["message_id"],
+                )))
 
                 return 1
 
             else:
                 # Retry all failed items
-                failed_items = await self._db.queue.get_all(
-                    filters={"status": QueueItemStatus.FAILED.value},
-                    limit=max_items,
+                failed_items = self._storage.get_queue_items_by_status(
+                    "failed", limit=max_items
                 )
 
                 retry_count = 0
                 for item in failed_items:
                     try:
-                        await self._db.queue.retry(item.id)
+                        self._storage.retry_queue_item(item["id"])
                         retry_count += 1
 
-                        await self._emit_event(QueueEvent(
+                        asyncio.create_task(self._emit_event(QueueEvent(
                             event_type="message_retry_queued",
-                            queue_item_id=item.id,
-                            message_id=item.message_id,
-                        ))
+                            queue_item_id=item["id"],
+                            message_id=item["message_id"],
+                        )))
 
                     except Exception as e:
-                        logger.error("Failed to queue retry for %s: %s", item.id, e)
+                        logger.error("Failed to queue retry for %s: %s", item["id"], e)
 
                 logger.info("Queued %d items for retry", retry_count)
                 return retry_count
 
-        except RecordNotFoundError:
-            logger.error("Queue item %s not found", queue_item_id)
-            return 0
         except Exception as e:
             logger.error("Failed to retry failed messages: %s", e)
             raise MessageQueueError(f"Failed to retry messages: {e}")
 
-    async def purge_old(
+    def purge_old(
         self,
         completed_before: Optional[datetime] = None,
         failed_before: Optional[datetime] = None,
@@ -465,37 +456,38 @@ class QueueManager:
 
         try:
             # Get completed items to purge
-            completed_items = await self._db.queue.get_all(
-                filters={"status": QueueItemStatus.COMPLETED.value},
-                limit=1000,
+            completed_items = self._storage.get_queue_items_by_status(
+                "completed", limit=1000
             )
 
             for item in completed_items:
-                if item.updated_at < completed_before:
+                item_updated = item.get("updated_at", "")
+                if item_updated and item_updated < completed_before.isoformat():
                     try:
-                        await self._db.queue.delete(item.id)
+                        self._storage.delete_queue_item(item["id"])
                         purged["completed"] += 1
                     except Exception as e:
                         logger.warning(
-                            "Failed to purge completed item %s: %s", item.id, e
+                            "Failed to purge completed item %s: %s", item["id"], e
                         )
 
-            # Get dead letter items to purge
-            failed_items = await self._db.queue.get_all(
-                filters={"status": QueueItemStatus.FAILED.value},
-                limit=1000,
+            # Get failed items to purge (dead letter)
+            failed_items = self._storage.get_queue_items_by_status(
+                "failed", limit=1000
             )
 
             for item in failed_items:
                 # Check if max attempts reached (dead letter)
-                if item.attempts >= item.max_attempts and item.updated_at < failed_before:
-                    try:
-                        await self._db.queue.delete(item.id)
-                        purged["dead_letter"] += 1
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to purge dead letter item %s: %s", item.id, e
-                        )
+                if item["attempts"] >= item["max_attempts"]:
+                    item_updated = item.get("updated_at", "")
+                    if item_updated and item_updated < failed_before.isoformat():
+                        try:
+                            self._storage.delete_queue_item(item["id"])
+                            purged["dead_letter"] += 1
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to purge dead letter item %s: %s", item["id"], e
+                            )
 
             logger.info(
                 "Purged %d completed and %d dead letter items",
@@ -503,10 +495,10 @@ class QueueManager:
                 purged["dead_letter"],
             )
 
-            await self._emit_event(QueueEvent(
+            asyncio.create_task(self._emit_event(QueueEvent(
                 event_type="queue_purged",
                 metadata=purged,
-            ))
+            )))
 
             return purged
 
@@ -514,7 +506,7 @@ class QueueManager:
             logger.error("Failed to purge old items: %s", e)
             raise MessageQueueError(f"Failed to purge old items: {e}")
 
-    async def move_to_dead_letter(self, queue_item_id: UUID, error: str) -> QueueItem:
+    def move_to_dead_letter(self, queue_item_id: str, error: str) -> Optional[dict]:
         """
         Move a queue item to the dead letter queue.
 
@@ -523,18 +515,16 @@ class QueueManager:
             error: The error message.
 
         Returns:
-            The updated queue item.
+            The updated queue item or None.
         """
         try:
-            item = await self._db.queue.get_by_id(queue_item_id)
+            item = self._storage.get_queue_item(queue_item_id)
+            if not item:
+                logger.error("Queue item %s not found", queue_item_id)
+                return None
 
-            updated_item = await self._db.queue.update(
-                queue_item_id,
-                {
-                    "status": QueueItemStatus.FAILED.value,
-                    "error_message": f"Dead letter: {error}",
-                    "attempts": item.max_attempts,  # Mark as max attempts reached
-                },
+            updated_item = self._storage.move_to_dead_letter(
+                queue_item_id, f"Dead letter: {error}"
             )
 
             logger.warning(
@@ -543,13 +533,13 @@ class QueueManager:
                 error,
             )
 
-            await self._emit_event(QueueEvent(
+            asyncio.create_task(self._emit_event(QueueEvent(
                 event_type="message_dead_letter",
                 queue_item_id=queue_item_id,
-                message_id=item.message_id,
+                message_id=item["message_id"],
                 status=DeliveryStatus.DEAD_LETTER.value,
                 error=error,
-            ))
+            )))
 
             return updated_item
 
@@ -564,7 +554,7 @@ class QueueManager:
         while self._running and not self._shutdown_event.is_set():
             try:
                 # Fetch pending items ready for processing
-                items = await self._fetch_ready_items()
+                items = self._fetch_ready_items()
 
                 if items:
                     logger.debug("Fetched %d items for processing", len(items))
@@ -600,7 +590,7 @@ class QueueManager:
 
         logger.info("Queue processing loop ended")
 
-    async def _fetch_ready_items(self) -> list[QueueItem]:
+    def _fetch_ready_items(self) -> list[dict]:
         """
         Fetch items that are ready for processing.
 
@@ -608,32 +598,35 @@ class QueueManager:
         """
         try:
             # Get pending items
-            pending_items = await self._db.queue.get_pending(
+            pending_items = self._storage.get_pending_queue_items(
                 limit=self.config.batch_size
             )
 
-            # Get deferred items ready for retry
-            ready_items = []
-            for item in pending_items:
-                if item.status == QueueItemStatus.RETRYING.value:
-                    # Check if retry time has passed
-                    if item.next_attempt_at and item.next_attempt_at <= datetime.utcnow():
-                        ready_items.append(item)
-                else:
+            # Also get retrying items whose next_attempt_at has passed
+            retrying_items = self._storage.get_queue_items_by_status(
+                "retrying", limit=self.config.batch_size
+            )
+
+            ready_items = list(pending_items)
+
+            now = datetime.utcnow().isoformat()
+            for item in retrying_items:
+                next_attempt = item.get("next_attempt_at")
+                if next_attempt and next_attempt <= now:
                     ready_items.append(item)
 
-            return ready_items
+            return ready_items[:self.config.batch_size]
 
         except Exception as e:
             logger.error("Failed to fetch ready items: %s", e)
             return []
 
-    async def _process_item_with_semaphore(self, item: QueueItem) -> None:
+    async def _process_item_with_semaphore(self, item: dict) -> None:
         """Process an item using the worker semaphore for concurrency control."""
         async with self._worker_semaphore:
             await self._process_item(item)
 
-    async def _process_item(self, item: QueueItem) -> None:
+    async def _process_item(self, item: dict) -> None:
         """
         Process a single queue item.
 
@@ -643,28 +636,28 @@ class QueueManager:
 
         try:
             # Claim the item atomically
-            claimed = await self._claim_item(item.id)
+            claimed = self._claim_item(item["id"])
             if not claimed:
-                logger.debug("Item %s already claimed, skipping", item.id)
+                logger.debug("Item %s already claimed, skipping", item["id"])
                 return
 
-            logger.info("Processing queue item %s (attempt %d)", item.id, item.attempts + 1)
+            logger.info("Processing queue item %s (attempt %d)", item["id"], item["attempts"] + 1)
 
             # Emit processing event
             await self._emit_event(QueueEvent(
                 event_type="message_processing",
-                queue_item_id=item.id,
-                message_id=item.message_id,
+                queue_item_id=item["id"],
+                message_id=item["message_id"],
                 status=DeliveryStatus.PROCESSING.value,
             ))
 
             # Process the item using the worker class
             if self._worker_class:
-                worker = self._worker_class(self._db, self)
+                worker = self._worker_class(self._storage, self)
                 await worker.process(item)
             else:
                 # Default behavior: mark as completed (for testing)
-                await self._mark_completed(item.id)
+                self._mark_completed(item["id"])
 
             # Track processing time
             processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
@@ -675,80 +668,78 @@ class QueueManager:
                 self._stats.total_processed += 1
 
         except asyncio.TimeoutError:
-            logger.error("Processing timeout for item %s", item.id)
-            await self._handle_failure(item, "Processing timeout")
+            logger.error("Processing timeout for item %s", item["id"])
+            self._handle_failure(item, "Processing timeout")
 
         except Exception as e:
-            logger.exception("Failed to process item %s: %s", item.id, e)
-            await self._handle_failure(item, str(e))
+            logger.exception("Failed to process item %s: %s", item["id"], e)
+            self._handle_failure(item, str(e))
 
-    async def _claim_item(self, item_id: UUID) -> bool:
+    def _claim_item(self, item_id: str) -> bool:
         """
         Atomically claim a queue item for processing.
 
         Returns True if successfully claimed, False if already claimed.
         """
         try:
-            item = await self._db.queue.get_by_id(item_id)
+            item = self._storage.get_queue_item(item_id)
+            if not item:
+                return False
 
             # Check if still pending or retrying
-            if item.status not in (
-                QueueItemStatus.PENDING.value,
-                QueueItemStatus.RETRYING.value,
-            ):
+            if item["status"] not in ("pending", "retrying"):
                 return False
 
             # Mark as processing
-            await self._db.queue.mark_processing(item_id)
+            self._storage.mark_queue_item_processing(item_id)
             return True
 
-        except RecordNotFoundError:
-            return False
         except Exception as e:
             logger.error("Failed to claim item %s: %s", item_id, e)
             return False
 
-    async def _mark_completed(self, item_id: UUID) -> None:
+    def _mark_completed(self, item_id: str) -> None:
         """Mark a queue item as successfully completed."""
         try:
-            item = await self._db.queue.mark_completed(item_id)
+            item = self._storage.mark_queue_item_completed(item_id)
 
             logger.info("Successfully delivered queue item %s", item_id)
 
-            await self._emit_event(QueueEvent(
-                event_type="message_sent",
-                queue_item_id=item_id,
-                message_id=item.message_id,
-                status=DeliveryStatus.SENT.value,
-            ))
+            if item:
+                asyncio.create_task(self._emit_event(QueueEvent(
+                    event_type="message_sent",
+                    queue_item_id=item_id,
+                    message_id=item["message_id"],
+                    status=DeliveryStatus.SENT.value,
+                )))
 
         except Exception as e:
             logger.error("Failed to mark item %s as completed: %s", item_id, e)
 
-    async def _handle_failure(self, item: QueueItem, error: str) -> None:
+    def _handle_failure(self, item: dict, error: str) -> None:
         """
         Handle a failed processing attempt.
 
         Implements exponential backoff retry logic and moves to dead letter
         queue after max retries.
         """
-        new_attempts = item.attempts + 1
+        new_attempts = item["attempts"] + 1
 
         if new_attempts >= self.config.max_retries:
             # Move to dead letter queue
-            await self.move_to_dead_letter(item.id, error)
+            self.move_to_dead_letter(item["id"], error)
         else:
             # Schedule retry with exponential backoff
             retry_interval = self._get_retry_interval(new_attempts)
             next_attempt = datetime.utcnow() + timedelta(seconds=retry_interval)
 
             try:
-                await self._db.queue.update(
-                    item.id,
+                self._storage.update_queue_item(
+                    item["id"],
                     {
-                        "status": QueueItemStatus.RETRYING.value,
+                        "status": "retrying",
                         "attempts": new_attempts,
-                        "last_attempt_at": datetime.utcnow().isoformat(),
+                        "last_attempt": datetime.utcnow().isoformat(),
                         "next_attempt_at": next_attempt.isoformat(),
                         "error_message": error,
                     },
@@ -756,16 +747,16 @@ class QueueManager:
 
                 logger.info(
                     "Scheduled retry for item %s in %d seconds (attempt %d/%d)",
-                    item.id,
+                    item["id"],
                     retry_interval,
                     new_attempts,
                     self.config.max_retries,
                 )
 
-                await self._emit_event(QueueEvent(
+                asyncio.create_task(self._emit_event(QueueEvent(
                     event_type="message_deferred",
-                    queue_item_id=item.id,
-                    message_id=item.message_id,
+                    queue_item_id=item["id"],
+                    message_id=item["message_id"],
                     status=DeliveryStatus.DEFERRED.value,
                     error=error,
                     metadata={
@@ -774,10 +765,10 @@ class QueueManager:
                         "next_attempt_at": next_attempt.isoformat(),
                         "retry_interval_seconds": retry_interval,
                     },
-                ))
+                )))
 
             except Exception as e:
-                logger.error("Failed to schedule retry for item %s: %s", item.id, e)
+                logger.error("Failed to schedule retry for item %s: %s", item["id"], e)
 
     def _get_retry_interval(self, attempt: int) -> int:
         """
@@ -815,6 +806,7 @@ class QueueManager:
 def create_queue_manager(
     num_workers: int = 4,
     event_handler: Optional[Callable[[QueueEvent], None]] = None,
+    storage: Optional[EmailStorage] = None,
 ) -> QueueManager:
     """
     Create a queue manager with the specified configuration.
@@ -822,9 +814,10 @@ def create_queue_manager(
     Args:
         num_workers: Number of concurrent workers.
         event_handler: Optional callback for queue events.
+        storage: Optional EmailStorage instance.
 
     Returns:
         Configured QueueManager instance.
     """
     config = QueueConfig(num_workers=num_workers)
-    return QueueManager(config=config, event_handler=event_handler)
+    return QueueManager(config=config, event_handler=event_handler, storage=storage)

@@ -15,12 +15,12 @@ Modern Python project configuration with:
 ### requirements.txt
 Pinned production dependencies for reproducible builds:
 - Flask 3.0.0 - Web framework for API
-- supabase 2.3.4 - Database client
 - PyGObject 3.46.0 - GTK bindings
 - python-gnupg 0.5.2 - PGP encryption
 - PyJWT 2.8.0 - JWT tokens
 - cryptography 41.0.7 - TLS/encryption
 - aiosmtpd 1.4.4 - Async SMTP server
+- SQLite (built into Python) - Local database with FTS5
 
 ### requirements-dev.txt
 Development and testing tools:

@@ -17,7 +17,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
-from common.local_storage import get_local_storage
+from common.storage import get_storage
 from common.sample_data import generate_sample_messages
 from .composer import ComposerWindow, ComposerMode, EmailMessage
 from .column_resize_mixin import ColumnResizeMixin
@@ -165,7 +165,7 @@ class FolderSelectionDialog(Adw.MessageDialog):
         self._folder_listbox.connect("row-selected", self._on_folder_row_selected)
 
         # Populate with folders
-        storage = get_local_storage()
+        storage = get_storage()
         folders = storage.get_folders()
 
         for folder in folders:
@@ -2489,7 +2489,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             logger.warning(f"Could not generate sample messages: {e}")
 
         # Get storage instance
-        storage = get_local_storage()
+        storage = get_storage()
 
         # Load folders from database
         db_folders = storage.get_folders()
@@ -2647,7 +2647,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._message_store.remove_all()
 
         # Get messages from local storage
-        storage = get_local_storage()
+        storage = get_storage()
         db_messages = storage.get_messages_by_folder(folder_name)
 
         # Convert database messages to MessageItem objects
@@ -2760,7 +2760,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             self._preview_important_button.handler_unblock_by_func(self._on_preview_important_toggled)
 
         # Get full message body from database
-        storage = get_local_storage()
+        storage = get_storage()
         db_message = storage.get_message(message.message_id)
 
         if db_message:
@@ -2900,7 +2900,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         If the message is already in Trash, it is permanently deleted.
         """
         if self._selected_message_id:
-            storage = get_local_storage()
+            storage = get_storage()
 
             # Check if we're currently viewing the Trash folder
             current_folder = self._get_selected_folder_name()
@@ -3135,7 +3135,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             message_id = dialog._message_id
 
             if selected_folder and message_id:
-                storage = get_local_storage()
+                storage = get_storage()
                 result = storage.move_to_folder(message_id, selected_folder)
 
                 if result:
@@ -3163,7 +3163,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         if not self._selected_message_id:
             return
 
-        storage = get_local_storage()
+        storage = get_storage()
         result = storage.restore_from_trash(self._selected_message_id)
 
         if result:
@@ -3209,7 +3209,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             message_id = getattr(dialog, '_message_id', None)
 
             if selected_folder and message_id:
-                storage = get_local_storage()
+                storage = get_storage()
                 result = storage.move_to_folder(message_id, selected_folder)
 
                 if result:
@@ -3260,7 +3260,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         if response == "delete":
             message_id = getattr(dialog, '_message_id', None)
             if message_id:
-                storage = get_local_storage()
+                storage = get_storage()
                 if storage.permanent_delete(message_id):
                     logger.info(f"Permanently deleted message: {message_id}")
                     # Remove from current view
@@ -3686,7 +3686,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         logger.info(f"Opening draft for editing: {message_item.message_id}")
 
         # Get the full message data from storage
-        storage = get_local_storage()
+        storage = get_storage()
         db_message = storage.get_message(message_item.message_id)
 
         if not db_message:
@@ -3737,7 +3737,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     def _set_message_starred(self, message_id: str, starred: bool) -> None:
         """Set starred status for a message."""
         # Update database
-        storage = get_local_storage()
+        storage = get_storage()
         storage.update_message(message_id, {"is_starred": starred})
 
         for i in range(self._message_store.get_n_items()):
@@ -3751,7 +3751,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     def _set_message_important(self, message_id: str, important: bool) -> None:
         """Set important status for a message."""
         # Update database
-        storage = get_local_storage()
+        storage = get_storage()
         storage.update_message(message_id, {"is_important": important})
 
         for i in range(self._message_store.get_n_items()):
@@ -3765,7 +3765,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     def _set_message_read(self, message_id: str, is_read: bool) -> None:
         """Set read status for a message."""
         # Update database
-        storage = get_local_storage()
+        storage = get_storage()
         if is_read:
             storage.mark_as_read(message_id)
         else:
@@ -3782,7 +3782,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     def _move_message_to_folder(self, message_id: str, folder: str) -> None:
         """Move a message to a folder."""
         # Update database
-        storage = get_local_storage()
+        storage = get_storage()
         storage.move_to_folder(message_id, folder)
 
         # Remove from current list
@@ -3847,7 +3847,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             logger.info(f"Empty folder: {folder}")
 
             # Permanently delete all messages in the folder from storage
-            storage = get_local_storage()
+            storage = get_storage()
             if folder == "Trash":
                 deleted_count = storage.empty_trash()
                 logger.info(f"Emptied Trash: permanently deleted {deleted_count} messages")
@@ -3940,7 +3940,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Clear and reload folders
         self._folder_store.remove_all()
 
-        storage = get_local_storage()
+        storage = get_storage()
         db_folders = storage.get_folders()
 
         # Icon mapping for folder types
@@ -4046,7 +4046,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
         This modular approach keeps draft save logic independent and reusable.
         """
-        storage = get_local_storage()
+        storage = get_storage()
 
         # Get message data from composer
         email_msg = composer.get_message_data()
@@ -4101,7 +4101,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         """
         logger.info("Send message requested (gateway not configured)")
         # For now, save to Sent folder since gateway isn't available
-        storage = get_local_storage()
+        storage = get_storage()
         sent_folder = storage.get_folder_by_name("Sent")
         if not sent_folder:
             logger.error("Sent folder not found")

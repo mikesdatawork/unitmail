@@ -14,14 +14,13 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, TYPE_CHECKING
 
-from common.database import SupabaseClient
+from common.storage import EmailStorage, get_storage
 from common.exceptions import (
     MessageDeliveryError,
     SMTPConnectionError,
     SMTPError,
     DNSLookupError,
 )
-from common.models import QueueItem, QueueItemStatus, Message
 
 if TYPE_CHECKING:
     from .queue import QueueManager
@@ -275,7 +274,7 @@ class BaseQueueWorker(ABC):
 
     def __init__(
         self,
-        db: SupabaseClient,
+        storage: EmailStorage,
         queue_manager: "QueueManager",
         timeout: float = 300.0,
     ) -> None:
@@ -283,24 +282,24 @@ class BaseQueueWorker(ABC):
         Initialize the worker.
 
         Args:
-            db: Database client instance.
+            storage: EmailStorage instance for database operations.
             queue_manager: Queue manager reference.
             timeout: Processing timeout in seconds.
         """
-        self._db = db
+        self._storage = storage
         self._queue_manager = queue_manager
         self._timeout = timeout
         self._error_classifier = ErrorClassifier()
 
     @abstractmethod
-    async def deliver(self, message: Message, recipient: str) -> DeliveryResult:
+    async def deliver(self, message: dict, recipient: str) -> DeliveryResult:
         """
         Deliver a message to a recipient.
 
         This method must be implemented by subclasses to perform actual delivery.
 
         Args:
-            message: The message to deliver.
+            message: The message dictionary to deliver.
             recipient: The recipient email address.
 
         Returns:
@@ -308,12 +307,12 @@ class BaseQueueWorker(ABC):
         """
         pass
 
-    async def process(self, item: QueueItem) -> None:
+    async def process(self, item: dict) -> None:
         """
         Process a queue item with timeout handling.
 
         Args:
-            item: The queue item to process.
+            item: The queue item dictionary to process.
 
         Raises:
             asyncio.TimeoutError: If processing exceeds timeout.
@@ -321,87 +320,92 @@ class BaseQueueWorker(ABC):
         """
         logger.info(
             "Worker processing item %s (message=%s, recipient=%s)",
-            item.id,
-            item.message_id,
-            item.recipient,
+            item["id"],
+            item["message_id"],
+            item.get("recipient", ""),
         )
 
         start_time = datetime.utcnow()
 
         try:
-            # Fetch the message
-            message = await self._db.messages.get_by_id(item.message_id)
+            # Fetch the message (synchronous SQLite call)
+            message = self._storage.get_message(item["message_id"])
+            if not message:
+                raise ValueError(f"Message not found: {item['message_id']}")
+
+            # Mark as processing
+            self._storage.mark_queue_item_processing(item["id"])
 
             # Attempt delivery with timeout
             result = await asyncio.wait_for(
-                self.deliver(message, item.recipient),
+                self.deliver(message, item.get("recipient", "")),
                 timeout=self._timeout,
             )
 
             # Handle result
             if result.success:
-                await self._handle_success(item, result)
+                self._handle_success(item, result)
             else:
-                await self._handle_failure(item, result)
+                self._handle_failure(item, result)
 
         except asyncio.TimeoutError:
-            logger.error("Worker timeout processing item %s", item.id)
+            logger.error("Worker timeout processing item %s", item["id"])
             result = DeliveryResult(
                 success=False,
                 error_type=ErrorType.TIMEOUT,
                 error_message=f"Processing timeout after {self._timeout}s",
             )
-            await self._handle_failure(item, result)
+            self._handle_failure(item, result)
             raise
 
         except Exception as e:
-            logger.exception("Worker error processing item %s: %s", item.id, e)
+            logger.exception("Worker error processing item %s: %s", item["id"], e)
             error_type = self._error_classifier.classify_exception(e)
             result = DeliveryResult(
                 success=False,
                 error_type=error_type,
                 error_message=str(e),
             )
-            await self._handle_failure(item, result)
+            self._handle_failure(item, result)
             raise
 
         finally:
             elapsed = (datetime.utcnow() - start_time).total_seconds() * 1000
-            logger.debug("Worker completed item %s in %.2fms", item.id, elapsed)
+            logger.debug("Worker completed item %s in %.2fms", item["id"], elapsed)
 
-    async def _handle_success(self, item: QueueItem, result: DeliveryResult) -> None:
+    def _handle_success(self, item: dict, result: DeliveryResult) -> None:
         """Handle successful delivery."""
         try:
-            await self._db.queue.mark_completed(item.id)
+            self._storage.mark_queue_item_completed(item["id"])
             logger.info(
                 "Successfully delivered item %s to %s",
-                item.id,
-                item.recipient,
+                item["id"],
+                item.get("recipient", ""),
             )
         except Exception as e:
-            logger.error("Failed to mark item %s as completed: %s", item.id, e)
+            logger.error("Failed to mark item %s as completed: %s", item["id"], e)
 
-    async def _handle_failure(self, item: QueueItem, result: DeliveryResult) -> None:
+    def _handle_failure(self, item: dict, result: DeliveryResult) -> None:
         """Handle failed delivery."""
         error_msg = result.error_message or "Unknown error"
 
         if result.should_retry:
-            # Let queue manager handle retry logic
-            await self._db.queue.mark_failed(item.id, error_msg)
+            # Let storage handle retry logic based on attempt count
+            self._storage.mark_queue_item_failed(item["id"], error_msg)
             logger.warning(
                 "Delivery failed for item %s (retryable): %s",
-                item.id,
+                item["id"],
                 error_msg,
             )
         else:
             # Permanent failure - move to dead letter
-            await self._queue_manager.move_to_dead_letter(
-                item.id,
+            self._storage.move_to_dead_letter(
+                item["id"],
                 f"Permanent failure ({result.error_type}): {error_msg}",
             )
             logger.error(
                 "Permanent delivery failure for item %s: %s",
-                item.id,
+                item["id"],
                 error_msg,
             )
 
@@ -416,7 +420,7 @@ class QueueWorker(BaseQueueWorker):
 
     def __init__(
         self,
-        db: SupabaseClient,
+        storage: EmailStorage,
         queue_manager: "QueueManager",
         timeout: float = 300.0,
         smtp_timeout: float = 30.0,
@@ -425,20 +429,20 @@ class QueueWorker(BaseQueueWorker):
         Initialize the SMTP queue worker.
 
         Args:
-            db: Database client instance.
+            storage: EmailStorage instance for database operations.
             queue_manager: Queue manager reference.
             timeout: Overall processing timeout in seconds.
             smtp_timeout: SMTP connection timeout in seconds.
         """
-        super().__init__(db, queue_manager, timeout)
+        super().__init__(storage, queue_manager, timeout)
         self._smtp_timeout = smtp_timeout
 
-    async def deliver(self, message: Message, recipient: str) -> DeliveryResult:
+    async def deliver(self, message: dict, recipient: str) -> DeliveryResult:
         """
         Deliver a message to a recipient via SMTP.
 
         Args:
-            message: The message to deliver.
+            message: The message dictionary to deliver.
             recipient: The recipient email address.
 
         Returns:
@@ -474,7 +478,7 @@ class QueueWorker(BaseQueueWorker):
                 remote_host=f"mx.{domain}",
                 delivery_time_ms=delivery_time,
                 metadata={
-                    "message_id": str(message.message_id),
+                    "message_id": message.get("message_id", ""),
                     "recipient": recipient,
                 },
             )
@@ -495,7 +499,7 @@ class QueueWorker(BaseQueueWorker):
 
     async def _simulate_delivery(
         self,
-        message: Message,
+        message: dict,
         recipient: str,
         domain: str,
     ) -> None:
@@ -509,7 +513,7 @@ class QueueWorker(BaseQueueWorker):
 
         logger.debug(
             "Simulated delivery of message %s to %s@%s",
-            message.message_id,
+            message.get("message_id", ""),
             recipient.split("@")[0],
             domain,
         )
@@ -525,7 +529,7 @@ class WorkerPool:
 
     def __init__(
         self,
-        db: SupabaseClient,
+        storage: EmailStorage,
         queue_manager: "QueueManager",
         num_workers: int = 4,
         worker_class: type = QueueWorker,
@@ -534,12 +538,12 @@ class WorkerPool:
         Initialize the worker pool.
 
         Args:
-            db: Database client instance.
+            storage: EmailStorage instance for database operations.
             queue_manager: Queue manager reference.
             num_workers: Number of workers in the pool.
             worker_class: Worker class to instantiate.
         """
-        self._db = db
+        self._storage = storage
         self._queue_manager = queue_manager
         self._num_workers = num_workers
         self._worker_class = worker_class
@@ -563,7 +567,7 @@ class WorkerPool:
             return
 
         self._workers = [
-            self._worker_class(self._db, self._queue_manager)
+            self._worker_class(self._storage, self._queue_manager)
             for _ in range(self._num_workers)
         ]
         self._running = True

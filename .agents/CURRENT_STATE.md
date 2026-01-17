@@ -7,7 +7,7 @@ unitMail is a GTK4/libadwaita email client with:
 - Sharp-corner design (no rounded corners)
 - Multiple view density options (Standard, Minimal)
 - Full email client functionality
-- Supabase backend integration
+- SQLite local storage with FTS5 full-text search
 
 ## Architecture
 

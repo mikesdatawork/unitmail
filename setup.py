@@ -48,15 +48,17 @@ except Exception:
     long_description_content_type = "text/plain"
 
 # Core dependencies (keep in sync with pyproject.toml)
+# Note: SQLite is built into Python - no additional package needed
 install_requires = [
     "Flask>=3.0.0",
-    "supabase>=2.0.0",
     "PyGObject>=3.46.0",
     "python-gnupg>=0.5.2",
     "PyJWT>=2.8.0",
     "cryptography>=41.0.0",
     "aiosmtpd>=1.4.4",
     "requests>=2.31.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
 ]
 
 # Development dependencies

@@ -2,7 +2,7 @@
 unitMail Common Library
 
 This module provides shared components for the unitMail application including:
-- Database client and operations (Supabase)
+- SQLite-based email storage
 - Pydantic models for data validation
 - Configuration management
 - Custom exceptions
@@ -11,7 +11,6 @@ This module provides shared components for the unitMail application including:
 from .config import (
     APISettings,
     CryptoSettings,
-    DatabaseSettings,
     DNSSettings,
     LoggingSettings,
     MeshSettings,
@@ -19,18 +18,6 @@ from .config import (
     SMTPSettings,
     get_settings,
     reload_settings,
-)
-from .database import (
-    ConfigTable,
-    ContactsTable,
-    FoldersTable,
-    MeshPeersTable,
-    MessagesTable,
-    QueueTable,
-    SupabaseClient,
-    TableOperations,
-    UsersTable,
-    get_db,
 )
 from .exceptions import (
     AuthenticationError,
@@ -87,19 +74,21 @@ from .models import (
     QueueItemStatus,
     User,
 )
+from .storage import (
+    EmailStorage,
+    get_storage,
+)
+from .local_storage import (
+    LocalEmailStorage,
+    get_local_storage,
+)
 
 __all__ = [
-    # Database
-    "SupabaseClient",
-    "TableOperations",
-    "MessagesTable",
-    "ContactsTable",
-    "QueueTable",
-    "ConfigTable",
-    "FoldersTable",
-    "MeshPeersTable",
-    "UsersTable",
-    "get_db",
+    # Storage
+    "EmailStorage",
+    "LocalEmailStorage",
+    "get_storage",
+    "get_local_storage",
     # Models
     "BaseDBModel",
     "User",
@@ -122,7 +111,6 @@ __all__ = [
     "FolderType",
     # Configuration
     "Settings",
-    "DatabaseSettings",
     "SMTPSettings",
     "APISettings",
     "DNSSettings",

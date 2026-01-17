@@ -3,6 +3,7 @@ Authentication routes for unitMail Gateway API.
 
 This module provides endpoints for user authentication including login,
 logout, token refresh, current user info, and password management.
+Uses SQLite for storage.
 """
 
 import hashlib
@@ -16,8 +17,8 @@ import jwt
 from flask import Blueprint, Response, g, jsonify, request
 from pydantic import BaseModel, EmailStr, Field, ValidationError
 
-from ....common.database import get_db
-from ....common.exceptions import (
+from common.storage import get_storage
+from common.exceptions import (
     InvalidCredentialsError,
     RecordNotFoundError,
     TokenExpiredError,
@@ -36,9 +37,6 @@ JWT_SECRET_KEY = "change-me-in-production"  # Should be loaded from config
 JWT_ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
 JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
-
-# Token blacklist (in production, use Redis or database)
-_token_blacklist: set[str] = set()
 
 
 # =============================================================================
@@ -113,6 +111,9 @@ def verify_password(password: str, stored_hash: str) -> bool:
         True if password matches.
     """
     try:
+        if not stored_hash:
+            return False
+
         if "$" in stored_hash:
             salt, hash_value = stored_hash.split("$", 1)
         else:
@@ -191,10 +192,12 @@ def decode_token(token: str, token_type: str = "access") -> dict[str, Any]:
         if payload.get("type") != token_type:
             raise TokenInvalidError(details={"reason": "Invalid token type"})
 
-        # Check if token is blacklisted
+        # Check if token is blacklisted (using SQLite storage)
         jti = payload.get("jti")
-        if jti and jti in _token_blacklist:
-            raise TokenInvalidError(details={"reason": "Token has been revoked"})
+        if jti:
+            storage = get_storage()
+            if storage.is_token_blacklisted(jti):
+                raise TokenInvalidError(details={"reason": "Token has been revoked"})
 
         return payload
 
@@ -217,8 +220,15 @@ def blacklist_token(token: str) -> None:
             options={"verify_exp": False}
         )
         jti = payload.get("jti")
+        exp = payload.get("exp")
+
         if jti:
-            _token_blacklist.add(jti)
+            storage = get_storage()
+            # Convert exp timestamp to datetime
+            expires_at = None
+            if exp:
+                expires_at = datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
+            storage.add_to_blacklist(jti, expires_at)
     except Exception:
         pass
 
@@ -228,7 +238,7 @@ def require_auth(f: F) -> F:
     Decorator to require authentication for a route.
 
     Extracts and validates the JWT token from the Authorization header.
-    Sets g.current_user_id and g.current_user_email on success.
+    Sets g.current_user_id, g.user_id, and g.current_user_email on success.
 
     Args:
         f: Function to decorate.
@@ -259,6 +269,7 @@ def require_auth(f: F) -> F:
         try:
             payload = decode_token(token, "access")
             g.current_user_id = payload["sub"]
+            g.user_id = payload["sub"]  # Also set user_id for consistency
             g.current_user_email = payload.get("email")
             g.token_jti = payload.get("jti")
 
@@ -325,22 +336,13 @@ def create_auth_blueprint() -> Blueprint:
             }), 400
 
         try:
-            db = get_db()
-
-            # Run async operation synchronously
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                user = loop.run_until_complete(db.users.get_by_email(data.email))
-            finally:
-                loop.close()
+            storage = get_storage()
+            user = storage.get_user_by_email(str(data.email))
 
             if not user:
                 logger.warning(
                     "Login attempt for non-existent user",
-                    extra={"email": data.email},
+                    extra={"email": str(data.email)},
                 )
                 return jsonify({
                     "error": "Authentication failed",
@@ -348,10 +350,10 @@ def create_auth_blueprint() -> Blueprint:
                 }), 401
 
             # Verify password
-            if not verify_password(data.password, user.password_hash):
+            if not verify_password(data.password, user.get("password_hash", "")):
                 logger.warning(
                     "Login attempt with invalid password",
-                    extra={"user_id": str(user.id)},
+                    extra={"user_id": user["id"]},
                 )
                 return jsonify({
                     "error": "Authentication failed",
@@ -359,27 +361,22 @@ def create_auth_blueprint() -> Blueprint:
                 }), 401
 
             # Check if user is active
-            if not user.is_active:
+            if not user.get("is_active", True):
                 return jsonify({
                     "error": "Account disabled",
                     "message": "Your account has been disabled. Please contact support.",
                 }), 403
 
             # Create tokens
-            access_token = create_access_token(str(user.id), user.email)
-            refresh_token = create_refresh_token(str(user.id))
+            access_token = create_access_token(user["id"], user["email"])
+            refresh_token = create_refresh_token(user["id"])
 
             # Update last login
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(db.users.update_last_login(user.id))
-            finally:
-                loop.close()
+            storage.update_user_last_login(user["id"])
 
             logger.info(
                 "User logged in successfully",
-                extra={"user_id": str(user.id)},
+                extra={"user_id": user["id"]},
             )
 
             return jsonify({
@@ -388,11 +385,11 @@ def create_auth_blueprint() -> Blueprint:
                 "token_type": "Bearer",
                 "expires_in": int(JWT_ACCESS_TOKEN_EXPIRES.total_seconds()),
                 "user": {
-                    "id": str(user.id),
-                    "email": user.email,
-                    "username": user.username,
-                    "display_name": user.display_name,
-                    "is_verified": user.is_verified,
+                    "id": user["id"],
+                    "email": user["email"],
+                    "username": user.get("username"),
+                    "display_name": user.get("display_name"),
+                    "is_verified": user.get("is_verified", False),
                 },
             }), 200
 
@@ -471,18 +468,16 @@ def create_auth_blueprint() -> Blueprint:
             user_id = payload["sub"]
 
             # Get user to verify they still exist and are active
-            db = get_db()
+            storage = get_storage()
+            user = storage.get_user_by_id(user_id)
 
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            if not user:
+                return jsonify({
+                    "error": "User not found",
+                    "message": "User associated with token no longer exists.",
+                }), 401
 
-            try:
-                user = loop.run_until_complete(db.users.get_by_id(user_id))
-            finally:
-                loop.close()
-
-            if not user.is_active:
+            if not user.get("is_active", True):
                 return jsonify({
                     "error": "Account disabled",
                     "message": "Your account has been disabled.",
@@ -492,8 +487,8 @@ def create_auth_blueprint() -> Blueprint:
             blacklist_token(data.refresh_token)
 
             # Create new tokens
-            access_token = create_access_token(str(user.id), user.email)
-            new_refresh_token = create_refresh_token(str(user.id))
+            access_token = create_access_token(user["id"], user["email"])
+            new_refresh_token = create_refresh_token(user["id"])
 
             logger.info(
                 "Token refreshed",
@@ -519,12 +514,6 @@ def create_auth_blueprint() -> Blueprint:
                 "message": str(e.message),
             }), 401
 
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "User not found",
-                "message": "User associated with token no longer exists.",
-            }), 401
-
         except Exception as e:
             logger.error(f"Token refresh error: {e}")
             return jsonify({
@@ -542,36 +531,26 @@ def create_auth_blueprint() -> Blueprint:
             User profile information.
         """
         try:
-            db = get_db()
+            storage = get_storage()
+            user = storage.get_user_by_id(g.current_user_id)
 
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                user = loop.run_until_complete(
-                    db.users.get_by_id(g.current_user_id)
-                )
-            finally:
-                loop.close()
+            if not user:
+                return jsonify({
+                    "error": "User not found",
+                    "message": "User no longer exists",
+                }), 404
 
             return jsonify({
-                "id": str(user.id),
-                "email": user.email,
-                "username": user.username,
-                "display_name": user.display_name,
-                "is_active": user.is_active,
-                "is_verified": user.is_verified,
-                "last_login": user.last_login.isoformat() if user.last_login else None,
-                "created_at": user.created_at.isoformat(),
-                "settings": user.settings,
+                "id": user["id"],
+                "email": user["email"],
+                "username": user.get("username"),
+                "display_name": user.get("display_name"),
+                "is_active": user.get("is_active", True),
+                "is_verified": user.get("is_verified", False),
+                "last_login": user.get("last_login"),
+                "created_at": user.get("created_at"),
+                "settings": user.get("settings", {}),
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "User not found",
-                "message": "User no longer exists",
-            }), 404
 
         except Exception as e:
             logger.error(f"Get current user error: {e}")
@@ -625,21 +604,17 @@ def create_auth_blueprint() -> Blueprint:
             }), 400
 
         try:
-            db = get_db()
+            storage = get_storage()
+            user = storage.get_user_by_id(g.current_user_id)
 
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                user = loop.run_until_complete(
-                    db.users.get_by_id(g.current_user_id)
-                )
-            finally:
-                loop.close()
+            if not user:
+                return jsonify({
+                    "error": "User not found",
+                    "message": "User no longer exists",
+                }), 404
 
             # Verify current password
-            if not verify_password(data.current_password, user.password_hash):
+            if not verify_password(data.current_password, user.get("password_hash", "")):
                 return jsonify({
                     "error": "Authentication failed",
                     "message": "Current password is incorrect",
@@ -650,30 +625,16 @@ def create_auth_blueprint() -> Blueprint:
             password_hash = f"{salt}${new_hash}"
 
             # Update password
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(
-                    db.users.update(user.id, {"password_hash": password_hash})
-                )
-            finally:
-                loop.close()
+            storage.update_user(user["id"], {"password_hash": password_hash})
 
             logger.info(
                 "User changed password",
-                extra={"user_id": str(user.id)},
+                extra={"user_id": user["id"]},
             )
 
             return jsonify({
                 "message": "Password changed successfully",
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "User not found",
-                "message": "User no longer exists",
-            }), 404
 
         except Exception as e:
             logger.error(f"Password change error: {e}")

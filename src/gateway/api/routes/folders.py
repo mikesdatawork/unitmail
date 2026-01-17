@@ -3,21 +3,19 @@ Folder routes for unitMail Gateway API.
 
 This module provides endpoints for email folder management
 including listing, creating, renaming, and deleting folders.
+Uses SQLite for storage.
 """
 
-import asyncio
 import logging
 from typing import Any, Optional
-from uuid import UUID
 
 from flask import Blueprint, Response, g, jsonify, request
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from ....common.database import get_db
-from ....common.exceptions import RecordNotFoundError
-from ....common.models import FolderCreate, FolderType, FolderUpdate
+from common.storage import get_storage
+from common.exceptions import RecordNotFoundError
 from ..middleware import rate_limit
-from .auth import require_auth
+from ..auth import require_auth
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -78,36 +76,22 @@ class UpdateFolderRequest(BaseModel):
 # =============================================================================
 
 
-def run_async(coro):
-    """Run an async coroutine synchronously."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
-def serialize_folder(folder) -> dict[str, Any]:
-    """Serialize a folder model to JSON-compatible dict."""
-    folder_type = folder.folder_type
-    if hasattr(folder_type, 'value'):
-        folder_type = folder_type.value
-
+def serialize_folder(folder: dict) -> dict[str, Any]:
+    """Serialize a folder dict for JSON response."""
     return {
-        "id": str(folder.id),
-        "user_id": str(folder.user_id),
-        "name": folder.name,
-        "folder_type": folder_type,
-        "parent_id": str(folder.parent_id) if folder.parent_id else None,
-        "color": folder.color,
-        "icon": folder.icon,
-        "sort_order": folder.sort_order,
-        "is_system": folder.is_system,
-        "message_count": folder.message_count,
-        "unread_count": folder.unread_count,
-        "created_at": folder.created_at.isoformat(),
-        "updated_at": folder.updated_at.isoformat(),
+        "id": folder["id"],
+        "user_id": folder.get("user_id"),
+        "name": folder["name"],
+        "folder_type": folder.get("folder_type", "custom"),
+        "parent_id": folder.get("parent_id"),
+        "color": folder.get("color"),
+        "icon": folder.get("icon"),
+        "sort_order": folder.get("sort_order", 0),
+        "is_system": folder.get("is_system", False),
+        "message_count": folder.get("message_count", 0),
+        "unread_count": folder.get("unread_count", 0),
+        "created_at": folder.get("created_at"),
+        "updated_at": folder.get("updated_at"),
     }
 
 
@@ -144,32 +128,29 @@ def create_folders_blueprint() -> Blueprint:
             include_system = request.args.get("include_system", "true").lower() == "true"
             parent_id = request.args.get("parent_id")
 
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
-            # Get all folders for user
-            folders = run_async(db.folders.get_by_user(UUID(g.current_user_id)))
+            # Get all folders
+            if user_id:
+                folders = storage.get_folders_by_user(user_id)
+            else:
+                folders = storage.get_folders()
 
             # Apply filters
             if not include_system:
-                folders = [f for f in folders if not f.is_system]
+                folders = [f for f in folders if not f.get("is_system")]
 
             if parent_id is not None:
                 if parent_id == "" or parent_id.lower() == "null":
                     # Root level folders
-                    folders = [f for f in folders if f.parent_id is None]
+                    folders = [f for f in folders if f.get("parent_id") is None]
                 else:
-                    try:
-                        parent_uuid = UUID(parent_id)
-                        folders = [f for f in folders if f.parent_id == parent_uuid]
-                    except ValueError:
-                        return jsonify({
-                            "error": "Invalid parameter",
-                            "message": "parent_id must be a valid UUID or 'null'",
-                        }), 400
+                    folders = [f for f in folders if f.get("parent_id") == parent_id]
 
             # Calculate totals
-            total_messages = sum(f.message_count for f in folders)
-            total_unread = sum(f.unread_count for f in folders)
+            total_messages = sum(f.get("message_count", 0) for f in folders)
+            total_unread = sum(f.get("unread_count", 0) for f in folders)
 
             return jsonify({
                 "folders": [serialize_folder(f) for f in folders],
@@ -200,32 +181,24 @@ def create_folders_blueprint() -> Blueprint:
             Folder details with message counts.
         """
         try:
-            # Validate UUID
-            try:
-                folder_uuid = UUID(folder_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "folder_id must be a valid UUID",
-                }), 400
+            storage = get_storage()
+            folder = storage.get_folder_by_id(folder_id)
 
-            db = get_db()
-            folder = run_async(db.folders.get_by_id(folder_uuid))
+            if not folder:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Folder not found",
+                }), 404
 
             # Check ownership
-            if str(folder.user_id) != g.current_user_id:
+            user_id = getattr(g, "user_id", None)
+            if folder.get("user_id") and folder.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Folder not found",
                 }), 404
 
             return jsonify(serialize_folder(folder)), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Folder not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Get folder error: {e}")
@@ -267,54 +240,62 @@ def create_folders_blueprint() -> Blueprint:
             }), 400
 
         try:
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Validate parent folder if provided
-            parent_uuid = None
             if data.parent_id:
-                try:
-                    parent_uuid = UUID(data.parent_id)
-                    parent = run_async(db.folders.get_by_id(parent_uuid))
-                    if str(parent.user_id) != g.current_user_id:
-                        return jsonify({
-                            "error": "Invalid parent",
-                            "message": "Parent folder not found",
-                        }), 400
-                except (ValueError, RecordNotFoundError):
+                parent = storage.get_folder_by_id(data.parent_id)
+                if not parent:
+                    return jsonify({
+                        "error": "Invalid parent",
+                        "message": "Parent folder not found",
+                    }), 400
+                # Check ownership of parent
+                if parent.get("user_id") and parent.get("user_id") != user_id:
                     return jsonify({
                         "error": "Invalid parent",
                         "message": "Parent folder not found",
                     }), 400
 
             # Check for duplicate folder name at same level
-            existing_folders = run_async(
-                db.folders.get_by_user(UUID(g.current_user_id))
-            )
+            if user_id:
+                existing_folders = storage.get_folders_by_user(user_id)
+            else:
+                existing_folders = storage.get_folders()
+
             for f in existing_folders:
-                if f.name.lower() == data.name.lower() and f.parent_id == parent_uuid:
+                if (f["name"].lower() == data.name.lower() and
+                    f.get("parent_id") == data.parent_id):
                     return jsonify({
                         "error": "Duplicate folder",
                         "message": f"A folder named '{data.name}' already exists",
                     }), 409
 
             # Create folder
-            folder_create = FolderCreate(
-                name=data.name,
-                folder_type=FolderType.CUSTOM,
-                parent_id=parent_uuid,
-                color=data.color,
-                icon=data.icon,
-            )
+            try:
+                folder = storage.create_folder(data.name, data.parent_id)
+            except ValueError as e:
+                return jsonify({
+                    "error": "Invalid request",
+                    "message": str(e),
+                }), 400
 
-            folder = run_async(
-                db.folders.create_folder(UUID(g.current_user_id), folder_create)
-            )
+            # Update additional properties if provided
+            if data.color or data.icon:
+                updates = {}
+                if data.color:
+                    updates["color"] = data.color
+                if data.icon:
+                    updates["icon"] = data.icon
+                if updates:
+                    folder = storage.update_folder(folder["id"], updates)
 
             logger.info(
                 "Folder created",
                 extra={
-                    "user_id": g.current_user_id,
-                    "folder_id": str(folder.id),
+                    "user_id": user_id,
+                    "folder_id": folder["id"],
                 },
             )
 
@@ -347,15 +328,6 @@ def create_folders_blueprint() -> Blueprint:
             Updated folder details.
         """
         try:
-            # Validate UUID
-            try:
-                folder_uuid = UUID(folder_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "folder_id must be a valid UUID",
-                }), 400
-
             if not request.is_json:
                 return jsonify({
                     "error": "Invalid request",
@@ -371,20 +343,27 @@ def create_folders_blueprint() -> Blueprint:
                     "details": e.errors(),
                 }), 400
 
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing folder
-            folder = run_async(db.folders.get_by_id(folder_uuid))
+            folder = storage.get_folder_by_id(folder_id)
+
+            if not folder:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Folder not found",
+                }), 404
 
             # Check ownership
-            if str(folder.user_id) != g.current_user_id:
+            if folder.get("user_id") and folder.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Folder not found",
                 }), 404
 
             # Check if it's a system folder (cannot rename system folders)
-            if folder.is_system and data.name and data.name != folder.name:
+            if folder.get("is_system") and data.name and data.name != folder["name"]:
                 return jsonify({
                     "error": "Cannot modify",
                     "message": "System folders cannot be renamed",
@@ -395,14 +374,16 @@ def create_folders_blueprint() -> Blueprint:
 
             if data.name is not None:
                 # Check for duplicate name
-                existing_folders = run_async(
-                    db.folders.get_by_user(UUID(g.current_user_id))
-                )
-                target_parent = UUID(data.parent_id) if data.parent_id else folder.parent_id
+                if user_id:
+                    existing_folders = storage.get_folders_by_user(user_id)
+                else:
+                    existing_folders = storage.get_folders()
+
+                target_parent = data.parent_id if data.parent_id is not None else folder.get("parent_id")
                 for f in existing_folders:
-                    if (f.id != folder.id and
-                        f.name.lower() == data.name.lower() and
-                        f.parent_id == target_parent):
+                    if (f["id"] != folder["id"] and
+                        f["name"].lower() == data.name.lower() and
+                        f.get("parent_id") == target_parent):
                         return jsonify({
                             "error": "Duplicate folder",
                             "message": f"A folder named '{data.name}' already exists",
@@ -410,36 +391,29 @@ def create_folders_blueprint() -> Blueprint:
                 update_data["name"] = data.name
 
             if data.parent_id is not None:
-                # Validate new parent
-                try:
-                    new_parent_uuid = UUID(data.parent_id)
-
-                    # Cannot set folder as its own parent
-                    if new_parent_uuid == folder_uuid:
-                        return jsonify({
-                            "error": "Invalid parent",
-                            "message": "Folder cannot be its own parent",
-                        }), 400
-
-                    # Verify parent exists and belongs to user
-                    parent = run_async(db.folders.get_by_id(new_parent_uuid))
-                    if str(parent.user_id) != g.current_user_id:
-                        return jsonify({
-                            "error": "Invalid parent",
-                            "message": "Parent folder not found",
-                        }), 400
-
-                    update_data["parent_id"] = new_parent_uuid
-                except ValueError:
+                # Cannot set folder as its own parent
+                if data.parent_id == folder_id:
                     return jsonify({
-                        "error": "Invalid parameter",
-                        "message": "parent_id must be a valid UUID",
+                        "error": "Invalid parent",
+                        "message": "Folder cannot be its own parent",
                     }), 400
-                except RecordNotFoundError:
+
+                # Verify parent exists
+                parent = storage.get_folder_by_id(data.parent_id)
+                if not parent:
                     return jsonify({
                         "error": "Invalid parent",
                         "message": "Parent folder not found",
                     }), 400
+
+                # Check ownership of parent
+                if parent.get("user_id") and parent.get("user_id") != user_id:
+                    return jsonify({
+                        "error": "Invalid parent",
+                        "message": "Parent folder not found",
+                    }), 400
+
+                update_data["parent_id"] = data.parent_id
 
             if data.color is not None:
                 update_data["color"] = data.color
@@ -457,24 +431,23 @@ def create_folders_blueprint() -> Blueprint:
                 }), 400
 
             # Update folder
-            folder_update = FolderUpdate(**update_data)
-            folder = run_async(db.folders.update_folder(folder_uuid, folder_update))
+            folder = storage.update_folder(folder_id, update_data)
+
+            if not folder:
+                return jsonify({
+                    "error": "Cannot modify",
+                    "message": "Folder could not be updated",
+                }), 400
 
             logger.info(
                 "Folder updated",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": user_id,
                     "folder_id": folder_id,
                 },
             )
 
             return jsonify(serialize_folder(folder)), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Folder not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Update folder error: {e}")
@@ -500,78 +473,76 @@ def create_folders_blueprint() -> Blueprint:
             Success message.
         """
         try:
-            # Validate UUID
-            try:
-                folder_uuid = UUID(folder_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "folder_id must be a valid UUID",
-                }), 400
-
             move_to = request.args.get("move_to")
             force = request.args.get("force", "false").lower() == "true"
 
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing folder
-            folder = run_async(db.folders.get_by_id(folder_uuid))
+            folder = storage.get_folder_by_id(folder_id)
+
+            if not folder:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Folder not found",
+                }), 404
 
             # Check ownership
-            if str(folder.user_id) != g.current_user_id:
+            if folder.get("user_id") and folder.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Folder not found",
                 }), 404
 
             # Cannot delete system folders
-            if folder.is_system:
+            if folder.get("is_system"):
                 return jsonify({
                     "error": "Cannot delete",
                     "message": "System folders cannot be deleted",
                 }), 403
 
             # Check if folder has messages
-            if folder.message_count > 0:
+            message_count = folder.get("message_count", 0)
+            if message_count > 0:
                 if move_to:
-                    # Move messages to specified folder
-                    try:
-                        target_uuid = UUID(move_to)
-                        target = run_async(db.folders.get_by_id(target_uuid))
-                        if str(target.user_id) != g.current_user_id:
-                            return jsonify({
-                                "error": "Invalid target",
-                                "message": "Target folder not found",
-                            }), 400
-
-                        # Move messages (this would need batch update)
-                        messages = run_async(
-                            db.messages.get_by_user(
-                                UUID(g.current_user_id),
-                                folder_id=folder_uuid,
-                                limit=1000,
-                            )
-                        )
-                        for msg in messages:
-                            run_async(
-                                db.messages.update(msg.id, {"folder_id": target_uuid})
-                            )
-
-                    except (ValueError, RecordNotFoundError):
+                    # Verify target folder
+                    target = storage.get_folder_by_id(move_to)
+                    if not target:
                         return jsonify({
                             "error": "Invalid target",
                             "message": "Target folder not found",
                         }), 400
+
+                    # Check ownership of target
+                    if target.get("user_id") and target.get("user_id") != user_id:
+                        return jsonify({
+                            "error": "Invalid target",
+                            "message": "Target folder not found",
+                        }), 400
+
+                    # Move messages to target folder
+                    messages = storage.get_messages(
+                        folder_id=folder_id,
+                        limit=1000,
+                    )
+                    for msg in messages:
+                        storage.update_message(msg["id"], {"folder_id": move_to})
+
                 elif not force:
                     return jsonify({
                         "error": "Folder not empty",
-                        "message": f"Folder contains {folder.message_count} messages. "
+                        "message": f"Folder contains {message_count} messages. "
                                    "Use 'move_to' to move messages or 'force=true' to delete anyway.",
                     }), 400
 
             # Check for child folders
-            all_folders = run_async(db.folders.get_by_user(UUID(g.current_user_id)))
-            children = [f for f in all_folders if f.parent_id == folder_uuid]
+            if user_id:
+                all_folders = storage.get_folders_by_user(user_id)
+            else:
+                all_folders = storage.get_folders()
+
+            children = [f for f in all_folders if f.get("parent_id") == folder_id]
             if children:
                 return jsonify({
                     "error": "Folder has children",
@@ -580,12 +551,12 @@ def create_folders_blueprint() -> Blueprint:
                 }), 400
 
             # Delete folder
-            run_async(db.folders.delete(folder_uuid))
+            storage.delete_folder(folder_id)
 
             logger.info(
                 "Folder deleted",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": user_id,
                     "folder_id": folder_id,
                 },
             )
@@ -593,12 +564,6 @@ def create_folders_blueprint() -> Blueprint:
             return jsonify({
                 "message": "Folder deleted successfully",
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Folder not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Delete folder error: {e}")

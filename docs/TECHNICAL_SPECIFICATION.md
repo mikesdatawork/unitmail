@@ -31,7 +31,7 @@ Target Release: unitMail 1.0
 **Software Dependencies**
 - Python 3.11+
 - GTK 4.0+
-- PostgreSQL 3.35+
+- SQLite 3.35+ (built into Python)
 - OpenSSL 3.0+
 - systemd (for service management)
 
@@ -315,12 +315,12 @@ DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
 
 ### Database Specifications
 
-**PostgreSQL Version**: 3.35+  
-**Journal Mode**: WAL (Write-Ahead Logging)  
-**Synchronous Mode**: FULL  
+**SQLite Version**: 3.35+
+**Journal Mode**: WAL (Write-Ahead Logging)
+**Synchronous Mode**: FULL
 **Foreign Keys**: ENABLED
 
-**Encryption**: pgcrypto 4.0+
+**Full-Text Search**: FTS5 with Porter stemmer
 
 **Configuration**
 ```sql
@@ -468,7 +468,7 @@ Authentication failed → Prompt for credentials
 
 **Database Errors**
 ```
-Locked     → Retry (PostgreSQL handles this)
+Locked     → Retry (SQLite WAL mode handles this)
 Corrupted  → Restore from backup
 Full disk  → Alert user, cleanup
 ```

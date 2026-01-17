@@ -28,7 +28,8 @@ Each release section includes the following categories:
 - Empty state widgets with call-to-action buttons
 - Security status indicators (encryption/signing) in message header
 - nh3 HTML sanitization (Rust-based, replaces bleach)
-- db-email-integrator agent for PostgreSQL database integration
+- SQLite storage with FTS5 full-text search (replacing PostgreSQL/Supabase)
+- db-email-integrator agent for database integration
 - email-client-expert agent for comprehensive feature review
 - Comprehensive test automation with 21 test cases
 
@@ -60,7 +61,7 @@ Each release section includes the following categories:
 
 #### Core Infrastructure
 - Initial project structure with Python 3.11+ support
-- Supabase integration for cloud database functionality
+- SQLite storage with FTS5 full-text search
 - Configuration management with TOML file support and environment variables
 - Pydantic-based settings validation with type safety
 - Database migration system with version tracking

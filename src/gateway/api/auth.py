@@ -2,10 +2,9 @@
 JWT Authentication system for unitMail Gateway API.
 
 This module provides JWT token management, password hashing, and authentication
-decorators for securing API endpoints.
+decorators for securing API endpoints. Uses SQLite for token blacklist storage.
 """
 
-import asyncio
 import hashlib
 import logging
 import secrets
@@ -18,9 +17,9 @@ import bcrypt
 import jwt
 from flask import abort, g, request
 
-from src.common.config import get_settings
-from src.common.database import get_db
-from src.common.exceptions import (
+from common.config import get_settings
+from common.storage import EmailStorage, get_storage
+from common.exceptions import (
     AuthenticationError,
     InvalidCredentialsError,
     PermissionDeniedError,
@@ -44,7 +43,7 @@ class JWTManager:
     """
     JWT token management class.
 
-    Handles token generation, verification, and revocation with Supabase
+    Handles token generation, verification, and revocation with SQLite
     backend for blacklist storage.
 
     Attributes:
@@ -58,15 +57,13 @@ class JWTManager:
     TOKEN_TYPE_ACCESS = "access"
     TOKEN_TYPE_REFRESH = "refresh"
 
-    # Blacklist table name in Supabase
-    BLACKLIST_TABLE = "token_blacklist"
-
     def __init__(
         self,
         secret: Optional[str] = None,
         algorithm: Optional[str] = None,
         access_token_expiry: Optional[int] = None,
         refresh_token_expiry: Optional[int] = None,
+        storage: Optional[EmailStorage] = None,
     ) -> None:
         """
         Initialize the JWT manager.
@@ -76,6 +73,7 @@ class JWTManager:
             algorithm: JWT algorithm. If not provided, loaded from settings.
             access_token_expiry: Access token expiry in seconds.
             refresh_token_expiry: Refresh token expiry in seconds.
+            storage: EmailStorage instance. If not provided, uses default.
         """
         settings = get_settings()
 
@@ -84,6 +82,9 @@ class JWTManager:
         self.access_token_expiry = access_token_expiry or settings.api.jwt_expiration
         # Refresh tokens last 7 days by default
         self.refresh_token_expiry = refresh_token_expiry or (7 * 24 * 3600)
+
+        # SQLite storage for blacklist
+        self._storage = storage or get_storage()
 
         # Validate secret in production
         if settings.environment == "production" and self.secret == "change-me-in-production":
@@ -273,31 +274,17 @@ class JWTManager:
                 logger.warning("Cannot revoke token without jti")
                 return False
 
-            # Store in Supabase blacklist
-            db = get_db()
+            # Convert expiration timestamp to ISO format
+            expires_at = None
+            if exp:
+                expires_at = datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
 
-            # Use asyncio to run the async operation
-            async def _add_to_blacklist():
-                try:
-                    await asyncio.to_thread(
-                        lambda: db.client.table(self.BLACKLIST_TABLE).insert({
-                            "jti": jti,
-                            "user_id": user_id,
-                            "expires_at": datetime.fromtimestamp(exp, tz=timezone.utc).isoformat() if exp else None,
-                            "revoked_at": datetime.now(timezone.utc).isoformat(),
-                        }).execute()
-                    )
-                    return True
-                except Exception as e:
-                    logger.error(f"Failed to add token to blacklist: {e}")
-                    return False
-
-            # Run the async operation
-            loop = asyncio.new_event_loop()
-            try:
-                result = loop.run_until_complete(_add_to_blacklist())
-            finally:
-                loop.close()
+            # Add to SQLite blacklist
+            result = self._storage.add_to_blacklist(
+                jti=jti,
+                user_id=user_id,
+                expires_at=expires_at,
+            )
 
             if result:
                 logger.info(
@@ -337,30 +324,8 @@ class JWTManager:
             if not jti:
                 return False
 
-            # Check Supabase blacklist
-            db = get_db()
-
-            # Use asyncio to run the async operation
-            async def _check_blacklist():
-                try:
-                    response = await asyncio.to_thread(
-                        lambda: db.client.table(self.BLACKLIST_TABLE)
-                        .select("jti")
-                        .eq("jti", jti)
-                        .execute()
-                    )
-                    return len(response.data) > 0
-                except Exception as e:
-                    logger.error(f"Failed to check token blacklist: {e}")
-                    # Fail safe - assume not revoked if we can't check
-                    return False
-
-            # Run the async operation
-            loop = asyncio.new_event_loop()
-            try:
-                return loop.run_until_complete(_check_blacklist())
-            finally:
-                loop.close()
+            # Check SQLite blacklist
+            return self._storage.is_token_blacklisted(jti)
 
         except jwt.InvalidTokenError:
             # Invalid tokens are effectively revoked
@@ -392,27 +357,7 @@ class JWTManager:
         Returns:
             Number of expired entries removed.
         """
-        db = get_db()
-        now = datetime.now(timezone.utc).isoformat()
-
-        async def _cleanup():
-            try:
-                response = await asyncio.to_thread(
-                    lambda: db.client.table(self.BLACKLIST_TABLE)
-                    .delete()
-                    .lt("expires_at", now)
-                    .execute()
-                )
-                return len(response.data) if response.data else 0
-            except Exception as e:
-                logger.error(f"Failed to cleanup blacklist: {e}")
-                return 0
-
-        loop = asyncio.new_event_loop()
-        try:
-            count = loop.run_until_complete(_cleanup())
-        finally:
-            loop.close()
+        count = self._storage.cleanup_expired_blacklist()
 
         if count > 0:
             logger.info(f"Cleaned up {count} expired blacklist entries")

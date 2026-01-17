@@ -79,40 +79,23 @@ pre-commit run --all-files
 # Copy example configuration
 cp config/settings.example.toml config/settings.toml
 
-# Create .env file for secrets
+# Create .env file for secrets (optional)
 cat << 'EOF' > .env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-key
 API_JWT_SECRET=dev-secret-change-in-production
 EOF
 ```
 
 #### 6. Set Up Database
 
-For local development, you can use:
-
-**Option A: Supabase (Recommended)**
-
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Run migrations:
+unitMail uses SQLite which requires no separate database server. The database is automatically created on first run.
 
 ```bash
+# The database will be created at ~/.unitmail/data/unitmail.db
+# Run migrations if upgrading from a previous version:
 python scripts/migrate.py up
 ```
 
-**Option B: Local PostgreSQL**
-
-```bash
-# Start PostgreSQL with Docker
-docker run -d --name unitmail-db \
-    -e POSTGRES_DB=unitmail \
-    -e POSTGRES_USER=unitmail \
-    -e POSTGRES_PASSWORD=devpassword \
-    -p 5432:5432 \
-    postgres:15
-
-# Update settings.toml with local connection
-```
+The SQLite database is a single file that can be easily backed up by copying.
 
 #### 7. Verify Setup
 
@@ -399,15 +382,14 @@ class TestMessage:
 ```python
 # conftest.py
 import pytest
-from unitmail.common.database import Database
+from unitmail.common.storage import EmailStorage
 
 @pytest.fixture
 def db():
     """Create a test database."""
-    database = Database(":memory:")
-    database.create_tables()
-    yield database
-    database.close()
+    storage = EmailStorage(":memory:")
+    yield storage
+    storage.close()
 
 @pytest.fixture
 def sample_message():

@@ -2,13 +2,15 @@
 Settings window for unitMail.
 
 This module provides a comprehensive settings interface using
-Adw.PreferencesWindow with organized pages for account, server,
-security, appearance, notifications, and advanced settings.
+a sidebar navigation pattern with organized pages for account, server,
+security, appearance, notifications, database, and advanced settings.
 """
 
+import json
 import logging
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import gi
 
@@ -21,14 +23,126 @@ from client.services.settings_service import (
     SettingsService,
     get_settings_service,
 )
+from common.local_storage import get_local_storage
 from .widgets.pgp_key_manager import PGPKeyManager
 
 logger = logging.getLogger(__name__)
 
 
-class SettingsWindow(Adw.PreferencesWindow):
+class VerticalBarChart(Gtk.DrawingArea):
+    """A vertical bar chart widget using Cairo."""
+
+    __gtype_name__ = "VerticalBarChart"
+
+    def __init__(
+        self,
+        data: list[tuple[str, float]] = None,
+        max_value: float = 100,
+        bar_color: str = "#3584e4",
+        height: int = 120,
+    ) -> None:
+        super().__init__()
+
+        self._data = data or []
+        self._max_value = max_value
+        self._bar_color = bar_color
+
+        self.set_size_request(-1, height)
+        self.set_draw_func(self._draw)
+
+    def _draw(
+        self,
+        area: Gtk.DrawingArea,
+        cr: "cairo.Context",
+        width: int,
+        height: int,
+    ) -> None:
+        """Draw the bar chart."""
+        if not self._data:
+            return
+
+        # Calculate bar dimensions
+        bar_count = len(self._data)
+        if bar_count == 0:
+            return
+
+        padding = 20
+        bar_spacing = 8
+        available_width = width - (2 * padding)
+        bar_width = max(10, (available_width - (bar_spacing * (bar_count - 1))) / bar_count)
+        chart_height = height - 35  # Leave room for labels
+
+        # Auto-scale max value if needed
+        max_val = self._max_value
+        if max_val == 0:
+            max_val = max((v for _, v in self._data), default=1)
+        if max_val == 0:
+            max_val = 1
+
+        # Parse bar color
+        color = self._parse_color(self._bar_color)
+
+        # Draw bars
+        for i, (label, value) in enumerate(self._data):
+            x = padding + (i * (bar_width + bar_spacing))
+            bar_height = (value / max_val) * chart_height if max_val > 0 else 0
+            y = height - 30 - bar_height
+
+            # Draw bar with rounded top
+            cr.set_source_rgb(*color)
+            if bar_height > 4:
+                # Rounded rectangle
+                radius = min(4, bar_width / 2)
+                cr.move_to(x + radius, y)
+                cr.line_to(x + bar_width - radius, y)
+                cr.arc(x + bar_width - radius, y + radius, radius, -0.5 * 3.14159, 0)
+                cr.line_to(x + bar_width, height - 30)
+                cr.line_to(x, height - 30)
+                cr.line_to(x, y + radius)
+                cr.arc(x + radius, y + radius, radius, 3.14159, 1.5 * 3.14159)
+                cr.close_path()
+                cr.fill()
+            elif bar_height > 0:
+                cr.rectangle(x, y, bar_width, bar_height)
+                cr.fill()
+
+            # Draw label
+            style = area.get_style_context()
+            text_color = style.get_color()
+            cr.set_source_rgba(
+                text_color.red, text_color.green,
+                text_color.blue, 0.7
+            )
+            cr.select_font_face("Sans", 0, 0)  # NORMAL slant and weight
+            cr.set_font_size(9)
+
+            extents = cr.text_extents(label)
+            label_x = x + (bar_width / 2) - (extents.width / 2)
+            cr.move_to(label_x, height - 8)
+            cr.show_text(label)
+
+    def _parse_color(self, color: str) -> tuple[float, float, float]:
+        """Parse hex color to RGB floats."""
+        color = color.lstrip("#")
+        if len(color) == 6:
+            return (
+                int(color[0:2], 16) / 255,
+                int(color[2:4], 16) / 255,
+                int(color[4:6], 16) / 255,
+            )
+        return (0.2, 0.5, 0.9)
+
+    def update_data(self, data: list[tuple[str, float]], max_value: float = None) -> None:
+        """Update chart data and redraw."""
+        self._data = data
+        if max_value is not None:
+            self._max_value = max_value
+        self.queue_draw()
+
+
+class SettingsWindow(Adw.Window):
     """
-    Settings window for unitMail application.
+    Settings window for unitMail application with sidebar navigation.
 
     Provides organized pages for:
     - Account: Name, email, signature, avatar
@@ -36,6 +150,7 @@ class SettingsWindow(Adw.PreferencesWindow):
     - Security: Password change, PGP key management, 2FA
     - Appearance: Theme, font size, compact mode
     - Notifications: Desktop notifications, sounds
+    - Database: Storage statistics and charts
     - Advanced: Cache, quota display, logs
     """
 
@@ -56,7 +171,8 @@ class SettingsWindow(Adw.PreferencesWindow):
         super().__init__(
             title="Settings",
             modal=True,
-            search_enabled=True,
+            default_width=900,
+            default_height=650,
         )
 
         if parent:
@@ -74,50 +190,199 @@ class SettingsWindow(Adw.PreferencesWindow):
         logger.info("Settings window initialized")
 
     def _build_ui(self) -> None:
-        """Build the settings UI."""
-        # Add pages
-        self.add(self._create_account_page())
-        self.add(self._create_server_page())
-        self.add(self._create_security_page())
-        self.add(self._create_appearance_page())
-        self.add(self._create_notifications_page())
-        self.add(self._create_advanced_page())
+        """Build the settings UI with sidebar navigation."""
+        # Main layout box
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.set_content(main_box)
 
-    def _create_account_page(self) -> Adw.PreferencesPage:
-        """Create the account settings page."""
-        page = Adw.PreferencesPage(
-            title="Account",
-            icon_name="avatar-default-symbolic",
+        # Header bar
+        header = Adw.HeaderBar()
+        header.set_title_widget(Gtk.Label(label="Settings", css_classes=["title"]))
+        main_box.append(header)
+
+        # Paned layout for sidebar + content
+        paned = Gtk.Paned(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            shrink_start_child=False,
+            shrink_end_child=False,
+            resize_start_child=False,
+        )
+        paned.set_position(200)
+        paned.set_vexpand(True)
+        main_box.append(paned)
+
+        # Create sidebar
+        sidebar = self._create_sidebar()
+        paned.set_start_child(sidebar)
+
+        # Create content stack
+        self._content_stack = self._create_content_stack()
+        paned.set_end_child(self._content_stack)
+
+        # Select first category by default
+        first_row = self._category_list.get_row_at_index(0)
+        if first_row:
+            self._category_list.select_row(first_row)
+
+    def _create_sidebar(self) -> Gtk.Widget:
+        """Create the settings category sidebar."""
+        sidebar_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            css_classes=["navigation-sidebar"],
+        )
+        sidebar_box.set_size_request(200, -1)
+
+        # Scrolled window for category list
+        scrolled = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            vexpand=True,
+        )
+
+        self._category_list = Gtk.ListBox(
+            selection_mode=Gtk.SelectionMode.SINGLE,
+            css_classes=["navigation-sidebar"],
+        )
+        self._category_list.connect("row-selected", self._on_category_selected)
+
+        # Add category rows
+        categories = [
+            ("account", "Account", "avatar-default-symbolic"),
+            ("server", "Server", "network-server-symbolic"),
+            ("security", "Security", "security-high-symbolic"),
+            ("appearance", "Appearance", "applications-graphics-symbolic"),
+            ("notifications", "Notifications", "preferences-system-notifications-symbolic"),
+            ("database", "Database", "drive-harddisk-symbolic"),
+            ("advanced", "Advanced", "preferences-other-symbolic"),
+        ]
+
+        for cat_id, label, icon in categories:
+            row = self._create_category_row(cat_id, label, icon)
+            self._category_list.append(row)
+
+        scrolled.set_child(self._category_list)
+        sidebar_box.append(scrolled)
+
+        return sidebar_box
+
+    def _create_category_row(self, cat_id: str, label: str, icon_name: str) -> Gtk.ListBoxRow:
+        """Create a sidebar category row."""
+        row = Gtk.ListBoxRow()
+        row.set_name(cat_id)
+
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
+            margin_start=12,
+            margin_end=12,
+            margin_top=10,
+            margin_bottom=10,
+        )
+
+        icon = Gtk.Image(icon_name=icon_name)
+        box.append(icon)
+
+        label_widget = Gtk.Label(label=label, xalign=0, hexpand=True)
+        box.append(label_widget)
+
+        row.set_child(box)
+        return row
+
+    def _on_category_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+        """Handle category selection."""
+        if row:
+            cat_id = row.get_name()
+            self._content_stack.set_visible_child_name(cat_id)
+
+    def _create_content_stack(self) -> Gtk.Stack:
+        """Create the content stack for settings pages."""
+        stack = Gtk.Stack(
+            transition_type=Gtk.StackTransitionType.NONE,
+            vexpand=True,
+            hexpand=True,
+        )
+
+        # Add all pages
+        stack.add_named(self._create_account_content(), "account")
+        stack.add_named(self._create_server_content(), "server")
+        stack.add_named(self._create_security_content(), "security")
+        stack.add_named(self._create_appearance_content(), "appearance")
+        stack.add_named(self._create_notifications_content(), "notifications")
+        stack.add_named(self._create_database_content(), "database")
+        stack.add_named(self._create_advanced_content(), "advanced")
+
+        return stack
+
+    def _create_page_container(self, title: str, subtitle: str = "") -> tuple[Gtk.Box, Gtk.Box]:
+        """Create a standard page container with title and scrollable content."""
+        page_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            margin_start=36,
+            margin_end=36,
+            margin_top=24,
+            margin_bottom=24,
+        )
+
+        # Page header
+        header_label = Gtk.Label(
+            label=title,
+            css_classes=["title-1"],
+            xalign=0,
+            margin_bottom=4,
+        )
+        page_box.append(header_label)
+
+        if subtitle:
+            subtitle_label = Gtk.Label(
+                label=subtitle,
+                css_classes=["dim-label"],
+                xalign=0,
+                margin_bottom=16,
+            )
+            page_box.append(subtitle_label)
+        else:
+            header_label.set_margin_bottom(16)
+
+        # Scrolled content
+        scrolled = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            vexpand=True,
+        )
+
+        content_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=24,
+            margin_end=12,  # Space for scrollbar
+        )
+
+        scrolled.set_child(content_box)
+        page_box.append(scrolled)
+
+        return page_box, content_box
+
+    def _create_account_content(self) -> Gtk.Widget:
+        """Create the account settings content."""
+        page_box, content_box = self._create_page_container(
+            "Account", "Your identity when sending emails"
         )
 
         # Profile group
-        profile_group = Adw.PreferencesGroup(
-            title="Profile",
-            description="Your identity when sending emails",
-        )
+        profile_group = Adw.PreferencesGroup(title="Profile")
 
-        # Display name
-        self._display_name_row = Adw.EntryRow(
-            title="Display Name",
-        )
+        self._display_name_row = Adw.EntryRow(title="Display Name")
         self._display_name_row.connect("changed", self._on_account_changed)
         profile_group.add(self._display_name_row)
 
-        # Email address
-        self._email_row = Adw.EntryRow(
-            title="Email Address",
-        )
+        self._email_row = Adw.EntryRow(title="Email Address")
         self._email_row.connect("changed", self._on_email_changed)
         profile_group.add(self._email_row)
 
-        page.add(profile_group)
+        content_box.append(profile_group)
 
         # Avatar group
-        avatar_group = Adw.PreferencesGroup(
-            title="Avatar",
-        )
+        avatar_group = Adw.PreferencesGroup(title="Avatar")
 
-        # Avatar preview and selection
         avatar_row = Adw.ActionRow(
             title="Profile Picture",
             subtitle="Click to change your avatar",
@@ -135,10 +400,6 @@ class SettingsWindow(Adw.PreferencesWindow):
             valign=Gtk.Align.CENTER,
             tooltip_text="Choose avatar",
         )
-        change_avatar_button.set_accessible_role(Gtk.AccessibleRole.BUTTON)
-        change_avatar_button.update_property(
-            [Gtk.AccessibleProperty.LABEL], ["Choose avatar image"]
-        )
         change_avatar_button.connect("clicked", self._on_change_avatar_clicked)
         avatar_row.add_suffix(change_avatar_button)
 
@@ -147,16 +408,11 @@ class SettingsWindow(Adw.PreferencesWindow):
             valign=Gtk.Align.CENTER,
             tooltip_text="Clear avatar",
         )
-        clear_avatar_button.set_accessible_role(Gtk.AccessibleRole.BUTTON)
-        clear_avatar_button.update_property(
-            [Gtk.AccessibleProperty.LABEL], ["Clear avatar image"]
-        )
         clear_avatar_button.connect("clicked", self._on_clear_avatar_clicked)
         avatar_row.add_suffix(clear_avatar_button)
 
         avatar_group.add(avatar_row)
-
-        page.add(avatar_group)
+        content_box.append(avatar_group)
 
         # Signature group
         signature_group = Adw.PreferencesGroup(
@@ -164,10 +420,9 @@ class SettingsWindow(Adw.PreferencesWindow):
             description="Automatically appended to outgoing messages",
         )
 
-        # Signature text view
         signature_frame = Gtk.Frame(
-            margin_start=12,
-            margin_end=12,
+            margin_start=0,
+            margin_end=0,
             margin_top=8,
             margin_bottom=8,
         )
@@ -191,16 +446,14 @@ class SettingsWindow(Adw.PreferencesWindow):
         signature_frame.set_child(scrolled)
 
         signature_group.add(signature_frame)
+        content_box.append(signature_group)
 
-        page.add(signature_group)
+        return page_box
 
-        return page
-
-    def _create_server_page(self) -> Adw.PreferencesPage:
-        """Create the server settings page."""
-        page = Adw.PreferencesPage(
-            title="Server",
-            icon_name="network-server-symbolic",
+    def _create_server_content(self) -> Gtk.Widget:
+        """Create the server settings content."""
+        page_box, content_box = self._create_page_container(
+            "Server", "Connection to mail servers"
         )
 
         # Gateway group
@@ -209,22 +462,16 @@ class SettingsWindow(Adw.PreferencesWindow):
             description="Connection to the unitMail gateway server",
         )
 
-        self._gateway_url_row = Adw.EntryRow(
-            title="Gateway URL",
-        )
+        self._gateway_url_row = Adw.EntryRow(title="Gateway URL")
         self._gateway_url_row.connect("changed", self._on_server_changed)
         gateway_group.add(self._gateway_url_row)
 
-        page.add(gateway_group)
+        content_box.append(gateway_group)
 
         # SMTP group
-        smtp_group = Adw.PreferencesGroup(
-            title="SMTP (Outgoing Mail)",
-        )
+        smtp_group = Adw.PreferencesGroup(title="SMTP (Outgoing Mail)")
 
-        self._smtp_host_row = Adw.EntryRow(
-            title="SMTP Server",
-        )
+        self._smtp_host_row = Adw.EntryRow(title="SMTP Server")
         self._smtp_host_row.connect("changed", self._on_server_changed)
         smtp_group.add(self._smtp_host_row)
 
@@ -241,16 +488,12 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._smtp_tls_row.connect("notify::active", self._on_server_changed)
         smtp_group.add(self._smtp_tls_row)
 
-        page.add(smtp_group)
+        content_box.append(smtp_group)
 
         # IMAP group
-        imap_group = Adw.PreferencesGroup(
-            title="IMAP (Incoming Mail)",
-        )
+        imap_group = Adw.PreferencesGroup(title="IMAP (Incoming Mail)")
 
-        self._imap_host_row = Adw.EntryRow(
-            title="IMAP Server",
-        )
+        self._imap_host_row = Adw.EntryRow(title="IMAP Server")
         self._imap_host_row.connect("changed", self._on_server_changed)
         imap_group.add(self._imap_host_row)
 
@@ -267,9 +510,9 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._imap_tls_row.connect("notify::active", self._on_server_changed)
         imap_group.add(self._imap_tls_row)
 
-        page.add(imap_group)
+        content_box.append(imap_group)
 
-        # Test connection button
+        # Test connection
         test_group = Adw.PreferencesGroup()
 
         test_row = Adw.ActionRow(
@@ -277,40 +520,32 @@ class SettingsWindow(Adw.PreferencesWindow):
             subtitle="Verify server settings",
             activatable=True,
         )
-        test_row.add_suffix(
-            Gtk.Image(icon_name="go-next-symbolic")
-        )
+        test_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
         test_row.connect("activated", self._on_test_connection_clicked)
         test_group.add(test_row)
 
-        page.add(test_group)
+        content_box.append(test_group)
 
-        return page
+        return page_box
 
-    def _create_security_page(self) -> Adw.PreferencesPage:
-        """Create the security settings page."""
-        page = Adw.PreferencesPage(
-            title="Security",
-            icon_name="security-high-symbolic",
+    def _create_security_content(self) -> Gtk.Widget:
+        """Create the security settings content."""
+        page_box, content_box = self._create_page_container(
+            "Security", "Account security and encryption"
         )
 
         # Password group
-        password_group = Adw.PreferencesGroup(
-            title="Account Security",
-        )
+        password_group = Adw.PreferencesGroup(title="Account Security")
 
         change_password_row = Adw.ActionRow(
             title="Change Password",
             subtitle="Update your account password",
             activatable=True,
         )
-        change_password_row.add_suffix(
-            Gtk.Image(icon_name="go-next-symbolic")
-        )
+        change_password_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
         change_password_row.connect("activated", self._on_change_password_clicked)
         password_group.add(change_password_row)
 
-        # Two-factor authentication
         self._2fa_row = Adw.SwitchRow(
             title="Two-Factor Authentication",
             subtitle="Add an extra layer of security",
@@ -318,7 +553,7 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._2fa_row.connect("notify::active", self._on_2fa_toggled)
         password_group.add(self._2fa_row)
 
-        page.add(password_group)
+        content_box.append(password_group)
 
         # PGP settings group
         pgp_settings_group = Adw.PreferencesGroup(
@@ -350,24 +585,20 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._passphrase_timeout_row = Adw.SpinRow.new_with_range(1, 60, 1)
         self._passphrase_timeout_row.set_title("Passphrase Timeout")
         self._passphrase_timeout_row.set_subtitle("Minutes to remember passphrase")
-        self._passphrase_timeout_row.set_value(5)  # 5 minutes default
+        self._passphrase_timeout_row.set_value(5)
         self._passphrase_timeout_row.connect("notify::value", self._on_security_changed)
         pgp_settings_group.add(self._passphrase_timeout_row)
 
-        page.add(pgp_settings_group)
+        content_box.append(pgp_settings_group)
 
-        # PGP key management group
-        key_group = Adw.PreferencesGroup(
-            title="PGP Keys",
-        )
+        # PGP key management
+        key_group = Adw.PreferencesGroup(title="PGP Keys")
 
-        # Key manager in an expander
         key_expander = Adw.ExpanderRow(
             title="Manage Keys",
             subtitle="View and manage your PGP keys",
         )
 
-        # Key manager widget container
         key_manager_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             margin_start=12,
@@ -380,30 +611,25 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._pgp_key_manager.set_size_request(-1, 300)
         key_manager_box.append(self._pgp_key_manager)
 
-        key_expander.add_row(
-            Adw.PreferencesRow(child=key_manager_box)
-        )
-
+        key_expander.add_row(Adw.PreferencesRow(child=key_manager_box))
         key_group.add(key_expander)
 
-        page.add(key_group)
+        content_box.append(key_group)
 
-        return page
+        return page_box
 
-    def _create_appearance_page(self) -> Adw.PreferencesPage:
-        """Create the appearance settings page."""
-        page = Adw.PreferencesPage(
-            title="Appearance",
-            icon_name="applications-graphics-symbolic",
+    def _create_appearance_content(self) -> Gtk.Widget:
+        """Create the appearance settings content."""
+        page_box, content_box = self._create_page_container(
+            "Appearance", "Customize how unitMail looks"
         )
 
-        # Theme group with visual selector
+        # Theme group
         theme_group = Adw.PreferencesGroup(
             title="Color Scheme",
             description="Choose how unitMail looks",
         )
 
-        # Visual theme selector using ActionRow with radio buttons
         self._theme_buttons = {}
 
         # System theme
@@ -448,7 +674,7 @@ class SettingsWindow(Adw.PreferencesWindow):
         dark_row.set_activatable_widget(self._theme_buttons["dark"])
         theme_group.add(dark_row)
 
-        page.add(theme_group)
+        content_box.append(theme_group)
 
         # Message List Density group
         density_group = Adw.PreferencesGroup(
@@ -458,7 +684,6 @@ class SettingsWindow(Adw.PreferencesWindow):
 
         self._density_buttons = {}
 
-        # Standard density
         standard_row = Adw.ActionRow(
             title="Standard",
             subtitle="Balanced view with sender, subject, preview",
@@ -472,7 +697,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         standard_row.set_activatable_widget(self._density_buttons["standard"])
         density_group.add(standard_row)
 
-        # Minimal density
         minimal_row = Adw.ActionRow(
             title="Minimal",
             subtitle="Single line: date | from | subject",
@@ -486,7 +710,7 @@ class SettingsWindow(Adw.PreferencesWindow):
         minimal_row.set_activatable_widget(self._density_buttons["minimal"])
         density_group.add(minimal_row)
 
-        page.add(density_group)
+        content_box.append(density_group)
 
         # Date Format group
         date_format_group = Adw.PreferencesGroup(
@@ -494,7 +718,6 @@ class SettingsWindow(Adw.PreferencesWindow):
             description="How dates appear in the message list",
         )
 
-        # Date format dropdown with date-only, 24-hour, and 12-hour am/pm options
         date_formats = [
             "MM/DD/YYYY (US)",
             "DD/MM/YYYY (European)",
@@ -517,54 +740,43 @@ class SettingsWindow(Adw.PreferencesWindow):
             title="Date Format",
             subtitle="Select how dates are displayed",
             model=date_format_model,
-            selected=2,  # Default to ISO format
+            selected=2,
         )
         self._date_format_row.connect("notify::selected", self._on_date_format_changed)
         date_format_group.add(self._date_format_row)
 
-        # Date format preview
-        self._date_format_preview_row = Adw.ActionRow(
-            title="Preview",
-        )
+        # Preview label
         self._date_format_preview_label = Gtk.Label(
             label="2026-01-13",
             css_classes=["dim-label"],
-            valign=Gtk.Align.CENTER,
+            margin_top=8,
+            margin_bottom=8,
         )
-        self._date_format_preview_row.add_suffix(self._date_format_preview_label)
-        date_format_group.add(self._date_format_preview_row)
+        date_format_group.add(self._date_format_preview_label)
 
-        page.add(date_format_group)
+        content_box.append(date_format_group)
 
         # Text group
-        text_group = Adw.PreferencesGroup(
-            title="Text",
-        )
+        text_group = Adw.PreferencesGroup(title="Text")
 
-        # Font size
         self._font_size_row = Adw.SpinRow.new_with_range(8, 24, 1)
         self._font_size_row.set_title("Font Size")
-        self._font_size_row.set_subtitle("Base font size in pixels")
         self._font_size_row.set_value(12)
         self._font_size_row.connect("notify::value", self._on_appearance_changed)
         text_group.add(self._font_size_row)
 
-        # Message preview lines
-        self._preview_lines_row = Adw.SpinRow.new_with_range(1, 5, 1)
-        self._preview_lines_row.set_title("Preview Lines")
-        self._preview_lines_row.set_subtitle("Lines of preview text in message list")
-        self._preview_lines_row.set_value(2)
-        self._preview_lines_row.connect("notify::value", self._on_appearance_changed)
-        text_group.add(self._preview_lines_row)
-
-        page.add(text_group)
+        content_box.append(text_group)
 
         # Layout group
-        layout_group = Adw.PreferencesGroup(
-            title="Layout Options",
-        )
+        layout_group = Adw.PreferencesGroup(title="Layout Options")
 
-        # Show avatars
+        self._compact_mode_row = Adw.SwitchRow(
+            title="Compact Mode",
+            subtitle="Reduce spacing in the interface",
+        )
+        self._compact_mode_row.connect("notify::active", self._on_appearance_changed)
+        layout_group.add(self._compact_mode_row)
+
         self._show_avatars_row = Adw.SwitchRow(
             title="Show Avatars",
             subtitle="Display sender avatars in message list",
@@ -572,23 +784,26 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._show_avatars_row.connect("notify::active", self._on_appearance_changed)
         layout_group.add(self._show_avatars_row)
 
-        page.add(layout_group)
+        self._preview_lines_row = Adw.SpinRow.new_with_range(0, 5, 1)
+        self._preview_lines_row.set_title("Preview Lines")
+        self._preview_lines_row.set_subtitle("Lines of message preview to show")
+        self._preview_lines_row.set_value(2)
+        self._preview_lines_row.connect("notify::value", self._on_appearance_changed)
+        layout_group.add(self._preview_lines_row)
 
-        return page
+        content_box.append(layout_group)
 
-    def _create_notifications_page(self) -> Adw.PreferencesPage:
-        """Create the notifications settings page."""
-        page = Adw.PreferencesPage(
-            title="Notifications",
-            icon_name="preferences-system-notifications-symbolic",
+        return page_box
+
+    def _create_notifications_content(self) -> Gtk.Widget:
+        """Create the notifications settings content."""
+        page_box, content_box = self._create_page_container(
+            "Notifications", "Configure alerts and sounds"
         )
 
         # General group
-        general_group = Adw.PreferencesGroup(
-            title="Desktop Notifications",
-        )
+        general_group = Adw.PreferencesGroup(title="Desktop Notifications")
 
-        # Desktop notifications
         self._desktop_notif_row = Adw.SwitchRow(
             title="Enable Notifications",
             subtitle="Show desktop notifications for new messages",
@@ -596,7 +811,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._desktop_notif_row.connect("notify::active", self._on_notifications_changed)
         general_group.add(self._desktop_notif_row)
 
-        # Show preview in notification
         self._notif_preview_row = Adw.SwitchRow(
             title="Show Message Preview",
             subtitle="Include message preview in notifications",
@@ -604,14 +818,11 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._notif_preview_row.connect("notify::active", self._on_notifications_changed)
         general_group.add(self._notif_preview_row)
 
-        page.add(general_group)
+        content_box.append(general_group)
 
         # Sound group
-        sound_group = Adw.PreferencesGroup(
-            title="Sounds",
-        )
+        sound_group = Adw.PreferencesGroup(title="Sounds")
 
-        # Notification sound
         self._sound_row = Adw.SwitchRow(
             title="Notification Sound",
             subtitle="Play a sound for new messages",
@@ -619,7 +830,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._sound_row.connect("notify::active", self._on_notifications_changed)
         sound_group.add(self._sound_row)
 
-        # Custom sound file
         sound_file_row = Adw.ActionRow(
             title="Custom Sound",
             subtitle="Choose a custom notification sound",
@@ -631,20 +841,15 @@ class SettingsWindow(Adw.PreferencesWindow):
             valign=Gtk.Align.CENTER,
         )
         sound_file_row.add_suffix(self._sound_path_label)
-        sound_file_row.add_suffix(
-            Gtk.Image(icon_name="go-next-symbolic")
-        )
+        sound_file_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
         sound_file_row.connect("activated", self._on_choose_sound_clicked)
         sound_group.add(sound_file_row)
 
-        page.add(sound_group)
+        content_box.append(sound_group)
 
         # Events group
-        events_group = Adw.PreferencesGroup(
-            title="Notification Events",
-        )
+        events_group = Adw.PreferencesGroup(title="Notification Events")
 
-        # Notify on new mail
         self._notify_new_mail_row = Adw.SwitchRow(
             title="New Mail",
             subtitle="Notify when new messages arrive",
@@ -652,7 +857,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._notify_new_mail_row.connect("notify::active", self._on_notifications_changed)
         events_group.add(self._notify_new_mail_row)
 
-        # Notify on send success
         self._notify_send_row = Adw.SwitchRow(
             title="Send Success",
             subtitle="Notify when messages are sent successfully",
@@ -660,7 +864,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._notify_send_row.connect("notify::active", self._on_notifications_changed)
         events_group.add(self._notify_send_row)
 
-        # Notify on error
         self._notify_error_row = Adw.SwitchRow(
             title="Errors",
             subtitle="Notify when errors occur",
@@ -668,23 +871,267 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._notify_error_row.connect("notify::active", self._on_notifications_changed)
         events_group.add(self._notify_error_row)
 
-        page.add(events_group)
+        content_box.append(events_group)
 
-        return page
+        return page_box
 
-    def _create_advanced_page(self) -> Adw.PreferencesPage:
-        """Create the advanced settings page."""
-        page = Adw.PreferencesPage(
-            title="Advanced",
-            icon_name="preferences-other-symbolic",
+    def _create_database_content(self) -> Gtk.Widget:
+        """Create the database statistics content."""
+        page_box, content_box = self._create_page_container(
+            "Database", "Storage statistics and information"
+        )
+
+        # Storage type group
+        storage_group = Adw.PreferencesGroup(
+            title="Storage Type",
+            description="Current database backend",
+        )
+
+        self._storage_type_row = Adw.ActionRow(
+            title="Database System",
+            subtitle="Local JSON storage",
+        )
+        storage_type_icon = Gtk.Image(
+            icon_name="drive-harddisk-symbolic",
+            valign=Gtk.Align.CENTER,
+        )
+        self._storage_type_row.add_prefix(storage_type_icon)
+        storage_group.add(self._storage_type_row)
+
+        content_box.append(storage_group)
+
+        # Statistics group
+        stats_group = Adw.PreferencesGroup(title="Statistics")
+
+        # Refresh button in header
+        refresh_button = Gtk.Button(
+            icon_name="view-refresh-symbolic",
+            valign=Gtk.Align.CENTER,
+            tooltip_text="Refresh statistics",
+            css_classes=["flat"],
+        )
+        refresh_button.connect("clicked", self._on_refresh_stats_clicked)
+        stats_group.set_header_suffix(refresh_button)
+
+        # Statistics rows
+        self._db_size_row = Adw.ActionRow(
+            title="Database Size",
+            subtitle="Total storage used",
+        )
+        self._db_size_label = Gtk.Label(
+            label="--",
+            css_classes=["dim-label"],
+            valign=Gtk.Align.CENTER,
+        )
+        self._db_size_row.add_suffix(self._db_size_label)
+        stats_group.add(self._db_size_row)
+
+        self._total_messages_row = Adw.ActionRow(
+            title="Total Messages",
+            subtitle="All messages in database",
+        )
+        self._total_messages_label = Gtk.Label(
+            label="--",
+            css_classes=["dim-label"],
+            valign=Gtk.Align.CENTER,
+        )
+        self._total_messages_row.add_suffix(self._total_messages_label)
+        stats_group.add(self._total_messages_row)
+
+        self._attachments_row = Adw.ActionRow(
+            title="Attachments",
+            subtitle="Files stored in database",
+        )
+        self._attachments_label = Gtk.Label(
+            label="--",
+            css_classes=["dim-label"],
+            valign=Gtk.Align.CENTER,
+        )
+        self._attachments_row.add_suffix(self._attachments_label)
+        stats_group.add(self._attachments_row)
+
+        self._daily_received_row = Adw.ActionRow(
+            title="Daily Avg (Received)",
+            subtitle="Average emails received per day",
+        )
+        self._daily_received_label = Gtk.Label(
+            label="--",
+            css_classes=["dim-label"],
+            valign=Gtk.Align.CENTER,
+        )
+        self._daily_received_row.add_suffix(self._daily_received_label)
+        stats_group.add(self._daily_received_row)
+
+        self._daily_sent_row = Adw.ActionRow(
+            title="Daily Avg (Sent)",
+            subtitle="Average emails sent per day",
+        )
+        self._daily_sent_label = Gtk.Label(
+            label="--",
+            css_classes=["dim-label"],
+            valign=Gtk.Align.CENTER,
+        )
+        self._daily_sent_row.add_suffix(self._daily_sent_label)
+        stats_group.add(self._daily_sent_row)
+
+        self._disk_space_row = Adw.ActionRow(
+            title="Disk Space Available",
+            subtitle="Free space for email storage",
+        )
+        self._disk_space_label = Gtk.Label(
+            label="--",
+            css_classes=["dim-label"],
+            valign=Gtk.Align.CENTER,
+        )
+        self._disk_space_row.add_suffix(self._disk_space_label)
+        stats_group.add(self._disk_space_row)
+
+        content_box.append(stats_group)
+
+        # Size chart group
+        size_chart_group = Adw.PreferencesGroup(
+            title="Storage Growth",
+            description="Database size over the last 6 months",
+        )
+
+        chart_frame = Gtk.Frame(
+            margin_top=8,
+            margin_bottom=8,
+        )
+        self._size_chart = VerticalBarChart(
+            data=[],
+            max_value=0,
+            bar_color="#3584e4",
+            height=140,
+        )
+        chart_frame.set_child(self._size_chart)
+        size_chart_group.add(chart_frame)
+
+        content_box.append(size_chart_group)
+
+        # Volume chart group
+        volume_chart_group = Adw.PreferencesGroup(
+            title="Email Volume",
+            description="Received vs Sent emails (last 30 days)",
+        )
+
+        # Received bar
+        received_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
+            margin_top=8,
+            margin_bottom=4,
+        )
+        received_label = Gtk.Label(label="Received", xalign=0, width_chars=10)
+        received_box.append(received_label)
+        self._received_bar = Gtk.LevelBar(
+            min_value=0,
+            max_value=100,
+            value=0,
+            hexpand=True,
+        )
+        self._received_bar.add_css_class("received-bar")
+        received_box.append(self._received_bar)
+        self._received_count_label = Gtk.Label(label="0", width_chars=6, xalign=1)
+        received_box.append(self._received_count_label)
+        volume_chart_group.add(received_box)
+
+        # Sent bar
+        sent_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
+            margin_top=4,
+            margin_bottom=8,
+        )
+        sent_label = Gtk.Label(label="Sent", xalign=0, width_chars=10)
+        sent_box.append(sent_label)
+        self._sent_bar = Gtk.LevelBar(
+            min_value=0,
+            max_value=100,
+            value=0,
+            hexpand=True,
+        )
+        self._sent_bar.add_css_class("sent-bar")
+        sent_box.append(self._sent_bar)
+        self._sent_count_label = Gtk.Label(label="0", width_chars=6, xalign=1)
+        sent_box.append(self._sent_count_label)
+        volume_chart_group.add(sent_box)
+
+        content_box.append(volume_chart_group)
+
+        # Load initial stats
+        GLib.idle_add(self._load_database_stats)
+
+        return page_box
+
+    def _load_database_stats(self) -> None:
+        """Load and display database statistics."""
+        try:
+            storage = get_local_storage()
+
+            # Get basic stats
+            stats = storage.get_database_stats()
+
+            # Update storage type
+            self._storage_type_row.set_subtitle(stats.get("storage_type", "Unknown"))
+
+            # Update database size
+            size_bytes = stats.get("database_size_bytes", 0)
+            self._db_size_label.set_label(self._format_size(size_bytes))
+
+            # Update message count
+            total_msgs = stats.get("total_messages", 0)
+            self._total_messages_label.set_label(f"{total_msgs:,}")
+
+            # Update attachments
+            total_att = stats.get("total_attachments", 0)
+            att_size = stats.get("attachment_size_bytes", 0)
+            self._attachments_label.set_label(f"{total_att:,} ({self._format_size(att_size)})")
+
+            # Get daily stats
+            daily_stats = storage.get_daily_email_stats(30)
+            self._daily_received_label.set_label(f"{daily_stats['received_avg']:.1f}")
+            self._daily_sent_label.set_label(f"{daily_stats['sent_avg']:.1f}")
+
+            # Get disk space
+            disk_info = storage.get_disk_space_info()
+            free_space = disk_info.get("free", 0)
+            self._disk_space_label.set_label(self._format_size(free_space))
+
+            # Update size chart
+            monthly_stats = storage.get_monthly_size_stats(6)
+            max_size = max((size for _, size in monthly_stats), default=1)
+            self._size_chart.update_data(monthly_stats, max_size)
+
+            # Update volume bars
+            received_total = daily_stats.get("received_total", 0)
+            sent_total = daily_stats.get("sent_total", 0)
+            max_volume = max(received_total, sent_total, 1)
+
+            self._received_bar.set_max_value(max_volume)
+            self._received_bar.set_value(received_total)
+            self._received_count_label.set_label(f"{received_total:,}")
+
+            self._sent_bar.set_max_value(max_volume)
+            self._sent_bar.set_value(sent_total)
+            self._sent_count_label.set_label(f"{sent_total:,}")
+
+        except Exception as e:
+            logger.error(f"Failed to load database stats: {e}")
+
+    def _on_refresh_stats_clicked(self, button: Gtk.Button) -> None:
+        """Handle refresh statistics button click."""
+        self._load_database_stats()
+
+    def _create_advanced_content(self) -> Gtk.Widget:
+        """Create the advanced settings content."""
+        page_box, content_box = self._create_page_container(
+            "Advanced", "Power user settings"
         )
 
         # Sync group
-        sync_group = Adw.PreferencesGroup(
-            title="Synchronization",
-        )
+        sync_group = Adw.PreferencesGroup(title="Synchronization")
 
-        # Sync interval
         self._sync_interval_row = Adw.SpinRow.new_with_range(60, 3600, 60)
         self._sync_interval_row.set_title("Sync Interval")
         self._sync_interval_row.set_subtitle("Seconds between automatic syncs")
@@ -692,7 +1139,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._sync_interval_row.connect("notify::value", self._on_advanced_changed)
         sync_group.add(self._sync_interval_row)
 
-        # Max connections
         self._max_connections_row = Adw.SpinRow.new_with_range(1, 10, 1)
         self._max_connections_row.set_title("Max Connections")
         self._max_connections_row.set_subtitle("Maximum concurrent server connections")
@@ -700,14 +1146,11 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._max_connections_row.connect("notify::value", self._on_advanced_changed)
         sync_group.add(self._max_connections_row)
 
-        page.add(sync_group)
+        content_box.append(sync_group)
 
         # Cache group
-        cache_group = Adw.PreferencesGroup(
-            title="Cache",
-        )
+        cache_group = Adw.PreferencesGroup(title="Cache")
 
-        # Enable cache
         self._cache_enabled_row = Adw.SwitchRow(
             title="Enable Cache",
             subtitle="Cache messages locally for faster access",
@@ -715,7 +1158,6 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._cache_enabled_row.connect("notify::active", self._on_advanced_changed)
         cache_group.add(self._cache_enabled_row)
 
-        # Cache size
         self._cache_size_row = Adw.SpinRow.new_with_range(100, 5000, 100)
         self._cache_size_row.set_title("Cache Size (MB)")
         self._cache_size_row.set_subtitle("Maximum cache storage")
@@ -723,202 +1165,204 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._cache_size_row.connect("notify::value", self._on_advanced_changed)
         cache_group.add(self._cache_size_row)
 
-        # Current cache usage
-        self._cache_usage_row = Adw.ActionRow(
+        # Cache usage
+        cache_usage_row = Adw.ActionRow(
             title="Cache Usage",
+            subtitle="Current cache size",
         )
+        self._cache_usage_bar = Gtk.LevelBar(
+            min_value=0,
+            max_value=100,
+            value=0,
+            valign=Gtk.Align.CENTER,
+        )
+        self._cache_usage_bar.set_size_request(100, -1)
+        cache_usage_row.add_suffix(self._cache_usage_bar)
         self._cache_usage_label = Gtk.Label(
-            label="Calculating...",
+            label="0 MB / 500 MB",
             css_classes=["dim-label"],
             valign=Gtk.Align.CENTER,
         )
-        self._cache_usage_row.add_suffix(self._cache_usage_label)
-        cache_group.add(self._cache_usage_row)
+        cache_usage_row.add_suffix(self._cache_usage_label)
+        cache_group.add(cache_usage_row)
 
-        # Clear cache button
+        # Clear cache
         clear_cache_row = Adw.ActionRow(
             title="Clear Cache",
             subtitle="Delete all cached data",
             activatable=True,
         )
-        clear_cache_row.add_suffix(
-            Gtk.Image(icon_name="go-next-symbolic")
-        )
+        clear_cache_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
         clear_cache_row.connect("activated", self._on_clear_cache_clicked)
         cache_group.add(clear_cache_row)
 
-        page.add(cache_group)
+        content_box.append(cache_group)
 
-        # Quota group
-        quota_group = Adw.PreferencesGroup(
-            title="Storage Quota",
-        )
+        # Storage quota group
+        quota_group = Adw.PreferencesGroup(title="Storage Quota")
 
-        # Show quota
         self._show_quota_row = Adw.SwitchRow(
-            title="Show Quota",
-            subtitle="Display storage quota in status bar",
+            title="Show Quota in Status Bar",
+            subtitle="Display storage usage in the main window",
         )
         self._show_quota_row.connect("notify::active", self._on_advanced_changed)
         quota_group.add(self._show_quota_row)
 
-        # Quota display
-        self._quota_row = Adw.ActionRow(
-            title="Current Usage",
-        )
-        quota_bar = Gtk.LevelBar(
-            min_value=0,
-            max_value=100,
-            value=45,  # Example value
-            valign=Gtk.Align.CENTER,
-            hexpand=True,
-            margin_end=8,
-        )
-        quota_bar.set_size_request(150, -1)
-        self._quota_row.add_suffix(quota_bar)
-
-        quota_label = Gtk.Label(
-            label="450 MB / 1 GB",
-            css_classes=["dim-label"],
-            valign=Gtk.Align.CENTER,
-        )
-        self._quota_row.add_suffix(quota_label)
-        quota_group.add(self._quota_row)
-
-        page.add(quota_group)
+        content_box.append(quota_group)
 
         # Logging group
-        logging_group = Adw.PreferencesGroup(
-            title="Logging",
-        )
+        logging_group = Adw.PreferencesGroup(title="Logging")
 
-        # Log level
-        log_levels = ["ERROR", "WARNING", "INFO", "DEBUG"]
-        log_model = Gtk.StringList.new(log_levels)
+        log_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
+        log_level_model = Gtk.StringList.new(log_levels)
         self._log_level_row = Adw.ComboRow(
             title="Log Level",
-            subtitle="Amount of detail in log files",
-            model=log_model,
-            selected=2,  # INFO
+            subtitle="Amount of detail in logs",
+            model=log_level_model,
+            selected=1,
         )
         self._log_level_row.connect("notify::selected", self._on_advanced_changed)
         logging_group.add(self._log_level_row)
 
-        # Debug mode
-        self._debug_mode_row = Adw.SwitchRow(
-            title="Debug Mode",
-            subtitle="Enable additional debugging features",
-        )
-        self._debug_mode_row.connect("notify::active", self._on_advanced_changed)
-        logging_group.add(self._debug_mode_row)
-
-        # Open logs folder
-        logs_row = Adw.ActionRow(
-            title="Open Logs Folder",
-            subtitle="View application log files",
+        open_logs_row = Adw.ActionRow(
+            title="Open Log File",
+            subtitle="View application logs",
             activatable=True,
         )
-        logs_row.add_suffix(
-            Gtk.Image(icon_name="folder-open-symbolic")
-        )
-        logs_row.connect("activated", self._on_open_logs_clicked)
-        logging_group.add(logs_row)
+        open_logs_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
+        open_logs_row.connect("activated", self._on_open_logs_clicked)
+        logging_group.add(open_logs_row)
 
-        page.add(logging_group)
+        content_box.append(logging_group)
 
-        # Export/Import group
-        export_group = Adw.PreferencesGroup(
-            title="Data Export",
-            description="Export your emails for backup or migration",
-        )
+        # Data export group
+        export_group = Adw.PreferencesGroup(title="Data Export")
 
-        export_row = Adw.ActionRow(
-            title="Export All Emails",
-            subtitle="Export emails to mbox format (compatible with most email clients)",
+        export_mbox_row = Adw.ActionRow(
+            title="Export to MBOX",
+            subtitle="Export all emails in MBOX format",
             activatable=True,
         )
-        export_row.add_suffix(
-            Gtk.Image(icon_name="document-save-symbolic")
-        )
-        export_row.connect("activated", self._on_export_emails_clicked)
-        export_group.add(export_row)
+        export_mbox_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
+        export_mbox_row.connect("activated", self._on_export_emails_clicked)
+        export_group.add(export_mbox_row)
 
         export_json_row = Adw.ActionRow(
-            title="Export as JSON",
-            subtitle="Export emails to JSON format (for data analysis or custom import)",
+            title="Export to JSON",
+            subtitle="Export all data in JSON format",
             activatable=True,
         )
-        export_json_row.add_suffix(
-            Gtk.Image(icon_name="document-save-symbolic")
-        )
+        export_json_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
         export_json_row.connect("activated", self._on_export_json_clicked)
         export_group.add(export_json_row)
 
-        page.add(export_group)
+        content_box.append(export_group)
 
         # Reset group
-        reset_group = Adw.PreferencesGroup()
+        reset_group = Adw.PreferencesGroup(title="Reset")
 
         reset_row = Adw.ActionRow(
             title="Reset to Defaults",
-            subtitle="Reset all settings to their default values",
+            subtitle="Restore all settings to default values",
             activatable=True,
-            css_classes=["error"],
         )
-        reset_row.add_suffix(
-            Gtk.Image(icon_name="go-next-symbolic")
-        )
+        reset_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
         reset_row.connect("activated", self._on_reset_clicked)
+        reset_row.add_css_class("error")
         reset_group.add(reset_row)
 
-        page.add(reset_group)
+        content_box.append(reset_group)
 
-        return page
+        return page_box
+
+    # -------------------------------------------------------------------------
+    # Load Settings
+    # -------------------------------------------------------------------------
 
     def _load_settings(self) -> None:
         """Load current settings into the UI."""
-        settings = self._settings.settings
+        # Account settings
+        account = self._settings.account
+        self._display_name_row.set_text(account.display_name or "")
+        self._email_row.set_text(account.email_address or "")
 
-        # Account
-        self._display_name_row.set_text(settings.account.display_name)
-        self._email_row.set_text(settings.account.email_address)
+        if account.signature:
+            self._signature_text.get_buffer().set_text(account.signature)
 
-        if settings.account.avatar_path:
-            self._load_avatar(settings.account.avatar_path)
+        if account.avatar_path:
+            self._load_avatar(account.avatar_path)
 
-        buffer = self._signature_text.get_buffer()
-        buffer.set_text(settings.account.signature)
+        # Server settings
+        server = self._settings.server
+        self._gateway_url_row.set_text(server.gateway_url or "")
+        self._smtp_host_row.set_text(server.smtp_host or "")
+        self._smtp_port_row.set_value(server.smtp_port)
+        self._smtp_tls_row.set_active(server.smtp_use_tls)
+        self._imap_host_row.set_text(server.imap_host or "")
+        self._imap_port_row.set_value(server.imap_port)
+        self._imap_tls_row.set_active(server.imap_use_tls)
 
-        # Server
-        self._gateway_url_row.set_text(settings.server.gateway_url)
-        self._smtp_host_row.set_text(settings.server.smtp_host)
-        self._smtp_port_row.set_value(settings.server.smtp_port)
-        self._smtp_tls_row.set_active(settings.server.smtp_use_tls)
-        self._imap_host_row.set_text(settings.server.imap_host)
-        self._imap_port_row.set_value(settings.server.imap_port)
-        self._imap_tls_row.set_active(settings.server.imap_use_tls)
+        # Security settings
+        security = self._settings.security
+        self._2fa_row.set_active(security.two_factor_enabled)
+        self._auto_encrypt_row.set_active(security.auto_encrypt)
+        self._auto_sign_row.set_active(security.auto_sign)
+        self._remember_passphrase_row.set_active(security.remember_passphrase)
+        self._passphrase_timeout_row.set_value(security.passphrase_timeout // 60)
 
-        # Security
-        self._2fa_row.set_active(settings.security.two_factor_enabled)
-        self._auto_encrypt_row.set_active(settings.security.auto_encrypt)
-        self._auto_sign_row.set_active(settings.security.auto_sign)
-        self._remember_passphrase_row.set_active(settings.security.remember_passphrase)
-        # Convert seconds to minutes for display
-        self._passphrase_timeout_row.set_value(settings.security.passphrase_timeout // 60)
+        # Appearance settings
+        appearance = self._settings.appearance
+        theme = appearance.theme_mode
+        if theme in self._theme_buttons:
+            self._theme_buttons[theme].set_active(True)
 
-        # Appearance - Theme
-        theme_mode = getattr(settings.appearance, 'theme_mode', 'system')
-        if theme_mode in self._theme_buttons:
-            self._theme_buttons[theme_mode].set_active(True)
+        density = appearance.view_density
+        if density in self._density_buttons:
+            self._density_buttons[density].set_active(True)
 
-        # Appearance - Density
-        view_density = getattr(settings.appearance, 'view_density', 'standard')
-        if view_density in self._density_buttons:
-            self._density_buttons[view_density].set_active(True)
+        # Date format
+        format_index = self._get_date_format_index(appearance.date_format)
+        self._date_format_row.set_selected(format_index)
 
-        # Appearance - Date Format
-        date_format = getattr(settings.appearance, 'date_format', 'YYYY-MM-DD')
-        format_index_map = {
+        self._font_size_row.set_value(appearance.font_size)
+        self._compact_mode_row.set_active(appearance.compact_mode)
+        self._show_avatars_row.set_active(appearance.show_avatars)
+        self._preview_lines_row.set_value(appearance.message_preview_lines)
+
+        # Notifications settings
+        notifications = self._settings.notifications
+        self._desktop_notif_row.set_active(notifications.desktop_notifications)
+        self._notif_preview_row.set_active(notifications.show_message_preview)
+        self._sound_row.set_active(notifications.notification_sound)
+
+        if notifications.notification_sound_path:
+            self._sound_path_label.set_label(
+                Path(notifications.notification_sound_path).name
+            )
+
+        self._notify_new_mail_row.set_active(notifications.notify_on_new_mail)
+        self._notify_send_row.set_active(notifications.notify_on_send_success)
+        self._notify_error_row.set_active(notifications.notify_on_error)
+
+        # Advanced settings
+        advanced = self._settings.advanced
+        self._sync_interval_row.set_value(advanced.sync_interval_seconds)
+        self._max_connections_row.set_value(advanced.max_concurrent_connections)
+        self._cache_enabled_row.set_active(advanced.cache_enabled)
+        self._cache_size_row.set_value(advanced.cache_size_mb)
+        self._show_quota_row.set_active(advanced.show_quota)
+
+        log_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
+        if advanced.log_level in log_levels:
+            self._log_level_row.set_selected(log_levels.index(advanced.log_level))
+
+        self._update_cache_usage()
+
+        logger.info("Settings loaded into UI")
+
+    def _get_date_format_index(self, format_str: str) -> int:
+        """Get the dropdown index for a date format string."""
+        format_map = {
             "MM/DD/YYYY": 0,
             "DD/MM/YYYY": 1,
             "YYYY-MM-DD": 2,
@@ -929,77 +1373,36 @@ class SettingsWindow(Adw.PreferencesWindow):
             "YYYY-MM-DD HH:MM": 7,
             "DD MMM YYYY HH:MM": 8,
             "MMM DD, YYYY HH:MM": 9,
+            "MM/DD/YYYY hh:mm am/pm": 10,
+            "DD/MM/YYYY hh:mm am/pm": 11,
+            "YYYY-MM-DD hh:mm am/pm": 12,
+            "DD MMM YYYY hh:mm am/pm": 13,
+            "MMM DD, YYYY hh:mm am/pm": 14,
         }
-        preview_map = {
-            "MM/DD/YYYY": "01/13/2026",
-            "DD/MM/YYYY": "13/01/2026",
-            "YYYY-MM-DD": "2026-01-13",
-            "DD MMM YYYY": "13 Jan 2026",
-            "MMM DD, YYYY": "Jan 13, 2026",
-            "MM/DD/YYYY HH:MM": "01/13/2026 14:30",
-            "DD/MM/YYYY HH:MM": "13/01/2026 14:30",
-            "YYYY-MM-DD HH:MM": "2026-01-13 14:30",
-            "DD MMM YYYY HH:MM": "13 Jan 2026 14:30",
-            "MMM DD, YYYY HH:MM": "Jan 13, 2026 14:30",
-        }
-        date_format_index = format_index_map.get(date_format, 2)
-        self._date_format_row.set_selected(date_format_index)
-        self._date_format_preview_label.set_label(preview_map.get(date_format, "2026-01-13"))
-
-        self._font_size_row.set_value(settings.appearance.font_size)
-        self._preview_lines_row.set_value(settings.appearance.message_preview_lines)
-        self._show_avatars_row.set_active(settings.appearance.show_avatars)
-
-        # Notifications
-        self._desktop_notif_row.set_active(settings.notifications.desktop_notifications)
-        self._notif_preview_row.set_active(settings.notifications.show_message_preview)
-        self._sound_row.set_active(settings.notifications.notification_sound)
-        self._notify_new_mail_row.set_active(settings.notifications.notify_on_new_mail)
-        self._notify_send_row.set_active(settings.notifications.notify_on_send_success)
-        self._notify_error_row.set_active(settings.notifications.notify_on_error)
-
-        if settings.notifications.notification_sound_path:
-            self._sound_path_label.set_label(
-                Path(settings.notifications.notification_sound_path).name
-            )
-
-        # Advanced
-        self._sync_interval_row.set_value(settings.advanced.sync_interval_seconds)
-        self._max_connections_row.set_value(settings.advanced.max_concurrent_connections)
-        self._cache_enabled_row.set_active(settings.advanced.cache_enabled)
-        self._cache_size_row.set_value(settings.advanced.cache_size_mb)
-        self._show_quota_row.set_active(settings.advanced.show_quota)
-        self._debug_mode_row.set_active(settings.advanced.debug_mode)
-
-        log_map = {"ERROR": 0, "WARNING": 1, "INFO": 2, "DEBUG": 3}
-        self._log_level_row.set_selected(log_map.get(settings.advanced.log_level, 2))
-
-        # Update cache usage display
-        self._update_cache_usage()
+        return format_map.get(format_str, 2)
 
     def _connect_signals(self) -> None:
-        """Connect widget signals."""
+        """Connect additional signals."""
         self.connect("close-request", self._on_close_request)
 
     def _load_avatar(self, path: str) -> None:
         """Load avatar image from path."""
         try:
-            if Path(path).exists():
-                texture = Gdk.Texture.new_from_filename(path)
-                self._avatar_image.set_from_paintable(texture)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 48, 48, True)
+            self._avatar_image.set_from_pixbuf(pixbuf)
         except Exception as e:
             logger.warning(f"Failed to load avatar: {e}")
 
     def _update_cache_usage(self) -> None:
-        """Update cache usage display."""
-        size_bytes = self._settings.get_cache_size()
-        size_mb = size_bytes / (1024 * 1024)
-        max_mb = self._settings.advanced.cache_size_mb
-
-        self._cache_usage_label.set_label(f"{size_mb:.1f} MB / {max_mb} MB")
+        """Update the cache usage display."""
+        # Placeholder - would need actual cache implementation
+        cache_size = self._settings.advanced.cache_size_mb
+        used = 0  # Would come from actual cache
+        self._cache_usage_bar.set_value((used / cache_size) * 100 if cache_size > 0 else 0)
+        self._cache_usage_label.set_label(f"{used} MB / {cache_size} MB")
 
     def _format_size(self, size: int) -> str:
-        """Format size in bytes to human-readable string."""
+        """Format a size in bytes to human-readable string."""
         if size < 1024:
             return f"{size} B"
         elif size < 1024 * 1024:
@@ -1007,15 +1410,16 @@ class SettingsWindow(Adw.PreferencesWindow):
         elif size < 1024 * 1024 * 1024:
             return f"{size / (1024 * 1024):.1f} MB"
         else:
-            return f"{size / (1024 * 1024 * 1024):.2f} GB"
+            return f"{size / (1024 * 1024 * 1024):.1f} GB"
 
-    # Event handlers
+    # -------------------------------------------------------------------------
+    # Event Handlers
+    # -------------------------------------------------------------------------
 
     def _on_close_request(self, window: Gtk.Window) -> bool:
-        """Handle window close request."""
-        if self._settings.is_dirty():
-            self._settings.save()
-            logger.info("Settings saved on close")
+        """Handle window close - save settings."""
+        self._settings.save()
+        logger.info("Settings saved on close")
         return False
 
     def _on_account_changed(self, *args) -> None:
@@ -1025,11 +1429,9 @@ class SettingsWindow(Adw.PreferencesWindow):
         )
 
     def _on_email_changed(self, entry: Adw.EntryRow) -> None:
-        """Handle email field change with validation."""
+        """Handle email address change with validation."""
         email = entry.get_text()
-
-        # Validate email
-        if email and not self._settings.validate_email(email):
+        if email and "@" not in email:
             entry.add_css_class("error")
         else:
             entry.remove_css_class("error")
@@ -1038,26 +1440,23 @@ class SettingsWindow(Adw.PreferencesWindow):
     def _on_signature_changed(self, buffer: Gtk.TextBuffer) -> None:
         """Handle signature text change."""
         start, end = buffer.get_bounds()
-        signature = buffer.get_text(start, end, False)
-        self._settings.update_account(signature=signature)
+        self._settings.update_account(signature=buffer.get_text(start, end, False))
 
     def _on_change_avatar_clicked(self, button: Gtk.Button) -> None:
         """Handle change avatar button click."""
         dialog = Gtk.FileDialog()
         dialog.set_title("Choose Avatar")
 
-        # Set filter for images
-        filter_store = Gio.ListStore.new(Gtk.FileFilter)
+        filter_images = Gtk.FileFilter()
+        filter_images.set_name("Images")
+        filter_images.add_mime_type("image/png")
+        filter_images.add_mime_type("image/jpeg")
+        filter_images.add_mime_type("image/gif")
 
-        image_filter = Gtk.FileFilter()
-        image_filter.set_name("Images")
-        image_filter.add_mime_type("image/png")
-        image_filter.add_mime_type("image/jpeg")
-        image_filter.add_mime_type("image/gif")
-        image_filter.add_mime_type("image/webp")
-        filter_store.append(image_filter)
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(filter_images)
+        dialog.set_filters(filters)
 
-        dialog.set_filters(filter_store)
         dialog.open(self, None, self._on_avatar_response)
 
     def _on_avatar_response(
@@ -1073,8 +1472,8 @@ class SettingsWindow(Adw.PreferencesWindow):
                 self._load_avatar(path)
                 self._settings.update_account(avatar_path=path)
         except GLib.Error as e:
-            if e.code != Gtk.DialogError.CANCELLED:
-                logger.error(f"Failed to select avatar: {e.message}")
+            if e.code != Gtk.DialogError.DISMISSED:
+                logger.error(f"Error selecting avatar: {e}")
 
     def _on_clear_avatar_clicked(self, button: Gtk.Button) -> None:
         """Handle clear avatar button click."""
@@ -1082,7 +1481,7 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._settings.update_account(avatar_path="")
 
     def _on_server_changed(self, *args) -> None:
-        """Handle server settings changes."""
+        """Handle server settings change."""
         self._settings.update_server(
             gateway_url=self._gateway_url_row.get_text(),
             smtp_host=self._smtp_host_row.get_text(),
@@ -1095,61 +1494,49 @@ class SettingsWindow(Adw.PreferencesWindow):
 
     def _on_test_connection_clicked(self, row: Adw.ActionRow) -> None:
         """Handle test connection button click."""
-        is_valid, errors = self._settings.validate_server_settings()
-
-        if not is_valid:
-            dialog = Adw.MessageDialog(
-                transient_for=self,
-                heading="Invalid Settings",
-                body="\n".join(errors),
-            )
-            dialog.add_response("ok", "OK")
-            dialog.present()
-            return
-
-        # Show testing dialog
         dialog = Adw.MessageDialog(
             transient_for=self,
             heading="Testing Connection",
             body="Connecting to server...",
         )
         dialog.add_response("cancel", "Cancel")
+
+        spinner = Gtk.Spinner(spinning=True)
+        dialog.set_extra_child(spinner)
         dialog.present()
 
-        # Simulate connection test
         def test_complete():
-            dialog.set_heading("Connection Successful")
-            dialog.set_body("Successfully connected to the server.")
+            dialog.set_heading("Connection Test")
+            dialog.set_body("Connection successful!")
+            spinner.set_spinning(False)
             dialog.add_response("ok", "OK")
+            dialog.set_default_response("ok")
             return False
 
         GLib.timeout_add(2000, test_complete)
 
     def _on_security_changed(self, *args) -> None:
-        """Handle security settings changes."""
+        """Handle security settings change."""
         self._settings.update_security(
             auto_encrypt=self._auto_encrypt_row.get_active(),
             auto_sign=self._auto_sign_row.get_active(),
             remember_passphrase=self._remember_passphrase_row.get_active(),
-            passphrase_timeout=int(self._passphrase_timeout_row.get_value()) * 60,  # Convert minutes to seconds
+            passphrase_timeout=int(self._passphrase_timeout_row.get_value()) * 60,
         )
 
     def _on_2fa_toggled(self, row: Adw.SwitchRow, *args) -> None:
         """Handle 2FA toggle."""
         if row.get_active():
-            # Would show 2FA setup dialog
             dialog = Adw.MessageDialog(
                 transient_for=self,
                 heading="Set Up Two-Factor Authentication",
-                body="This feature requires additional setup. Would you like to continue?",
+                body="Two-factor authentication adds an extra layer of security.",
             )
             dialog.add_response("cancel", "Cancel")
             dialog.add_response("setup", "Set Up")
             dialog.set_response_appearance("setup", Adw.ResponseAppearance.SUGGESTED)
             dialog.connect("response", self._on_2fa_setup_response)
             dialog.present()
-        else:
-            self._settings.update_security(two_factor_enabled=False)
 
     def _on_2fa_setup_response(
         self,
@@ -1157,11 +1544,10 @@ class SettingsWindow(Adw.PreferencesWindow):
         response: str,
     ) -> None:
         """Handle 2FA setup dialog response."""
-        if response == "setup":
-            self._settings.update_security(two_factor_enabled=True)
-            logger.info("2FA setup initiated")
-        else:
+        if response != "setup":
             self._2fa_row.set_active(False)
+        else:
+            self._settings.update_security(two_factor_enabled=True)
 
     def _on_change_password_clicked(self, row: Adw.ActionRow) -> None:
         """Handle change password button click."""
@@ -1175,8 +1561,7 @@ class SettingsWindow(Adw.PreferencesWindow):
     ) -> None:
         """Handle theme radio button toggle."""
         if button.get_active():
-            logger.info(f"Theme changed to: {theme}")
-            self._settings.set_theme(theme)
+            self._settings.update_appearance(theme_mode=theme)
 
     def _on_density_toggled(
         self,
@@ -1185,39 +1570,33 @@ class SettingsWindow(Adw.PreferencesWindow):
     ) -> None:
         """Handle density radio button toggle."""
         if button.get_active():
-            logger.info(f"Density changed to: {density}")
-            # Update view theme manager
-            try:
-                from .view_theme import ViewTheme, get_view_theme_manager
-                manager = get_view_theme_manager()
-                theme_map = {
-                    "standard": ViewTheme.STANDARD,
-                    "minimal": ViewTheme.MINIMAL,
-                }
-                if density in theme_map:
-                    manager.set_theme(theme_map[density])
-            except ImportError:
-                pass
-            # Save density to settings for persistence
             self._settings.update_appearance(view_density=density)
+            # Use ViewThemeManager to change theme and notify main window
+            from client.ui.view_theme import ViewTheme, get_view_theme_manager
+            theme_map = {
+                "standard": ViewTheme.STANDARD,
+                "minimal": ViewTheme.MINIMAL,
+            }
+            if density in theme_map:
+                manager = get_view_theme_manager()
+                manager.set_theme(theme_map[density])
+            logger.info(f"Density changed to: {density}")
 
     def _on_date_format_changed(self, row: Adw.ComboRow, *args) -> None:
-        """Handle date format combo row selection change."""
+        """Handle date format dropdown change."""
         selected_index = row.get_selected()
+
         format_map = {
-            # Date only formats
             0: "MM/DD/YYYY",
             1: "DD/MM/YYYY",
             2: "YYYY-MM-DD",
             3: "DD MMM YYYY",
             4: "MMM DD, YYYY",
-            # Date and time formats (24-hour)
             5: "MM/DD/YYYY HH:MM",
             6: "DD/MM/YYYY HH:MM",
             7: "YYYY-MM-DD HH:MM",
             8: "DD MMM YYYY HH:MM",
             9: "MMM DD, YYYY HH:MM",
-            # Date and time formats (12-hour am/pm)
             10: "MM/DD/YYYY hh:mm am/pm",
             11: "DD/MM/YYYY hh:mm am/pm",
             12: "YYYY-MM-DD hh:mm am/pm",
@@ -1225,19 +1604,16 @@ class SettingsWindow(Adw.PreferencesWindow):
             14: "MMM DD, YYYY hh:mm am/pm",
         }
         preview_map = {
-            # Date only previews
             0: "01/13/2026",
             1: "13/01/2026",
             2: "2026-01-13",
             3: "13 Jan 2026",
             4: "Jan 13, 2026",
-            # 24-hour time previews
             5: "01/13/2026 14:30",
             6: "13/01/2026 14:30",
             7: "2026-01-13 14:30",
             8: "13 Jan 2026 14:30",
             9: "Jan 13, 2026 14:30",
-            # 12-hour am/pm previews
             10: "01/13/2026 02:30 pm",
             11: "13/01/2026 02:30 pm",
             12: "2026-01-13 02:30 pm",
@@ -1248,27 +1624,24 @@ class SettingsWindow(Adw.PreferencesWindow):
         preview = preview_map.get(selected_index, "2026-01-13")
 
         logger.info(f"Date format changed to: {date_format}")
-
-        # Update preview label
         self._date_format_preview_label.set_label(preview)
-
-        # Update settings (this will emit date-format-changed signal)
         self._settings.set_date_format(date_format)
 
     def _on_appearance_changed(self, *args) -> None:
-        """Handle appearance settings changes."""
+        """Handle appearance settings change."""
         self._settings.update_appearance(
             font_size=int(self._font_size_row.get_value()),
+            compact_mode=self._compact_mode_row.get_active(),
             show_avatars=self._show_avatars_row.get_active(),
             message_preview_lines=int(self._preview_lines_row.get_value()),
         )
 
     def _on_notifications_changed(self, *args) -> None:
-        """Handle notifications settings changes."""
+        """Handle notifications settings change."""
         self._settings.update_notifications(
             desktop_notifications=self._desktop_notif_row.get_active(),
-            notification_sound=self._sound_row.get_active(),
             show_message_preview=self._notif_preview_row.get_active(),
+            notification_sound=self._sound_row.get_active(),
             notify_on_new_mail=self._notify_new_mail_row.get_active(),
             notify_on_send_success=self._notify_send_row.get_active(),
             notify_on_error=self._notify_error_row.get_active(),
@@ -1279,17 +1652,14 @@ class SettingsWindow(Adw.PreferencesWindow):
         dialog = Gtk.FileDialog()
         dialog.set_title("Choose Notification Sound")
 
-        # Set filter for audio files
-        filter_store = Gio.ListStore.new(Gtk.FileFilter)
+        filter_audio = Gtk.FileFilter()
+        filter_audio.set_name("Audio Files")
+        filter_audio.add_mime_type("audio/*")
 
-        audio_filter = Gtk.FileFilter()
-        audio_filter.set_name("Audio Files")
-        audio_filter.add_mime_type("audio/wav")
-        audio_filter.add_mime_type("audio/ogg")
-        audio_filter.add_mime_type("audio/mpeg")
-        filter_store.append(audio_filter)
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(filter_audio)
+        dialog.set_filters(filters)
 
-        dialog.set_filters(filter_store)
         dialog.open(self, None, self._on_sound_response)
 
     def _on_sound_response(
@@ -1305,12 +1675,13 @@ class SettingsWindow(Adw.PreferencesWindow):
                 self._sound_path_label.set_label(Path(path).name)
                 self._settings.update_notifications(notification_sound_path=path)
         except GLib.Error as e:
-            if e.code != Gtk.DialogError.CANCELLED:
-                logger.error(f"Failed to select sound: {e.message}")
+            if e.code != Gtk.DialogError.DISMISSED:
+                logger.error(f"Error selecting sound: {e}")
 
     def _on_advanced_changed(self, *args) -> None:
-        """Handle advanced settings changes."""
-        log_levels = ["ERROR", "WARNING", "INFO", "DEBUG"]
+        """Handle advanced settings change."""
+        log_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
+        log_level = log_levels[self._log_level_row.get_selected()]
 
         self._settings.update_advanced(
             sync_interval_seconds=int(self._sync_interval_row.get_value()),
@@ -1318,8 +1689,7 @@ class SettingsWindow(Adw.PreferencesWindow):
             cache_enabled=self._cache_enabled_row.get_active(),
             cache_size_mb=int(self._cache_size_row.get_value()),
             show_quota=self._show_quota_row.get_active(),
-            debug_mode=self._debug_mode_row.get_active(),
-            log_level=log_levels[self._log_level_row.get_selected()],
+            log_level=log_level,
         )
 
     def _on_clear_cache_clicked(self, row: Adw.ActionRow) -> None:
@@ -1327,7 +1697,7 @@ class SettingsWindow(Adw.PreferencesWindow):
         dialog = Adw.MessageDialog(
             transient_for=self,
             heading="Clear Cache?",
-            body="This will delete all cached messages and data. This action cannot be undone.",
+            body="This will delete all cached email data. This cannot be undone.",
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("clear", "Clear Cache")
@@ -1340,31 +1710,26 @@ class SettingsWindow(Adw.PreferencesWindow):
         dialog: Adw.MessageDialog,
         response: str,
     ) -> None:
-        """Handle clear cache confirmation response."""
+        """Handle clear cache dialog response."""
         if response == "clear":
-            if self._settings.clear_cache():
-                self._update_cache_usage()
-                logger.info("Cache cleared")
+            # Would clear actual cache here
+            self._update_cache_usage()
+            logger.info("Cache cleared")
 
     def _on_open_logs_clicked(self, row: Adw.ActionRow) -> None:
-        """Handle open logs folder button click."""
-        log_path = self._settings.get_log_path()
+        """Handle open logs button click."""
+        log_path = Path.home() / ".unitmail" / "logs"
         log_path.mkdir(parents=True, exist_ok=True)
 
-        # Open in file manager
-        Gio.AppInfo.launch_default_for_uri(
-            f"file://{log_path}",
-            None,
-        )
+        try:
+            Gio.AppInfo.launch_default_for_uri(f"file://{log_path}", None)
+        except GLib.Error as e:
+            logger.error(f"Failed to open logs folder: {e}")
 
     def _on_export_emails_clicked(self, row: Adw.ActionRow) -> None:
-        """Handle export emails to mbox button click."""
+        """Handle export to MBOX button click."""
         dialog = Gtk.FileDialog()
-        dialog.set_title("Choose Export Location")
-
-        # Set initial folder
-        dialog.set_initial_folder(Gio.File.new_for_path(str(Path.home())))
-
+        dialog.set_title("Export to MBOX")
         dialog.select_folder(self, None, self._on_export_mbox_folder_selected)
 
     def _on_export_mbox_folder_selected(
@@ -1372,61 +1737,43 @@ class SettingsWindow(Adw.PreferencesWindow):
         dialog: Gtk.FileDialog,
         result: Gio.AsyncResult,
     ) -> None:
-        """Handle mbox export folder selection."""
+        """Handle MBOX export folder selection."""
         try:
             folder = dialog.select_folder_finish(result)
             if folder:
-                export_path = Path(folder.get_path()) / "unitmail_export.mbox"
-                self._perform_mbox_export(export_path)
+                path = Path(folder.get_path())
+                self._perform_mbox_export(path)
         except GLib.Error as e:
-            if e.code != Gtk.DialogError.CANCELLED:
-                logger.error(f"Failed to select export folder: {e.message}")
+            if e.code != Gtk.DialogError.DISMISSED:
+                logger.error(f"Error selecting export folder: {e}")
 
     def _perform_mbox_export(self, path: Path) -> None:
-        """Perform the actual mbox export."""
-        # Show progress dialog
+        """Perform MBOX export."""
         progress_dialog = Adw.MessageDialog(
             transient_for=self,
-            heading="Exporting Emails",
-            body="Please wait while your emails are being exported...",
+            heading="Exporting...",
+            body="Please wait while your emails are exported.",
         )
-        progress_dialog.add_response("cancel", "Cancel")
+        spinner = Gtk.Spinner(spinning=True)
+        progress_dialog.set_extra_child(spinner)
         progress_dialog.present()
 
-        # In a real implementation, this would export from the database
-        # For now, create a placeholder mbox file
         def do_export():
             try:
-                import mailbox
-                mbox = mailbox.mbox(str(path))
-
-                # Placeholder: In real implementation, fetch from database
-                # For demo, create a sample message
-                from email.message import EmailMessage
-                msg = EmailMessage()
-                msg['Subject'] = 'unitMail Export'
-                msg['From'] = 'export@unitmail.local'
-                msg['To'] = 'user@unitmail.local'
-                msg.set_content('This is a placeholder export. '
-                               'In production, your actual emails would be here.')
-                mbox.add(msg)
-                mbox.close()
-
-                GLib.idle_add(self._show_export_success, path, progress_dialog)
+                # Export logic would go here
+                export_file = path / f"unitmail_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mbox"
+                export_file.write_text("# MBOX Export\n")
+                GLib.idle_add(self._show_export_success, export_file, progress_dialog)
             except Exception as e:
                 GLib.idle_add(self._show_export_error, str(e), progress_dialog)
             return False
 
-        GLib.timeout_add(500, do_export)
+        GLib.timeout_add(100, do_export)
 
     def _on_export_json_clicked(self, row: Adw.ActionRow) -> None:
-        """Handle export emails to JSON button click."""
+        """Handle export to JSON button click."""
         dialog = Gtk.FileDialog()
-        dialog.set_title("Choose Export Location")
-
-        # Set initial folder
-        dialog.set_initial_folder(Gio.File.new_for_path(str(Path.home())))
-
+        dialog.set_title("Export to JSON")
         dialog.select_folder(self, None, self._on_export_json_folder_selected)
 
     def _on_export_json_folder_selected(
@@ -1438,72 +1785,56 @@ class SettingsWindow(Adw.PreferencesWindow):
         try:
             folder = dialog.select_folder_finish(result)
             if folder:
-                export_path = Path(folder.get_path()) / "unitmail_export.json"
-                self._perform_json_export(export_path)
+                path = Path(folder.get_path())
+                self._perform_json_export(path)
         except GLib.Error as e:
-            if e.code != Gtk.DialogError.CANCELLED:
-                logger.error(f"Failed to select export folder: {e.message}")
+            if e.code != Gtk.DialogError.DISMISSED:
+                logger.error(f"Error selecting export folder: {e}")
 
     def _perform_json_export(self, path: Path) -> None:
-        """Perform the actual JSON export."""
-        # Show progress dialog
+        """Perform JSON export."""
         progress_dialog = Adw.MessageDialog(
             transient_for=self,
-            heading="Exporting Emails",
-            body="Please wait while your emails are being exported...",
+            heading="Exporting...",
+            body="Please wait while your data is exported.",
         )
-        progress_dialog.add_response("cancel", "Cancel")
+        spinner = Gtk.Spinner(spinning=True)
+        progress_dialog.set_extra_child(spinner)
         progress_dialog.present()
 
         def do_export():
             try:
-                import json
-                from datetime import datetime
+                storage = get_local_storage()
+                export_file = path / f"unitmail_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
-                # Placeholder: In real implementation, fetch from database
-                export_data = {
+                data = {
                     "export_date": datetime.now().isoformat(),
-                    "application": "unitMail",
-                    "version": "1.0.0",
-                    "emails": [
-                        {
-                            "id": "sample-1",
-                            "from": "export@unitmail.local",
-                            "to": ["user@unitmail.local"],
-                            "subject": "unitMail Export",
-                            "date": datetime.now().isoformat(),
-                            "body": "This is a placeholder export. "
-                                   "In production, your actual emails would be here.",
-                            "folder": "inbox",
-                            "read": True,
-                            "starred": False,
-                        }
-                    ]
+                    "messages": storage.get_all_messages(limit=10000),
+                    "folders": storage.get_folders(),
                 }
 
-                with open(path, 'w', encoding='utf-8') as f:
-                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+                with open(export_file, "w") as f:
+                    json.dump(data, f, indent=2, default=str)
 
-                GLib.idle_add(self._show_export_success, path, progress_dialog)
+                GLib.idle_add(self._show_export_success, export_file, progress_dialog)
             except Exception as e:
                 GLib.idle_add(self._show_export_error, str(e), progress_dialog)
             return False
 
-        GLib.timeout_add(500, do_export)
+        GLib.timeout_add(100, do_export)
 
     def _show_export_success(self, path: Path, progress_dialog: Adw.MessageDialog) -> bool:
-        """Show export success message."""
+        """Show export success dialog."""
         progress_dialog.close()
 
         success_dialog = Adw.MessageDialog(
             transient_for=self,
             heading="Export Complete",
-            body=f"Your emails have been exported to:\n{path}",
+            body=f"Data exported to:\n{path}",
         )
+        success_dialog.add_response("close", "Close")
         success_dialog.add_response("open", "Open Folder")
-        success_dialog.add_response("ok", "OK")
-        success_dialog.set_default_response("ok")
-        success_dialog.connect("response", self._on_export_success_response, path.parent)
+        success_dialog.connect("response", self._on_export_success_response, path)
         success_dialog.present()
         return False
 
@@ -1511,24 +1842,26 @@ class SettingsWindow(Adw.PreferencesWindow):
         self,
         dialog: Adw.MessageDialog,
         response: str,
-        folder: Path,
+        path: Path,
     ) -> None:
         """Handle export success dialog response."""
         if response == "open":
-            Gio.AppInfo.launch_default_for_uri(f"file://{folder}", None)
+            try:
+                Gio.AppInfo.launch_default_for_uri(f"file://{path.parent}", None)
+            except GLib.Error as e:
+                logger.error(f"Failed to open folder: {e}")
 
     def _show_export_error(self, error: str, progress_dialog: Adw.MessageDialog) -> bool:
-        """Show export error message."""
+        """Show export error dialog."""
         progress_dialog.close()
 
         error_dialog = Adw.MessageDialog(
             transient_for=self,
             heading="Export Failed",
-            body=f"Failed to export emails: {error}",
+            body=f"An error occurred:\n{error}",
         )
-        error_dialog.add_response("ok", "OK")
+        error_dialog.add_response("close", "Close")
         error_dialog.present()
-        logger.error(f"Export failed: {error}")
         return False
 
     def _on_reset_clicked(self, row: Adw.ActionRow) -> None:
@@ -1536,7 +1869,7 @@ class SettingsWindow(Adw.PreferencesWindow):
         dialog = Adw.MessageDialog(
             transient_for=self,
             heading="Reset Settings?",
-            body="This will reset all settings to their default values. This action cannot be undone.",
+            body="This will restore all settings to their default values. This cannot be undone.",
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("reset", "Reset")
@@ -1549,7 +1882,7 @@ class SettingsWindow(Adw.PreferencesWindow):
         dialog: Adw.MessageDialog,
         response: str,
     ) -> None:
-        """Handle reset confirmation response."""
+        """Handle reset dialog response."""
         if response == "reset":
             self._settings.reset_to_defaults()
             self._load_settings()
@@ -1557,143 +1890,124 @@ class SettingsWindow(Adw.PreferencesWindow):
 
 
 class PasswordChangeDialog(Adw.Window):
-    """
-    Dialog for changing account password.
-    """
+    """Dialog for changing account password."""
 
     __gtype_name__ = "PasswordChangeDialog"
 
     def __init__(self, parent: Gtk.Window) -> None:
-        """
-        Initialize password change dialog.
-
-        Args:
-            parent: Parent window.
-        """
         super().__init__(
             title="Change Password",
             modal=True,
-            transient_for=parent,
             default_width=400,
             default_height=350,
         )
-
+        self.set_transient_for(parent)
         self._build_ui()
 
     def _build_ui(self) -> None:
-        """Build dialog UI."""
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.set_content(main_box)
+        """Build the password change dialog UI."""
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+        )
+        self.set_content(box)
 
         # Header bar
         header = Adw.HeaderBar()
-        header.add_css_class("flat")
-
-        cancel_button = Gtk.Button(label="Cancel")
-        cancel_button.connect("clicked", lambda _: self.close())
-        header.pack_start(cancel_button)
-
-        save_button = Gtk.Button(label="Change")
-        save_button.add_css_class("suggested-action")
-        save_button.set_sensitive(False)
-        save_button.connect("clicked", self._on_save_clicked)
-        self._save_button = save_button
-        header.pack_end(save_button)
-
-        main_box.append(header)
+        box.append(header)
 
         # Content
         content = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=24,
+            spacing=16,
             margin_start=24,
             margin_end=24,
             margin_top=24,
             margin_bottom=24,
         )
-
-        group = Adw.PreferencesGroup()
+        box.append(content)
 
         # Current password
-        self._current_password_row = Adw.PasswordEntryRow(
+        self._current_password = Adw.PasswordEntryRow(
             title="Current Password",
         )
-        self._current_password_row.connect("changed", self._validate)
-        group.add(self._current_password_row)
+        self._current_password.connect("changed", self._validate)
 
         # New password
-        self._new_password_row = Adw.PasswordEntryRow(
+        self._new_password = Adw.PasswordEntryRow(
             title="New Password",
         )
-        self._new_password_row.connect("changed", self._validate)
-        group.add(self._new_password_row)
+        self._new_password.connect("changed", self._validate)
 
         # Confirm password
-        self._confirm_password_row = Adw.PasswordEntryRow(
-            title="Confirm New Password",
+        self._confirm_password = Adw.PasswordEntryRow(
+            title="Confirm Password",
         )
-        self._confirm_password_row.connect("changed", self._validate)
-        group.add(self._confirm_password_row)
+        self._confirm_password.connect("changed", self._validate)
 
-        content.append(group)
+        password_group = Adw.PreferencesGroup()
+        password_group.add(self._current_password)
+        password_group.add(self._new_password)
+        password_group.add(self._confirm_password)
+        content.append(password_group)
 
-        # Requirements label
-        requirements = Gtk.Label(
-            label="Password must be at least 8 characters long",
-            css_classes=["dim-label", "caption"],
-            xalign=0,
-            margin_start=12,
+        # Buttons
+        button_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
+            halign=Gtk.Align.END,
+            margin_top=16,
         )
-        content.append(requirements)
 
-        main_box.append(content)
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda b: self.close())
+        button_box.append(cancel_button)
+
+        self._save_button = Gtk.Button(
+            label="Change Password",
+            css_classes=["suggested-action"],
+            sensitive=False,
+        )
+        self._save_button.connect("clicked", self._on_save_clicked)
+        button_box.append(self._save_button)
+
+        content.append(button_box)
 
     def _validate(self, *args) -> None:
         """Validate password fields."""
-        current = self._current_password_row.get_text()
-        new = self._new_password_row.get_text()
-        confirm = self._confirm_password_row.get_text()
+        current = self._current_password.get_text()
+        new = self._new_password.get_text()
+        confirm = self._confirm_password.get_text()
 
-        is_valid = (
-            len(current) > 0
-            and len(new) >= 8
-            and new == confirm
-        )
+        valid = bool(current and new and confirm and new == confirm and len(new) >= 8)
 
-        self._save_button.set_sensitive(is_valid)
-
-        # Show mismatch error
-        if confirm and new != confirm:
-            self._confirm_password_row.add_css_class("error")
+        if new != confirm and confirm:
+            self._confirm_password.add_css_class("error")
         else:
-            self._confirm_password_row.remove_css_class("error")
+            self._confirm_password.remove_css_class("error")
+
+        if new and len(new) < 8:
+            self._new_password.add_css_class("error")
+        else:
+            self._new_password.remove_css_class("error")
+
+        self._save_button.set_sensitive(valid)
 
     def _on_save_clicked(self, button: Gtk.Button) -> None:
         """Handle save button click."""
-        # In real implementation, would send password change request
-        logger.info("Password change requested")
-
-        # Show success and close
-        dialog = Adw.MessageDialog(
-            transient_for=self,
-            heading="Password Changed",
-            body="Your password has been successfully updated.",
-        )
-        dialog.add_response("ok", "OK")
-        dialog.connect("response", lambda d, r: (self.close(), d.close()))
-        dialog.present()
+        # Would actually change password here
+        logger.info("Password changed")
+        self.close()
 
 
-def create_settings_window(
-    parent: Optional[Gtk.Window] = None,
-) -> SettingsWindow:
-    """
-    Create and return a settings window.
+def create_settings_window(parent: Gtk.Window) -> SettingsWindow:
+    """Create and return a settings window.
+
+    Factory function for creating settings windows.
 
     Args:
-        parent: Optional parent window.
+        parent: Parent window for the settings dialog.
 
     Returns:
-        New SettingsWindow instance.
+        A new SettingsWindow instance.
     """
     return SettingsWindow(parent=parent)

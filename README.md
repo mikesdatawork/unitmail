@@ -56,7 +56,7 @@ unitMail provides a complete, self-contained email system where **you own everyt
 
 | What You Control | How unitMail Delivers |
 |------------------|----------------------|
-| Your Data | All email stored locally in encrypted SQLite database |
+| Your Data | All email stored locally in SQLite database with FTS5 search |
 | Your Server | Bundled gateway microservice runs on your hardware or VPS |
 | Your Identity | Your domain, your DNS, your reputation |
 | Your Privacy | No scanning, no ads, no data mining |
@@ -79,8 +79,8 @@ unitMail provides a complete, self-contained email system where **you own everyt
 │           └───────────┬───────────────────┘                  │
 │                       ▼                                      │
 │           ┌──────────────────────┐                          │
-│           │  Encrypted Database  │                          │
-│           │  (SQLite + Supabase) │                          │
+│           │  SQLite Database     │                          │
+│           │  (Local Storage)     │                          │
 │           └──────────────────────┘                          │
 └────────────────────────┬────────────────────────────────────┘
                          │
@@ -98,7 +98,7 @@ unitMail provides a complete, self-contained email system where **you own everyt
 2. **Queue** - Message queued locally with DKIM signature
 3. **Send** - Gateway delivers via SMTP to recipient's server
 4. **Receive** - Incoming mail received by your gateway on port 25
-5. **Store** - All mail encrypted and stored in your local database
+5. **Store** - All mail stored in your local SQLite database
 6. **Read** - Access your email anytime, even offline
 
 ### Why It Works
@@ -109,8 +109,9 @@ unitMail provides a complete, self-contained email system where **you own everyt
 - SPF, DKIM, DMARC authentication
 - TLS encryption for all connections
 
-**Hybrid Architecture:**
-- Local storage = Data sovereignty
+**Local-First Architecture:**
+- SQLite storage = Data sovereignty + portability
+- FTS5 full-text search = Fast email search
 - VPS gateway = Port 25 access (bypasses ISP blocks)
 - Optional mesh network = Direct peer-to-peer email
 
@@ -118,7 +119,7 @@ unitMail provides a complete, self-contained email system where **you own everyt
 - Open source (LGPL)
 - Standard protocols
 - Exportable data (mbox format)
-- Can migrate between VPS providers
+- Single-file database backup
 
 ---
 
@@ -173,19 +174,19 @@ We're explicit: if you want zero-effort email, use Gmail. If you want **ownershi
 - **Email Composition** - Rich text editor with attachments (25MB per file)
 - **Folder Management** - Inbox, Sent, Drafts, Trash + custom folders
 - **Contact Management** - Address book with PGP key storage
-- **Search** - Full-text search across all messages
+- **Search** - Full-text search (FTS5) across all messages
 - **Queue Monitoring** - See delivery status in real-time
 
 ### Security
 - **Transport Encryption** - TLS 1.2+ for all connections
-- **Storage Encryption** - SQLCipher encrypted database
+- **Storage** - Local SQLite database with optional encryption
 - **PGP Support** - End-to-end encryption (optional)
 - **DKIM/SPF/DMARC** - Automatic email authentication
 
 ### Advanced
 - **Mesh Networking** - Direct peer-to-peer via WireGuard
 - **Multiple Deployment Models** - Self-host, VPS, or hybrid
-- **Backup/Restore** - One-click backup with encryption
+- **Backup/Restore** - Simple database file backup
 - **API Access** - REST API for automation
 
 ---
@@ -225,11 +226,8 @@ source venv/bin/activate
 # Install dependencies
 pip install -e ".[dev]"
 
-# Run database migrations
-python scripts/migrate.py up
-
-# Start the gateway
-python scripts/run_gateway.py --port 5000
+# Run the client (database auto-initializes)
+python scripts/run_client.py
 ```
 
 ### Configuration
@@ -239,11 +237,12 @@ Copy the example configuration:
 cp config/settings.example.toml config/settings.toml
 ```
 
-Set your Supabase credentials:
+Configure storage settings (optional - defaults work fine):
 ```toml
-[database]
-supabase_url = "https://your-project.supabase.co"
-supabase_key = "your-anon-key"
+[storage]
+data_dir = "~/.unitmail/data"
+database_name = "unitmail.db"
+backup_enabled = true
 ```
 
 ### Running Tests
@@ -279,16 +278,37 @@ unitmail/
 │   │   ├── api/         # REST API
 │   │   └── crypto/      # Encryption
 │   └── common/          # Shared code
+│       └── storage/     # SQLite storage module
 ├── tests/
 │   ├── e2e/             # Playwright E2E tests
 │   └── unit/            # pytest unit tests
-├── database/
-│   ├── migrations/      # Supabase migrations
-│   └── seeds/           # Test data
 ├── config/              # Configuration templates
 ├── scripts/             # CLI tools
 └── skills/              # Implementation documentation
 ```
+
+---
+
+## Database Architecture
+
+unitMail uses **SQLite** as its database backend, chosen for:
+
+| Feature | Benefit |
+|---------|---------|
+| **Single-file storage** | Easy backup (just copy the .db file) |
+| **No server required** | No external dependencies |
+| **FTS5 full-text search** | Fast email search across all fields |
+| **ACID compliance** | Reliable, transaction-safe storage |
+| **Built into Python** | Zero installation overhead |
+| **Proven at scale** | Used by email clients, browsers, phones |
+
+### Schema Highlights
+
+- **Messages table** with full RFC 5322 support (Message-ID, threading)
+- **Attachments** stored as separate records with metadata
+- **FTS5 virtual table** for instant search across subject, body, sender
+- **Proper indexes** for common query patterns
+- **Migration system** for future schema updates
 
 ---
 
@@ -311,7 +331,7 @@ Home Server (Static IP)
      │
      ├── GTK Client
      ├── Gateway Service
-     └── Email Database
+     └── SQLite Database
 ```
 
 ### 3. Mesh Network
@@ -347,7 +367,7 @@ User A ◄──WireGuard──► User B ◄──WireGuard──► User C
 ### Phase 1: MVP (Current)
 - [x] GTK desktop client
 - [x] Gateway microservice
-- [x] Supabase database integration
+- [x] SQLite database with FTS5
 - [x] Basic send/receive
 - [ ] Playwright E2E tests
 - [ ] First-run wizard
@@ -399,10 +419,13 @@ A: Basic Linux command-line knowledge is required. If you can `ssh` into a serve
 A: Most providers (Vultr, Linode, DigitalOcean) allow port 25 for legitimate use. Some require a support ticket.
 
 **Q: Is my email private?**
-A: Your email is stored encrypted on your local machine. The VPS gateway only relays messages—it never stores them.
+A: Your email is stored in a local SQLite database on your machine. The VPS gateway only relays messages—it never stores them.
 
 **Q: What about spam filtering?**
 A: unitMail includes Rspamd integration for spam scoring and filtering.
+
+**Q: How do I back up my email?**
+A: Simply copy the `~/.unitmail/data/unitmail.db` file. It's a standard SQLite database.
 
 ---
 
@@ -427,7 +450,7 @@ unitMail is released under the GNU Lesser General Public License (LGPL).
 
 Built with:
 - [Flask](https://flask.palletsprojects.com/) - Web framework
-- [Supabase](https://supabase.com/) - Database backend
+- [SQLite](https://sqlite.org/) - Database engine
 - [GTK 4](https://gtk.org/) - Desktop UI toolkit
 - [Playwright](https://playwright.dev/) - E2E testing
 - [Postfix](http://www.postfix.org/) - SMTP server
@@ -443,7 +466,7 @@ unitMail was developed with the assistance of a multi-agent AI system powered by
 | **change-coordinator** | Meta-Orchestrator | Task routing, conflict resolution, work prioritization |
 | **email-client-expert** | Email Features | Core email functionality, draft editing, multi-selection, click handling |
 | **email-ui-expert** | UI/UX Design | Column alignment, context menus, accessibility, visual design |
-| **db-email-integrator** | Database | Local storage system, schema design, sample data generation |
+| **db-email-integrator** | Database | SQLite storage system, FTS5 search, schema design |
 | **performance-engineer** | Optimization | Performance profiling, bottleneck detection |
 | **security-auditor** | Security | Vulnerability assessment, OWASP compliance review |
 | **test-automation** | Testing | Test infrastructure, coverage analysis, regression detection |

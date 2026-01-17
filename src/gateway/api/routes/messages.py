@@ -3,22 +3,21 @@ Message routes for unitMail Gateway API.
 
 This module provides endpoints for message management including listing,
 reading, sending, updating, deleting, and managing message flags.
+Uses SQLite for storage.
 """
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
-from uuid import UUID
+from uuid import uuid4
 
 from flask import Blueprint, Response, g, jsonify, request
 from pydantic import BaseModel, EmailStr, Field, ValidationError
 
-from ....common.database import get_db
-from ....common.exceptions import RecordNotFoundError
-from ....common.models import MessageCreate, MessagePriority, MessageStatus, MessageUpdate
+from common.storage import get_storage
+from common.exceptions import RecordNotFoundError
 from ..middleware import rate_limit
-from .auth import require_auth
+from ..auth import require_auth
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -70,41 +69,31 @@ class MarkReadRequest(BaseModel):
 # =============================================================================
 
 
-def run_async(coro):
-    """Run an async coroutine synchronously."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
-def serialize_message(message) -> dict[str, Any]:
-    """Serialize a message model to JSON-compatible dict."""
+def serialize_message(message: dict) -> dict[str, Any]:
+    """Serialize a message dict for JSON response."""
     return {
-        "id": str(message.id),
-        "user_id": str(message.user_id),
-        "folder_id": str(message.folder_id) if message.folder_id else None,
-        "message_id": message.message_id,
-        "from_address": message.from_address,
-        "to_addresses": message.to_addresses,
-        "cc_addresses": message.cc_addresses,
-        "bcc_addresses": message.bcc_addresses,
-        "subject": message.subject,
-        "body_text": message.body_text,
-        "body_html": message.body_html,
-        "headers": message.headers,
-        "attachments": message.attachments,
-        "status": message.status if isinstance(message.status, str) else message.status.value,
-        "priority": message.priority if isinstance(message.priority, str) else message.priority.value,
-        "is_read": message.is_read,
-        "is_starred": message.is_starred,
-        "is_encrypted": message.is_encrypted,
-        "received_at": message.received_at.isoformat() if message.received_at else None,
-        "sent_at": message.sent_at.isoformat() if message.sent_at else None,
-        "created_at": message.created_at.isoformat(),
-        "updated_at": message.updated_at.isoformat(),
+        "id": message["id"],
+        "user_id": message.get("user_id"),
+        "folder_id": message.get("folder_id"),
+        "message_id": message.get("message_id"),
+        "from_address": message.get("from_address"),
+        "to_addresses": message.get("to_addresses", []),
+        "cc_addresses": message.get("cc_addresses", []),
+        "bcc_addresses": message.get("bcc_addresses", []),
+        "subject": message.get("subject", ""),
+        "body_text": message.get("body_text"),
+        "body_html": message.get("body_html"),
+        "headers": message.get("headers", {}),
+        "attachments": message.get("attachments", []),
+        "status": message.get("status", "received"),
+        "priority": message.get("priority", "normal"),
+        "is_read": message.get("is_read", False),
+        "is_starred": message.get("is_starred", False),
+        "is_encrypted": message.get("is_encrypted", False),
+        "received_at": message.get("received_at"),
+        "sent_at": message.get("sent_at"),
+        "created_at": message.get("created_at"),
+        "updated_at": message.get("updated_at"),
     }
 
 
@@ -148,47 +137,57 @@ def create_messages_blueprint() -> Blueprint:
             page = max(1, int(request.args.get("page", 1)))
             per_page = min(100, max(1, int(request.args.get("per_page", 50))))
             status = request.args.get("status")
-            is_read = request.args.get("is_read")
-            is_starred = request.args.get("is_starred")
+            is_read_param = request.args.get("is_read")
+            is_starred_param = request.args.get("is_starred")
+            search = request.args.get("search", "").strip()
 
             offset = (page - 1) * per_page
+            user_id = getattr(g, "user_id", None)
 
-            db = get_db()
+            storage = get_storage()
 
-            # Build filters
-            filters = {"user_id": UUID(g.current_user_id)}
+            # Parse boolean filters
+            is_read = None
+            if is_read_param is not None:
+                is_read = is_read_param.lower() == "true"
 
-            if folder_id:
-                try:
-                    filters["folder_id"] = UUID(folder_id)
-                except ValueError:
-                    return jsonify({
-                        "error": "Invalid parameter",
-                        "message": "folder_id must be a valid UUID",
-                    }), 400
+            is_starred = None
+            if is_starred_param is not None:
+                is_starred = is_starred_param.lower() == "true"
 
-            if status:
-                filters["status"] = status
-
-            if is_read is not None:
-                filters["is_read"] = is_read.lower() == "true"
-
-            if is_starred is not None:
-                filters["is_starred"] = is_starred.lower() == "true"
-
-            # Get messages
-            messages = run_async(
-                db.messages.get_all(
+            # Search or filter
+            if search:
+                messages = storage.search_messages(query=search, limit=per_page)
+                # Apply additional filters to search results
+                if user_id:
+                    messages = [m for m in messages if m.get("user_id") == user_id]
+                if folder_id:
+                    messages = [m for m in messages if m.get("folder_id") == folder_id]
+                if is_read is not None:
+                    messages = [m for m in messages if m.get("is_read") == is_read]
+                if is_starred is not None:
+                    messages = [m for m in messages if m.get("is_starred") == is_starred]
+                total = len(messages)
+            else:
+                # Get messages with filters
+                messages = storage.get_messages(
+                    user_id=user_id,
+                    folder_id=folder_id,
+                    status=status,
+                    is_read=is_read,
+                    is_starred=is_starred,
                     limit=per_page,
                     offset=offset,
-                    order_by="created_at",
-                    ascending=False,
-                    filters=filters,
                 )
-            )
 
-            # Get total count
-            total = run_async(db.messages.count(filters=filters))
+                # Get total count
+                total = storage.count_messages(
+                    user_id=user_id,
+                    folder_id=folder_id,
+                    status=status,
+                    is_read=is_read,
+                    is_starred=is_starred,
+                )
 
             return jsonify({
                 "messages": [serialize_message(m) for m in messages],
@@ -196,7 +195,7 @@ def create_messages_blueprint() -> Blueprint:
                     "page": page,
                     "per_page": per_page,
                     "total": total,
-                    "total_pages": (total + per_page - 1) // per_page,
+                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
                     "has_next": page * per_page < total,
                     "has_prev": page > 1,
                 },
@@ -222,32 +221,24 @@ def create_messages_blueprint() -> Blueprint:
             Message details.
         """
         try:
-            # Validate UUID
-            try:
-                msg_uuid = UUID(message_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "message_id must be a valid UUID",
-                }), 400
+            storage = get_storage()
+            message = storage.get_message(message_id)
 
-            db = get_db()
-            message = run_async(db.messages.get_by_id(msg_uuid))
+            if not message:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Message not found",
+                }), 404
 
             # Check ownership
-            if str(message.user_id) != g.current_user_id:
+            user_id = getattr(g, "user_id", None)
+            if message.get("user_id") and message.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Message not found",
                 }), 404
 
             return jsonify(serialize_message(message)), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Message not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Get message error: {e}")
@@ -294,67 +285,75 @@ def create_messages_blueprint() -> Blueprint:
             }), 400
 
         try:
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get user info for from_address
-            user = run_async(db.users.get_by_id(g.current_user_id))
+            user = storage.get_user_by_id(user_id) if user_id else None
+            from_address = user.get("email") if user else "noreply@localhost"
 
             # Validate priority
-            try:
-                priority = MessagePriority(data.priority)
-            except ValueError:
-                priority = MessagePriority.NORMAL
+            valid_priorities = ["low", "normal", "high", "urgent"]
+            priority = data.priority.lower() if data.priority.lower() in valid_priorities else "normal"
+
+            # Determine folder and status
+            if data.save_draft:
+                folder = storage.get_folder_by_name("Drafts")
+                status = "draft"
+                sent_at = None
+            else:
+                folder = storage.get_folder_by_name("Sent")
+                status = "queued"
+                sent_at = datetime.now(timezone.utc).isoformat()
+
+            # Generate message ID
+            msg_uuid = str(uuid4())
+            rfc_message_id = f"<{msg_uuid}@unitmail>"
 
             # Create message
-            message_create = MessageCreate(
-                to_addresses=data.to,
-                cc_addresses=data.cc,
-                bcc_addresses=data.bcc,
-                subject=data.subject,
-                body_text=data.body_text,
-                body_html=data.body_html,
-                priority=priority,
-                attachments=data.attachments,
-            )
+            message_data = {
+                "id": msg_uuid,
+                "user_id": user_id,
+                "folder_id": folder["id"] if folder else None,
+                "message_id": rfc_message_id,
+                "from_address": from_address,
+                "to_addresses": [str(addr) for addr in data.to],
+                "cc_addresses": [str(addr) for addr in data.cc],
+                "bcc_addresses": [str(addr) for addr in data.bcc],
+                "subject": data.subject,
+                "body_text": data.body_text,
+                "body_html": data.body_html,
+                "status": status,
+                "priority": priority,
+                "attachments": data.attachments,
+                "sent_at": sent_at,
+                "received_at": datetime.now(timezone.utc).isoformat(),
+            }
 
-            # Set status based on save_draft flag
-            message = run_async(
-                db.messages.create_message(UUID(g.current_user_id), message_create)
-            )
-
-            # Update from_address and status
-            status = MessageStatus.DRAFT if data.save_draft else MessageStatus.QUEUED
-            message = run_async(
-                db.messages.update(
-                    message.id,
-                    {
-                        "from_address": user.email,
-                        "status": status.value,
-                        "sent_at": None if data.save_draft else datetime.now(timezone.utc),
-                    }
-                )
-            )
+            message = storage.create_message(message_data)
 
             # If not a draft, add to queue for sending
             if not data.save_draft:
-                # Queue message for each recipient
-                for recipient in data.to + data.cc + data.bcc:
-                    run_async(
-                        db.queue.create({
-                            "message_id": message.id,
-                            "user_id": UUID(g.current_user_id),
-                            "recipient": recipient,
-                            "status": "pending",
-                            "priority": 50 if priority == MessagePriority.HIGH else
-                                       100 if priority == MessagePriority.URGENT else 0,
-                        })
-                    )
+                all_recipients = (
+                    [str(addr) for addr in data.to] +
+                    [str(addr) for addr in data.cc] +
+                    [str(addr) for addr in data.bcc]
+                )
+                for recipient in all_recipients:
+                    queue_priority = 50 if priority == "high" else (100 if priority == "urgent" else 0)
+                    storage.create_queue_item({
+                        "message_id": message["id"],
+                        "user_id": user_id,
+                        "recipient": recipient,
+                        "status": "pending",
+                        "priority": queue_priority,
+                    })
 
             logger.info(
                 "Message created",
                 extra={
-                    "user_id": g.current_user_id,
-                    "message_id": str(message.id),
+                    "user_id": user_id,
+                    "message_id": message["id"],
                     "is_draft": data.save_draft,
                 },
             )
@@ -389,15 +388,6 @@ def create_messages_blueprint() -> Blueprint:
             Updated message details.
         """
         try:
-            # Validate UUID
-            try:
-                msg_uuid = UUID(message_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "message_id must be a valid UUID",
-                }), 400
-
             if not request.is_json:
                 return jsonify({
                     "error": "Invalid request",
@@ -413,13 +403,20 @@ def create_messages_blueprint() -> Blueprint:
                     "details": e.errors(),
                 }), 400
 
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing message
-            message = run_async(db.messages.get_by_id(msg_uuid))
+            message = storage.get_message(message_id)
+
+            if not message:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Message not found",
+                }), 404
 
             # Check ownership
-            if str(message.user_id) != g.current_user_id:
+            if message.get("user_id") and message.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Message not found",
@@ -429,21 +426,14 @@ def create_messages_blueprint() -> Blueprint:
             update_data = {}
 
             if data.folder_id is not None:
-                try:
-                    folder_uuid = UUID(data.folder_id)
-                    # Verify folder exists and belongs to user
-                    folder = run_async(db.folders.get_by_id(folder_uuid))
-                    if str(folder.user_id) != g.current_user_id:
-                        return jsonify({
-                            "error": "Invalid folder",
-                            "message": "Folder not found",
-                        }), 400
-                    update_data["folder_id"] = folder_uuid
-                except ValueError:
+                # Verify folder exists
+                folder = storage.get_folder_by_id(data.folder_id)
+                if not folder:
                     return jsonify({
-                        "error": "Invalid parameter",
-                        "message": "folder_id must be a valid UUID",
+                        "error": "Invalid folder",
+                        "message": "Folder not found",
                     }), 400
+                update_data["folder_id"] = data.folder_id
 
             if data.is_read is not None:
                 update_data["is_read"] = data.is_read
@@ -458,16 +448,9 @@ def create_messages_blueprint() -> Blueprint:
                 }), 400
 
             # Update message
-            message_update = MessageUpdate(**update_data)
-            message = run_async(db.messages.update_message(msg_uuid, message_update))
+            message = storage.update_message(message_id, update_data)
 
             return jsonify(serialize_message(message)), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Message not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Update message error: {e}")
@@ -492,24 +475,22 @@ def create_messages_blueprint() -> Blueprint:
             Success message.
         """
         try:
-            # Validate UUID
-            try:
-                msg_uuid = UUID(message_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "message_id must be a valid UUID",
-                }), 400
-
             permanent = request.args.get("permanent", "false").lower() == "true"
 
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing message
-            message = run_async(db.messages.get_by_id(msg_uuid))
+            message = storage.get_message(message_id)
+
+            if not message:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Message not found",
+                }), 404
 
             # Check ownership
-            if str(message.user_id) != g.current_user_id:
+            if message.get("user_id") and message.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Message not found",
@@ -517,40 +498,27 @@ def create_messages_blueprint() -> Blueprint:
 
             if permanent:
                 # Permanently delete
-                run_async(db.messages.delete(msg_uuid))
+                storage.delete_message(message_id)
                 logger.info(
                     "Message permanently deleted",
-                    extra={"user_id": g.current_user_id, "message_id": message_id},
+                    extra={"user_id": user_id, "message_id": message_id},
                 )
             else:
                 # Move to trash folder
-                # Find trash folder for user
-                folders = run_async(db.folders.get_by_user(UUID(g.current_user_id)))
-                trash_folder = next(
-                    (f for f in folders if f.folder_type == "trash"),
-                    None
-                )
-
-                if trash_folder:
-                    run_async(db.messages.update(msg_uuid, {"folder_id": trash_folder.id}))
+                result = storage.move_to_trash(message_id)
+                if result:
                     logger.info(
                         "Message moved to trash",
-                        extra={"user_id": g.current_user_id, "message_id": message_id},
+                        extra={"user_id": user_id, "message_id": message_id},
                     )
                 else:
-                    # No trash folder, permanently delete
-                    run_async(db.messages.delete(msg_uuid))
+                    # No trash folder or error, permanently delete
+                    storage.delete_message(message_id)
 
             return jsonify({
                 "message": "Message deleted successfully",
                 "permanent": permanent,
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Message not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Delete message error: {e}")
@@ -575,22 +543,20 @@ def create_messages_blueprint() -> Blueprint:
             Updated starred status.
         """
         try:
-            # Validate UUID
-            try:
-                msg_uuid = UUID(message_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "message_id must be a valid UUID",
-                }), 400
-
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing message
-            message = run_async(db.messages.get_by_id(msg_uuid))
+            message = storage.get_message(message_id)
+
+            if not message:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Message not found",
+                }), 404
 
             # Check ownership
-            if str(message.user_id) != g.current_user_id:
+            if message.get("user_id") and message.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Message not found",
@@ -600,23 +566,15 @@ def create_messages_blueprint() -> Blueprint:
             data = request.get_json(silent=True) or {}
             if "starred" in data:
                 new_starred = bool(data["starred"])
-                message = run_async(
-                    db.messages.update(msg_uuid, {"is_starred": new_starred})
-                )
+                message = storage.update_message(message_id, {"is_starred": new_starred})
             else:
                 # Toggle
-                message = run_async(db.messages.toggle_star(msg_uuid))
+                message = storage.toggle_starred(message_id)
 
             return jsonify({
-                "id": str(message.id),
-                "is_starred": message.is_starred,
+                "id": message["id"],
+                "is_starred": message.get("is_starred", False),
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Message not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Toggle star error: {e}")
@@ -641,15 +599,6 @@ def create_messages_blueprint() -> Blueprint:
             Updated read status.
         """
         try:
-            # Validate UUID
-            try:
-                msg_uuid = UUID(message_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "message_id must be a valid UUID",
-                }), 400
-
             if not request.is_json:
                 return jsonify({
                     "error": "Invalid request",
@@ -665,13 +614,20 @@ def create_messages_blueprint() -> Blueprint:
                     "details": e.errors(),
                 }), 400
 
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing message
-            message = run_async(db.messages.get_by_id(msg_uuid))
+            message = storage.get_message(message_id)
+
+            if not message:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Message not found",
+                }), 404
 
             # Check ownership
-            if str(message.user_id) != g.current_user_id:
+            if message.get("user_id") and message.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Message not found",
@@ -679,20 +635,14 @@ def create_messages_blueprint() -> Blueprint:
 
             # Update read status
             if data.is_read:
-                message = run_async(db.messages.mark_as_read(msg_uuid))
+                message = storage.mark_as_read(message_id)
             else:
-                message = run_async(db.messages.mark_as_unread(msg_uuid))
+                message = storage.mark_as_unread(message_id)
 
             return jsonify({
-                "id": str(message.id),
-                "is_read": message.is_read,
+                "id": message["id"],
+                "is_read": message.get("is_read", False),
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Message not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Mark read error: {e}")

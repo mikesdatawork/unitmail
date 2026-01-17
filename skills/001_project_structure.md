@@ -23,18 +23,15 @@ Creates the complete folder structure for the unitMail project following the mod
   /tests
     /e2e          - Playwright end-to-end tests
     /unit         - pytest unit tests
-  /database
-    /migrations   - Supabase migration files
-    /seeds        - Seed data for development
   /config         - Configuration templates
 
 ## Files Created
 - 14 `__init__.py` files for Python package structure
-- `.gitignore` with Python, Playwright, Supabase patterns
+- `.gitignore` with Python and Playwright patterns
 
 ## Usage
 This structure supports:
 - Separation of client and gateway concerns
 - Modular testing (unit + E2E)
-- Database version control via migrations
+- SQLite database with FTS5 search
 - Clean deployment packaging

@@ -2,15 +2,16 @@
 Sample Data Generator for unitMail.
 
 This module generates realistic sample email messages for testing
-and development purposes. Creates 50+ messages with threads,
-attachments, and various states.
+and development purposes. Creates 50+ messages across all folders
+with threads, attachments, and various states.
 """
 
 import random
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from .local_storage import get_local_storage, MessagePriority, MessageStatus
+from .storage import get_storage
+from .storage.schema import MessagePriority, MessageStatus
 
 
 # Sample people for email conversations
@@ -46,23 +47,33 @@ def generate_sample_messages(force_regenerate: bool = False) -> int:
     Returns:
         Number of messages created.
     """
-    storage = get_local_storage()
+    storage = get_storage()
 
-    if not force_regenerate and storage.get_message_count() > 0:
-        return storage.get_message_count()
+    # Check if messages already exist (quick check with limit=1)
+    if not force_regenerate and len(storage.get_all_messages(limit=1)) > 0:
+        # Return actual total count
+        return len(storage.get_all_messages())
 
     if force_regenerate:
-        storage.clear_all_messages()
+        # Clear all messages
+        for msg in storage.get_all_messages(limit=10000):
+            storage.delete_message(msg["id"])
 
     folders = storage.get_folders()
     inbox_id = next((f["id"] for f in folders if f["name"] == "Inbox"), None)
     sent_id = next((f["id"] for f in folders if f["name"] == "Sent"), None)
     drafts_id = next((f["id"] for f in folders if f["name"] == "Drafts"), None)
+    trash_id = next((f["id"] for f in folders if f["name"] == "Trash"), None)
+    spam_id = next((f["id"] for f in folders if f["name"] == "Spam"), None)
+    archive_id = next((f["id"] for f in folders if f["name"] == "Archive"), None)
+
+    if not inbox_id:
+        raise RuntimeError("Inbox folder not found - ensure storage is initialized")
 
     messages_created = 0
     base_time = datetime.utcnow()
 
-    # Thread 1: Project Planning (5 messages)
+    # Thread 1: Project Planning (5 messages in Inbox)
     thread1_id = str(uuid4())
     thread1_messages = [
         {
@@ -144,7 +155,7 @@ Bob""",
         },
     ]
 
-    for i, msg_data in enumerate(thread1_messages):
+    for msg_data in thread1_messages:
         storage.create_message({
             "folder_id": inbox_id,
             "from_address": msg_data["from"]["email"],
@@ -160,7 +171,7 @@ Bob""",
         })
         messages_created += 1
 
-    # Thread 2: Bug Report (4 messages)
+    # Thread 2: Bug Report (4 messages - urgent)
     thread2_id = str(uuid4())
     thread2_messages = [
         {
@@ -182,7 +193,7 @@ This is blocking several users. Please investigate ASAP.
 
 Jack - Support Team""",
             "hours_ago": 12,
-            "priority": MessagePriority.URGENT,
+            "priority": MessagePriority.URGENT.value,
             "is_read": True,
         },
         {
@@ -236,7 +247,7 @@ Frank""",
             "body_text": msg_data["body_text"],
             "is_read": msg_data.get("is_read", False),
             "is_starred": msg_data.get("is_starred", False),
-            "priority": msg_data.get("priority", MessagePriority.NORMAL),
+            "priority": msg_data.get("priority", MessagePriority.NORMAL.value),
             "attachments": msg_data.get("attachments", []),
             "thread_id": thread2_id,
             "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
@@ -244,74 +255,7 @@ Frank""",
         })
         messages_created += 1
 
-    # Thread 3: Weekly Newsletter Discussion (3 messages)
-    thread3_id = str(uuid4())
-    thread3_messages = [
-        {
-            "from": CONTACTS[4],
-            "subject": "Newsletter Content Ideas for February",
-            "body_text": """Hi team,
-
-It's time to plan our February newsletter! Here are some content ideas:
-
-1. Product Update: New dashboard features
-2. Customer Success Story: Acme Corp case study
-3. Industry News: Latest trends in our space
-4. Tips & Tricks: Getting the most out of our platform
-
-I'd love to hear your suggestions. Deadline for content is Feb 1st.
-
-Eve - Marketing""",
-            "hours_ago": 72,
-            "is_read": True,
-        },
-        {
-            "from": CONTACTS[11],
-            "subject": "Re: Newsletter Content Ideas for February",
-            "body_text": """Great ideas Eve!
-
-I can contribute:
-- A deep dive into our new analytics dashboard
-- User feedback highlights from January
-
-Also, we just crossed 10,000 active users - that would make a great announcement!
-
-Leo""",
-            "hours_ago": 70,
-            "is_read": True,
-        },
-        {
-            "from": CONTACTS[4],
-            "subject": "Re: Newsletter Content Ideas for February",
-            "body_text": """Perfect Leo! The 10K milestone is definitely newsworthy.
-
-I'll draft the announcement. Can you send me the exact numbers and any relevant metrics?
-
-Eve""",
-            "hours_ago": 68,
-            "is_read": True,
-            "is_starred": True,
-            "attachments": [{"filename": "newsletter_draft.docx", "size": 67000, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}],
-        },
-    ]
-
-    for msg_data in thread3_messages:
-        storage.create_message({
-            "folder_id": inbox_id,
-            "from_address": msg_data["from"]["email"],
-            "to_addresses": [ME["email"]],
-            "subject": msg_data["subject"],
-            "body_text": msg_data["body_text"],
-            "is_read": msg_data.get("is_read", False),
-            "is_starred": msg_data.get("is_starred", False),
-            "attachments": msg_data.get("attachments", []),
-            "thread_id": thread3_id,
-            "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-            "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
-        })
-        messages_created += 1
-
-    # Individual messages (remaining to reach 50+)
+    # Individual inbox messages
     individual_messages = [
         {
             "from": CONTACTS[3],
@@ -330,7 +274,7 @@ Let me know if you have any questions.
 David - Finance""",
             "hours_ago": 2,
             "is_read": False,
-            "priority": MessagePriority.HIGH,
+            "priority": MessagePriority.HIGH.value,
             "attachments": [
                 {"filename": "budget_proposal_q1.xlsx", "size": 125000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
                 {"filename": "infrastructure_plan.pdf", "size": 890000, "content_type": "application/pdf"},
@@ -417,7 +361,7 @@ Let's schedule a call to discuss before we publish.
 Karen - Legal""",
             "hours_ago": 10,
             "is_read": False,
-            "priority": MessagePriority.HIGH,
+            "priority": MessagePriority.HIGH.value,
             "attachments": [{"filename": "ToS_Review_Comments.docx", "size": 156000, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}],
         },
         {
@@ -448,10 +392,10 @@ Maya - Operations""",
 
 December metrics are in! Highlights:
 
-📈 Active Users: +12% MoM
-⏱️ Avg Session Duration: 8.5 minutes (+2.1 min)
-🔄 Feature Adoption: Dashboard widgets at 78%
-📱 Mobile Usage: 34% of total traffic
+Active Users: +12% MoM
+Avg Session Duration: 8.5 minutes (+2.1 min)
+Feature Adoption: Dashboard widgets at 78%
+Mobile Usage: 34% of total traffic
 
 Full report attached with detailed breakdowns by region and feature.
 
@@ -525,152 +469,6 @@ Bob""",
             "is_starred": True,
         },
         {
-            "from": CONTACTS[2],
-            "subject": "Design Feedback Needed",
-            "body_text": """Hi!
-
-I've created three design options for the new onboarding flow. Could you provide feedback?
-
-Option A: Minimal wizard (3 steps)
-Option B: Interactive tutorial (5 steps)
-Option C: Video walkthrough + quick setup
-
-Figma link attached. I'd like to finalize by end of week.
-
-Carol""",
-            "hours_ago": 34,
-            "is_read": True,
-            "attachments": [{"filename": "Onboarding_Designs.fig", "size": 3400000, "content_type": "application/octet-stream"}],
-        },
-        {
-            "from": CONTACTS[3],
-            "subject": "Invoice #2026-0042",
-            "body_text": """Please find attached invoice for January consulting services.
-
-Invoice Details:
-- Invoice #: 2026-0042
-- Amount: $4,500.00
-- Due Date: February 15, 2026
-- Payment Terms: Net 30
-
-Wire transfer details included in the PDF.
-
-David - Finance""",
-            "hours_ago": 38,
-            "is_read": True,
-            "attachments": [{"filename": "Invoice_2026-0042.pdf", "size": 125000, "content_type": "application/pdf"}],
-        },
-        {
-            "from": CONTACTS[4],
-            "subject": "Social Media Campaign Results",
-            "body_text": """Team,
-
-The holiday campaign exceeded expectations!
-
-Results:
-- Impressions: 2.4M (+180%)
-- Engagement Rate: 4.2%
-- Click-through Rate: 2.8%
-- Conversions: 1,247
-- ROI: 340%
-
-Top performing content was the product demo video. Planning to create more similar content.
-
-Eve - Marketing""",
-            "hours_ago": 42,
-            "is_read": True,
-            "is_starred": True,
-            "attachments": [
-                {"filename": "campaign_metrics.xlsx", "size": 145000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-                {"filename": "top_posts.png", "size": 1200000, "content_type": "image/png"},
-            ],
-        },
-        {
-            "from": CONTACTS[5],
-            "subject": "Database Migration Plan",
-            "body_text": """Hi all,
-
-Here's the detailed plan for the database migration:
-
-Phase 1: Schema updates (Week 1)
-Phase 2: Data migration (Week 2)
-Phase 3: Application updates (Week 3)
-Phase 4: Testing & validation (Week 4)
-
-Risk assessment and rollback procedures attached.
-
-Frank - Engineering""",
-            "hours_ago": 50,
-            "is_read": True,
-            "attachments": [
-                {"filename": "Migration_Plan.pdf", "size": 450000, "content_type": "application/pdf"},
-                {"filename": "Rollback_Procedures.md", "size": 12000, "content_type": "text/markdown"},
-            ],
-        },
-        {
-            "from": CONTACTS[6],
-            "subject": "New Hire Onboarding - Week of Jan 20",
-            "body_text": """Team leads,
-
-We have 3 new hires starting next week:
-
-1. Sarah (Engineering) - Reports to Frank
-2. Mike (Marketing) - Reports to Eve
-3. Lisa (Support) - Reports to Jack
-
-Please ensure:
-- Workstations are ready
-- Access credentials are set up
-- First week schedule is prepared
-- Buddy assignments confirmed
-
-Let me know if you need anything.
-
-Grace - HR""",
-            "hours_ago": 54,
-            "is_read": True,
-        },
-        {
-            "from": CONTACTS[7],
-            "subject": "Customer Meeting Notes - Acme Corp",
-            "body_text": """Quick summary from today's Acme Corp meeting:
-
-Attendees: John (CEO), Maria (CTO), Us
-
-Key Points:
-- Very interested in enterprise features
-- Concerns about data residency (need EU option)
-- Budget approved for 500 seats
-- Want to start pilot in February
-
-Action items:
-1. Send enterprise proposal
-2. Clarify EU data center timeline
-3. Schedule technical deep dive
-
-Henry""",
-            "hours_ago": 58,
-            "is_read": False,
-            "attachments": [{"filename": "meeting_notes.txt", "size": 12000, "content_type": "text/plain"}],
-        },
-        {
-            "from": CONTACTS[8],
-            "subject": "Conference Presentation Materials",
-            "body_text": """Hi,
-
-Attached are the slides for next month's tech conference presentation.
-
-Talk: "Building Secure Email Systems at Scale"
-Duration: 45 minutes + Q&A
-
-Could you review slides 15-20? Those cover the architecture section and I want to make sure it's accurate.
-
-Iris""",
-            "hours_ago": 62,
-            "is_read": False,
-            "attachments": [{"filename": "Conference_Slides.pptx", "size": 8900000, "content_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}],
-        },
-        {
             "from": CONTACTS[9],
             "subject": "Support Ticket Escalation - Priority Customer",
             "body_text": """ESCALATION
@@ -685,29 +483,7 @@ They've been waiting 48 hours. This needs immediate attention.
 Jack - Support""",
             "hours_ago": 1,
             "is_read": False,
-            "priority": MessagePriority.URGENT,
-        },
-        {
-            "from": CONTACTS[10],
-            "subject": "Contract Renewal - CloudHost Services",
-            "body_text": """The CloudHost services contract is up for renewal on Feb 28.
-
-Current terms:
-- 3-year contract
-- $8,500/month
-- 99.9% SLA
-
-They're offering:
-- 2-year renewal
-- $7,800/month (8% reduction)
-- 99.95% SLA upgrade
-
-Recommendation: Accept the renewal. Let me know if you need negotiation support.
-
-Karen - Legal""",
-            "hours_ago": 66,
-            "is_read": True,
-            "attachments": [{"filename": "CloudHost_Renewal_Terms.pdf", "size": 234000, "content_type": "application/pdf"}],
+            "priority": MessagePriority.URGENT.value,
         },
         {
             "from": CONTACTS[11],
@@ -729,140 +505,6 @@ Leo - Product""",
             "attachments": [{"filename": "Feature_Specs.pdf", "size": 890000, "content_type": "application/pdf"}],
         },
         {
-            "from": CONTACTS[12],
-            "subject": "Incident Report - Jan 10 Outage",
-            "body_text": """Post-mortem report for the January 10th outage.
-
-Duration: 47 minutes
-Impact: 12% of users affected
-Root Cause: Database connection pool exhaustion
-
-Timeline and remediation steps in attached document.
-
-Action items for prevention:
-1. Implement connection pool monitoring
-2. Add auto-scaling for DB connections
-3. Update alerting thresholds
-
-Maya - Operations""",
-            "hours_ago": 74,
-            "is_read": True,
-            "attachments": [{"filename": "Incident_Report_20260110.pdf", "size": 156000, "content_type": "application/pdf"}],
-        },
-        {
-            "from": CONTACTS[13],
-            "subject": "A/B Test Results - Checkout Flow",
-            "body_text": """A/B test completed for the new checkout flow.
-
-Results:
-- Variant A (current): 3.2% conversion
-- Variant B (simplified): 4.1% conversion
-
-Statistical significance: 99%
-Lift: +28%
-
-Recommendation: Ship Variant B to all users.
-
-Full analysis attached.
-
-Nathan - Analytics""",
-            "hours_ago": 78,
-            "is_read": True,
-            "attachments": [{"filename": "AB_Test_Checkout.xlsx", "size": 89000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}],
-        },
-        {
-            "from": CONTACTS[14],
-            "subject": "Photography Assets for Blog",
-            "body_text": """Hi!
-
-I've uploaded new photography assets for the blog:
-
-- Team photos (updated headshots)
-- Office space images
-- Product screenshots
-- Stock photo collection
-
-All images are in the shared drive under /Marketing/Photos/2026/
-
-Let me know if you need specific shots.
-
-Olivia - Creative""",
-            "hours_ago": 82,
-            "is_read": True,
-            "attachments": [
-                {"filename": "team_headshots.jpg", "size": 3400000, "content_type": "image/jpeg"},
-                {"filename": "office_tour.jpg", "size": 2800000, "content_type": "image/jpeg"},
-                {"filename": "product_screenshot_1.png", "size": 890000, "content_type": "image/png"},
-            ],
-        },
-        {
-            "from": CONTACTS[0],
-            "subject": "Reminder: 1:1 Meeting Tomorrow",
-            "body_text": """Just a reminder about our 1:1 tomorrow at 3pm.
-
-Agenda:
-- Q1 goals review
-- Upcoming projects
-- Any concerns or blockers
-
-Let me know if you need to reschedule.
-
-Alice""",
-            "hours_ago": 20,
-            "is_read": True,
-            "attachments": [{"filename": "agenda.txt", "size": 3400, "content_type": "text/plain"}],
-        },
-        {
-            "from": CONTACTS[1],
-            "subject": "Quick Question About API Rate Limits",
-            "body_text": """Hey,
-
-Quick question - what's the current rate limit for the public API?
-
-A customer is asking about bulk operations and I want to give them accurate info.
-
-Thanks!
-Bob""",
-            "hours_ago": 3,
-            "is_read": False,
-        },
-        {
-            "from": CONTACTS[2],
-            "subject": "Accessibility Audit Complete",
-            "body_text": """Good news! The accessibility audit is complete.
-
-Score: 94/100 (WCAG 2.1 AA compliant)
-
-Minor issues found:
-- 3 missing alt texts
-- 2 color contrast warnings
-- 1 keyboard navigation issue
-
-Full report attached. These should be quick fixes.
-
-Carol""",
-            "hours_ago": 36,
-            "is_read": True,
-            "attachments": [{"filename": "Accessibility_Audit.pdf", "size": 567000, "content_type": "application/pdf"}],
-        },
-        {
-            "from": CONTACTS[3],
-            "subject": "Expense Report Reminder",
-            "body_text": """Friendly reminder that expense reports for January are due by Feb 5th.
-
-Please submit via the expense portal:
-1. Log into expenses.company.com
-2. Upload receipts
-3. Categorize expenses
-4. Submit for approval
-
-Questions? Reply to this email.
-
-David - Finance""",
-            "hours_ago": 90,
-            "is_read": True,
-        },
-        {
             "from": CONTACTS[6],
             "subject": "Team Offsite Planning",
             "body_text": """Hi everyone,
@@ -882,59 +524,22 @@ Grace - HR""",
             "attachments": [{"filename": "offsite_proposals.pdf", "size": 670000, "content_type": "application/pdf"}],
         },
         {
-            "from": CONTACTS[8],
-            "subject": "Paper Submission Deadline Extended",
-            "body_text": """Good news! The conference has extended their submission deadline by one week.
+            "from": CONTACTS[4],
+            "subject": "Newsletter Content Ideas for February",
+            "body_text": """Hi team,
 
-New deadline: February 15, 2026
+It's time to plan our February newsletter! Here are some content ideas:
 
-This gives us more time to refine our methodology section. I'll send updated drafts by Friday.
+1. Product Update: New dashboard features
+2. Customer Success Story: Acme Corp case study
+3. Industry News: Latest trends in our space
+4. Tips & Tricks: Getting the most out of our platform
 
-Iris""",
-            "hours_ago": 5,
-            "is_read": False,
-        },
-        {
-            "from": CONTACTS[12],
-            "subject": "Infrastructure Cost Report",
-            "body_text": """Monthly infrastructure cost breakdown:
+I'd love to hear your suggestions. Deadline for content is Feb 1st.
 
-Cloud Services: $12,450 (-8% from last month)
-CDN: $2,100
-Monitoring: $890
-Backups: $450
-
-Total: $15,890
-
-Good news - our optimization efforts are paying off. Full breakdown attached.
-
-Maya - Operations""",
-            "hours_ago": 28,
+Eve - Marketing""",
+            "hours_ago": 72,
             "is_read": True,
-            "attachments": [{"filename": "Infra_Costs_Jan2026.xlsx", "size": 45000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}],
-        },
-        {
-            "from": CONTACTS[14],
-            "subject": "Video Content Review Request",
-            "body_text": """Hi!
-
-I've finished the product explainer video draft. Before we share with stakeholders, could you review:
-
-- Technical accuracy of the features shown
-- Any messaging that needs adjustment
-- Call-to-action effectiveness
-
-Video link: drive.company.com/videos/explainer-v1
-
-Thanks!
-Olivia - Creative""",
-            "hours_ago": 16,
-            "is_read": False,
-            "is_starred": True,
-            "attachments": [
-                {"filename": "video_script.docx", "size": 34000, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
-                {"filename": "storyboard.pdf", "size": 2300000, "content_type": "application/pdf"},
-            ],
         },
     ]
 
@@ -947,7 +552,7 @@ Olivia - Creative""",
             "body_text": msg_data["body_text"],
             "is_read": msg_data.get("is_read", False),
             "is_starred": msg_data.get("is_starred", False),
-            "priority": msg_data.get("priority", MessagePriority.NORMAL),
+            "priority": msg_data.get("priority", MessagePriority.NORMAL.value),
             "attachments": msg_data.get("attachments", []),
             "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
             "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
@@ -1028,22 +633,23 @@ Thanks""",
         },
     ]
 
-    for msg_data in sent_messages:
-        storage.create_message({
-            "folder_id": sent_id,
-            "from_address": ME["email"],
-            "to_addresses": [msg_data["to"]["email"]],
-            "subject": msg_data["subject"],
-            "body_text": msg_data["body_text"],
-            "is_read": True,
-            "status": MessageStatus.SENT,
-            "sent_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-            "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-            "headers": {"To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"},
-        })
-        messages_created += 1
+    if sent_id:
+        for msg_data in sent_messages:
+            storage.create_message({
+                "folder_id": sent_id,
+                "from_address": ME["email"],
+                "to_addresses": [msg_data["to"]["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": True,
+                "status": MessageStatus.SENT.value,
+                "sent_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
+                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
+                "headers": {"To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"},
+            })
+            messages_created += 1
 
-    # Draft messages (2 messages)
+    # Draft messages (3 messages)
     draft_messages = [
         {
             "to": CONTACTS[4],
@@ -1076,21 +682,318 @@ Thanks for the forecast. A few questions:
 
 [Need to finish this]""",
         },
+        {
+            "to": CONTACTS[12],
+            "subject": "Infrastructure Concerns",
+            "body_text": """Maya,
+
+I wanted to discuss some concerns about our current infrastructure setup.
+
+Points to cover:
+- Database replication lag
+- CDN cache invalidation issues
+-
+
+[WIP - will finish tomorrow]""",
+        },
     ]
 
-    for msg_data in draft_messages:
-        storage.create_message({
-            "folder_id": drafts_id,
-            "from_address": ME["email"],
-            "to_addresses": [msg_data["to"]["email"]],
-            "subject": msg_data["subject"],
-            "body_text": msg_data["body_text"],
+    if drafts_id:
+        for msg_data in draft_messages:
+            storage.create_message({
+                "folder_id": drafts_id,
+                "from_address": ME["email"],
+                "to_addresses": [msg_data["to"]["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": True,
+                "status": MessageStatus.DRAFT.value,
+                "received_at": base_time.isoformat(),
+                "headers": {"To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"},
+            })
+            messages_created += 1
+
+    # Trash messages (4 messages - deleted emails)
+    trash_messages = [
+        {
+            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "subject": "Old Meeting Notes - Can Delete",
+            "body_text": """Team,
+
+Here are the notes from last month's retrospective. We've already actioned all items.
+
+Feel free to delete this after review.
+
+Thanks""",
+            "hours_ago": 120,
             "is_read": True,
-            "status": MessageStatus.DRAFT,
-            "received_at": base_time.isoformat(),
-            "headers": {"To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"},
-        })
-        messages_created += 1
+        },
+        {
+            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "subject": "RE: Outdated Info",
+            "body_text": """This information is no longer relevant. The project was cancelled.
+
+Archiving for reference.""",
+            "hours_ago": 200,
+            "is_read": True,
+        },
+        {
+            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "subject": "Test Email - Please Ignore",
+            "body_text": """This is a test email to verify the system is working.
+
+Please delete.""",
+            "hours_ago": 96,
+            "is_read": True,
+        },
+        {
+            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "subject": "Duplicate: Q4 Report",
+            "body_text": """Accidentally sent this twice. Please use the other copy.
+
+Apologies for the confusion.""",
+            "hours_ago": 150,
+            "is_read": True,
+        },
+    ]
+
+    if trash_id:
+        for msg_data in trash_messages:
+            storage.create_message({
+                "folder_id": trash_id,
+                "from_address": msg_data["from"]["email"],
+                "to_addresses": [ME["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": msg_data.get("is_read", True),
+                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
+                "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
+            })
+            messages_created += 1
+
+    # Spam messages (5 messages - junk mail)
+    spam_messages = [
+        {
+            "from": {"name": "Nigerian Prince", "email": "prince@totallylegit.ng"},
+            "subject": "URGENT: $10 Million Inheritance Awaits!!!",
+            "body_text": """Dear Beloved Friend,
+
+I am Prince Abdullah from Nigeria. My late father left $10 MILLION dollars and I need YOUR help to transfer it!!!
+
+Please send your bank details immediately!!!
+
+God Bless,
+Prince Abdullah""",
+            "hours_ago": 24,
+            "is_read": False,
+        },
+        {
+            "from": {"name": "Pharmacy Online", "email": "deals@ch3ap-m3ds.xyz"},
+            "subject": "85% OFF All Medications - LIMITED TIME!!!",
+            "body_text": """BUY NOW!!! CHEAP MEDICATIONS!!!
+
+All prescriptions 85% off!!!
+No doctor needed!!!
+Ship worldwide!!!
+
+Click here: [SUSPICIOUS LINK REMOVED]""",
+            "hours_ago": 36,
+            "is_read": False,
+        },
+        {
+            "from": {"name": "Lottery Winner", "email": "winner@lotto-prize.ru"},
+            "subject": "YOU WON $5,000,000!!!",
+            "body_text": """CONGRATULATIONS!!!
+
+Your email was randomly selected to WIN $5,000,000!!!
+
+To claim your prize, send $500 processing fee to:
+[SUSPICIOUS PAYMENT DETAILS REMOVED]
+
+ACT NOW!!!""",
+            "hours_ago": 48,
+            "is_read": False,
+        },
+        {
+            "from": {"name": "Tech Support", "email": "support@micr0s0ft-help.com"},
+            "subject": "ALERT: Your computer has a virus!!!",
+            "body_text": """URGENT SECURITY ALERT!!!
+
+Our system detected 47 VIRUSES on your computer!!!
+
+Call 1-800-SCAM-NOW immediately for free virus removal!!!
+
+Your Microsoft Support Team""",
+            "hours_ago": 72,
+            "is_read": False,
+        },
+        {
+            "from": {"name": "Hot Singles", "email": "dating@meet-now.biz"},
+            "subject": "3 Hot Singles in Your Area Want to Meet!!!",
+            "body_text": """Don't be alone tonight!!!
+
+Beautiful singles are waiting to meet YOU!!!
+
+Click here to see profiles: [SUSPICIOUS LINK REMOVED]
+
+Unsubscribe: [MORE SUSPICIOUS LINKS]""",
+            "hours_ago": 60,
+            "is_read": False,
+        },
+    ]
+
+    if spam_id:
+        for msg_data in spam_messages:
+            storage.create_message({
+                "folder_id": spam_id,
+                "from_address": msg_data["from"]["email"],
+                "to_addresses": [ME["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": msg_data.get("is_read", False),
+                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
+                "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
+            })
+            messages_created += 1
+
+    # Archive messages (6 messages - old but kept for reference)
+    archive_messages = [
+        {
+            "from": CONTACTS[0],
+            "subject": "Project Alpha - Final Report",
+            "body_text": """Team,
+
+Attached is the final report for Project Alpha. The project was completed successfully on time and under budget.
+
+Key achievements:
+- 30% performance improvement
+- Zero critical bugs at launch
+- 95% user satisfaction score
+
+Great work everyone!
+
+Alice""",
+            "hours_ago": 720,  # 30 days ago
+            "is_read": True,
+            "attachments": [{"filename": "Project_Alpha_Final_Report.pdf", "size": 2500000, "content_type": "application/pdf"}],
+        },
+        {
+            "from": CONTACTS[3],
+            "subject": "2025 Annual Financial Summary",
+            "body_text": """Hi,
+
+Please find attached the 2025 annual financial summary for your records.
+
+Highlights:
+- Revenue: $4.2M (+25% YoY)
+- Expenses: $3.1M
+- Net Income: $1.1M
+
+Detailed breakdown in the attachment.
+
+David - Finance""",
+            "hours_ago": 600,  # 25 days ago
+            "is_read": True,
+            "attachments": [{"filename": "2025_Financial_Summary.xlsx", "size": 890000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}],
+        },
+        {
+            "from": CONTACTS[6],
+            "subject": "Employee Handbook - Updated Version",
+            "body_text": """Dear Team,
+
+The employee handbook has been updated for 2026. Key changes:
+
+- Remote work policy updates
+- New benefits package details
+- Updated code of conduct
+
+Please review and acknowledge.
+
+Grace - HR""",
+            "hours_ago": 480,  # 20 days ago
+            "is_read": True,
+            "attachments": [{"filename": "Employee_Handbook_2026.pdf", "size": 3400000, "content_type": "application/pdf"}],
+        },
+        {
+            "from": CONTACTS[10],
+            "subject": "Contract Signed: Enterprise Agreement",
+            "body_text": """Good news! The enterprise agreement with TechGiant Inc has been fully executed.
+
+Contract Details:
+- Term: 3 years
+- Value: $500K/year
+- Start Date: January 1, 2026
+
+Signed copies attached for your records.
+
+Karen - Legal""",
+            "hours_ago": 360,  # 15 days ago
+            "is_read": True,
+            "attachments": [{"filename": "TechGiant_Enterprise_Agreement_Signed.pdf", "size": 450000, "content_type": "application/pdf"}],
+        },
+        {
+            "from": CONTACTS[12],
+            "subject": "Infrastructure Upgrade Complete",
+            "body_text": """Team,
+
+The infrastructure upgrade is complete. Summary:
+
+- Database migrated to new cluster
+- CDN upgraded to enterprise tier
+- Monitoring systems enhanced
+- All security patches applied
+
+Performance metrics show 40% improvement in response times.
+
+Maya - Operations""",
+            "hours_ago": 240,  # 10 days ago
+            "is_read": True,
+        },
+        {
+            "from": CONTACTS[11],
+            "subject": "Product Roadmap 2026 - Final Version",
+            "body_text": """Hi all,
+
+The 2026 product roadmap has been finalized and approved by leadership.
+
+Q1 Focus:
+- Mobile app launch
+- Dark mode
+- Performance improvements
+
+Q2 Focus:
+- Calendar integration
+- Advanced filters
+- API v3
+
+Detailed roadmap attached.
+
+Leo - Product""",
+            "hours_ago": 168,  # 7 days ago
+            "is_read": True,
+            "is_starred": True,
+            "attachments": [{"filename": "Product_Roadmap_2026.pdf", "size": 1200000, "content_type": "application/pdf"}],
+        },
+    ]
+
+    if archive_id:
+        for msg_data in archive_messages:
+            storage.create_message({
+                "folder_id": archive_id,
+                "from_address": msg_data["from"]["email"],
+                "to_addresses": [ME["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": msg_data.get("is_read", True),
+                "is_starred": msg_data.get("is_starred", False),
+                "attachments": msg_data.get("attachments", []),
+                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
+                "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
+            })
+            messages_created += 1
+
+    # Update folder counts
+    storage._update_folder_counts()
 
     return messages_created
 

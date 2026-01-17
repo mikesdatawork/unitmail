@@ -3,7 +3,7 @@ SMTP receiver module for unitMail gateway.
 
 This module provides an async SMTP server implementation using aiosmtpd
 for receiving incoming email messages. It handles STARTTLS, sender/recipient
-validation, message parsing, and database storage via Supabase.
+validation, message parsing, and database storage via SQLite.
 """
 
 import asyncio
@@ -19,7 +19,7 @@ from aiosmtpd.handlers import AsyncMessage
 from aiosmtpd.smtp import SMTP, AuthResult, Envelope, LoginPassword, Session
 
 from common.config import SMTPSettings, get_settings
-from common.database import SupabaseClient, get_db
+from common.storage import EmailStorage, get_storage
 from common.exceptions import (
     InvalidMessageError,
     QueryError,
@@ -38,18 +38,18 @@ class SMTPAuthenticator:
     """
     Handles SMTP authentication for the receiver.
 
-    Validates credentials against the database and manages
+    Validates credentials against the SQLite database and manages
     authenticated session state.
     """
 
-    def __init__(self, db: SupabaseClient) -> None:
+    def __init__(self, storage: EmailStorage) -> None:
         """
         Initialize the authenticator.
 
         Args:
-            db: Supabase client for database operations.
+            storage: EmailStorage instance for database operations.
         """
-        self._db = db
+        self._storage = storage
 
     async def authenticate(
         self,
@@ -74,16 +74,19 @@ class SMTPAuthenticator:
 
             logger.debug("Authentication attempt for user: %s", username)
 
-            # Look up user by email or username
-            user = await self._db.users.get_by_email(username)
+            # Look up user by email (synchronous SQLite call)
+            user = self._storage.get_user_by_email(username)
             if not user:
-                user = await self._db.users.get_by_username(username)
+                # Try getting default user if email matches local domain
+                default_user = self._storage.get_default_user()
+                if default_user and username.lower() == default_user.get("email", "").lower():
+                    user = default_user
 
             if not user:
                 logger.warning("Authentication failed: user not found: %s", username)
                 return AuthResult(success=False, handled=True)
 
-            if not user.is_active:
+            if not user.get("is_active", True):
                 logger.warning("Authentication failed: user inactive: %s", username)
                 return AuthResult(success=False, handled=True)
 
@@ -94,9 +97,9 @@ class SMTPAuthenticator:
 
             # Store user info in session for later use
             session.auth_data = {
-                "user_id": str(user.id),
-                "email": user.email,
-                "username": user.username,
+                "user_id": str(user["id"]),
+                "email": user.get("email", ""),
+                "username": user.get("username", ""),
             }
 
             return AuthResult(success=True, handled=True)
@@ -111,7 +114,7 @@ class SMTPHandler:
     Handler for incoming SMTP messages.
 
     Processes received emails, validates senders/recipients,
-    parses message content, and stores to database.
+    parses message content, and stores to SQLite database.
     """
 
     # Maximum message size (50 MB)
@@ -119,7 +122,7 @@ class SMTPHandler:
 
     def __init__(
         self,
-        db: SupabaseClient,
+        storage: EmailStorage,
         parser: EmailParser,
         allowed_domains: Optional[list[str]] = None,
         require_auth_for_relay: bool = True,
@@ -128,12 +131,12 @@ class SMTPHandler:
         Initialize the SMTP handler.
 
         Args:
-            db: Supabase client for database operations.
+            storage: EmailStorage instance for database operations.
             parser: Email parser instance.
             allowed_domains: List of domains to accept mail for.
             require_auth_for_relay: Require authentication for relaying.
         """
-        self._db = db
+        self._storage = storage
         self._parser = parser
         self._allowed_domains = allowed_domains or []
         self._require_auth_for_relay = require_auth_for_relay
@@ -244,8 +247,14 @@ class SMTPHandler:
                     )
                     return "550 5.7.1 Relaying denied. Authentication required."
 
-        # Check if recipient exists in our system
-        recipient_user = await self._db.users.get_by_email(address)
+        # Check if recipient exists in our system (synchronous SQLite call)
+        recipient_user = self._storage.get_user_by_email(address)
+        if not recipient_user:
+            # For local mail client, also accept mail for the default user
+            default_user = self._storage.get_default_user()
+            if default_user:
+                recipient_user = default_user
+
         if not recipient_user and self._allowed_domains and domain in self._allowed_domains:
             logger.warning("Recipient not found: %s", address)
             return "550 5.1.1 User not found"
@@ -298,7 +307,7 @@ class SMTPHandler:
             stored_count = 0
             for recipient in envelope.rcpt_tos:
                 try:
-                    await self._store_message(
+                    self._store_message(
                         parsed=parsed,
                         sender=envelope.mail_from or parsed.from_address,
                         recipient=recipient,
@@ -328,16 +337,16 @@ class SMTPHandler:
             logger.error("Error processing message: %s", str(e))
             return "451 4.3.0 Temporary server error"
 
-    async def _store_message(
+    def _store_message(
         self,
         parsed: ParsedEmail,
         sender: str,
         recipient: str,
         session: Session,
         raw_content: bytes,
-    ) -> Message:
+    ) -> dict:
         """
-        Store a received message in the database.
+        Store a received message in the SQLite database.
 
         Args:
             parsed: Parsed email content.
@@ -347,25 +356,32 @@ class SMTPHandler:
             raw_content: Raw message content.
 
         Returns:
-            Created Message object.
+            Created message dictionary.
         """
-        # Look up the recipient user
-        user = await self._db.users.get_by_email(recipient)
+        # Look up the recipient user (for local client, use default user)
+        user = self._storage.get_user_by_email(recipient)
+        if not user:
+            user = self._storage.get_default_user()
+
         if not user:
             raise InvalidMessageError(f"Recipient not found: {recipient}")
 
         # Get or create the inbox folder for the user
-        folders = await self._db.folders.get_by_user(user.id)
+        folders = self._storage.get_folders_by_user(user["id"])
         inbox_folder = None
         for folder in folders:
-            if folder.folder_type == FolderType.INBOX:
+            if folder.get("folder_type") == FolderType.INBOX.value:
                 inbox_folder = folder
                 break
 
+        # Fallback to get inbox by name
+        if not inbox_folder:
+            inbox_folder = self._storage.get_folder_by_name("Inbox")
+
         # Prepare message data
         message_data = {
-            "user_id": str(user.id),
-            "folder_id": str(inbox_folder.id) if inbox_folder else None,
+            "user_id": str(user["id"]),
+            "folder_id": str(inbox_folder["id"]) if inbox_folder else None,
             "message_id": parsed.message_id,
             "from_address": sender,
             "to_addresses": parsed.to_addresses,
@@ -383,17 +399,17 @@ class SMTPHandler:
             "received_at": datetime.utcnow().isoformat(),
         }
 
-        # Create the message in database
-        message = await self._db.messages.create(message_data)
+        # Create the message in SQLite database
+        message = self._storage.create_message(message_data)
 
         # Update folder message count
         if inbox_folder:
-            await self._db.folders.increment_message_count(
-                inbox_folder.id, unread=True
+            self._storage.increment_folder_message_count(
+                inbox_folder["id"], unread=True
             )
 
         logger.debug(
-            "Message stored: id=%s, recipient=%s", message.id, recipient
+            "Message stored: id=%s, recipient=%s", message["id"], recipient
         )
 
         return message
@@ -419,7 +435,7 @@ class SMTPReceiver:
     - Supports STARTTLS for encryption
     - Validates sender and recipient addresses
     - Parses email messages including MIME multipart
-    - Stores messages to database via Supabase
+    - Stores messages to SQLite database
     - Enforces size limits (default 50MB max)
     - Comprehensive logging
     """
@@ -434,7 +450,7 @@ class SMTPReceiver:
         require_starttls: bool = False,
         allowed_domains: Optional[list[str]] = None,
         max_message_size: int = 50 * 1024 * 1024,
-        db: Optional[SupabaseClient] = None,
+        storage: Optional[EmailStorage] = None,
     ) -> None:
         """
         Initialize the SMTP receiver.
@@ -448,7 +464,7 @@ class SMTPReceiver:
             require_starttls: Require STARTTLS before accepting mail.
             allowed_domains: List of domains to accept mail for.
             max_message_size: Maximum message size in bytes.
-            db: Supabase client (uses default if not provided).
+            storage: EmailStorage instance (uses default if not provided).
         """
         self.host = host
         self.port = port
@@ -459,7 +475,7 @@ class SMTPReceiver:
         self.allowed_domains = allowed_domains or []
         self.max_message_size = max_message_size
 
-        self._db = db or get_db()
+        self._storage = storage or get_storage()
         self._parser = EmailParser(max_attachment_size=max_message_size)
         self._controller: Optional[Controller] = None
         self._running = False
@@ -543,13 +559,13 @@ class SMTPReceiver:
 
             # Create handler and authenticator
             handler = SMTPHandler(
-                db=self._db,
+                storage=self._storage,
                 parser=self._parser,
                 allowed_domains=self.allowed_domains,
                 require_auth_for_relay=True,
             )
 
-            authenticator = SMTPAuthenticator(self._db)
+            authenticator = SMTPAuthenticator(self._storage)
 
             # Create the controller
             self._controller = Controller(
@@ -638,8 +654,9 @@ class SMTPReceiver:
 
         # Check database connectivity
         try:
-            db_healthy = await self._db.health_check()
-            result["database"] = "connected" if db_healthy else "disconnected"
+            stats = self._storage.get_database_stats()
+            result["database"] = "connected"
+            result["message_count"] = stats.get("total_messages", 0)
         except Exception as e:
             result["database"] = f"error: {str(e)}"
             result["status"] = "degraded"

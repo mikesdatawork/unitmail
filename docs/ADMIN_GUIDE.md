@@ -294,10 +294,13 @@ app_name = "unitMail Gateway"
 environment = "production"
 debug = false
 
-[database]
-url = "https://your-project.supabase.co"
-key = "your-anon-key"
-service_role_key = "your-service-role-key"
+[storage]
+data_dir = "/var/lib/unitmail/data"
+database_name = "unitmail.db"
+backup_enabled = true
+backup_dir = "/var/lib/unitmail/backups"
+backup_retention_days = 30
+cache_size_mb = 32
 
 [smtp]
 host = "0.0.0.0"

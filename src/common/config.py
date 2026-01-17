@@ -21,27 +21,44 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .exceptions import ConfigurationError, InvalidConfigError, MissingConfigError
 
 
-class DatabaseSettings(BaseSettings):
-    """Database/Supabase configuration settings."""
+class StorageSettings(BaseSettings):
+    """SQLite storage configuration settings."""
 
     model_config = SettingsConfigDict(
-        env_prefix="SUPABASE_",
+        env_prefix="STORAGE_",
         extra="ignore",
     )
 
-    url: str = Field(..., description="Supabase project URL")
-    key: str = Field(..., description="Supabase API key (anon or service role)")
-    service_role_key: Optional[str] = Field(
-        None, description="Supabase service role key for admin operations"
+    data_dir: str = Field(
+        default="~/.unitmail/data",
+        description="Directory for SQLite database and data files"
+    )
+    database_name: str = Field(
+        default="unitmail.db",
+        description="SQLite database filename"
+    )
+    backup_enabled: bool = Field(
+        default=True,
+        description="Enable automatic backups"
+    )
+    backup_dir: str = Field(
+        default="~/.unitmail/backups",
+        description="Directory for database backups"
+    )
+    backup_retention_days: int = Field(
+        default=30,
+        description="Number of days to retain backups"
+    )
+    cache_size_mb: int = Field(
+        default=32,
+        description="SQLite cache size in megabytes"
     )
 
-    @field_validator("url")
-    @classmethod
-    def validate_url(cls, v: str) -> str:
-        """Validate Supabase URL format."""
-        if not v.startswith(("http://", "https://")):
-            raise ValueError("URL must start with http:// or https://")
-        return v.rstrip("/")
+    @property
+    def database_path(self) -> str:
+        """Get the full database path."""
+        data_dir = os.path.expanduser(self.data_dir)
+        return os.path.join(data_dir, self.database_name)
 
 
 class SMTPSettings(BaseSettings):
@@ -220,7 +237,7 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Debug mode")
 
     # Sub-settings
-    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
     smtp: SMTPSettings = Field(default_factory=SMTPSettings)
     api: APISettings = Field(default_factory=APISettings)
     dns: DNSSettings = Field(default_factory=DNSSettings)
@@ -275,8 +292,8 @@ class Settings(BaseSettings):
         if "app" in data:
             settings_kwargs.update(data["app"])
 
-        if "database" in data:
-            settings_kwargs["database"] = DatabaseSettings(**data["database"])
+        if "storage" in data:
+            settings_kwargs["storage"] = StorageSettings(**data["storage"])
 
         if "smtp" in data:
             settings_kwargs["smtp"] = SMTPSettings(**data["smtp"])
@@ -305,12 +322,6 @@ class Settings(BaseSettings):
         Raises:
             MissingConfigError: If required configuration is missing.
         """
-        # Check database configuration
-        if not self.database.url:
-            raise MissingConfigError("SUPABASE_URL")
-        if not self.database.key:
-            raise MissingConfigError("SUPABASE_KEY")
-
         # Check JWT secret in production
         if self.environment == "production":
             if self.api.jwt_secret == "change-me-in-production":

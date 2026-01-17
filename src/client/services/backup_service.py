@@ -6,31 +6,27 @@ backups of user data including messages, contacts, folders, configuration,
 DKIM keys, and PGP keys.
 """
 
-import asyncio
 import hashlib
 import io
 import json
 import logging
 import os
 import secrets
-import struct
-import tempfile
+import shutil
 import zipfile
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
-from uuid import UUID
 
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, padding as sym_padding
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from common.database import SupabaseClient, get_db
+from common.storage import EmailStorage, get_storage
 from common.exceptions import CryptoError, UnitMailError
-from common.models import Contact, Folder, Message
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +72,11 @@ class BackupMetadata:
     version: str = "1.0"
     created_at: str = ""
     backup_type: str = BackupType.FULL.value
-    user_id: str = ""
-    user_email: str = ""
     app_version: str = "1.0.0"
     last_backup_timestamp: Optional[str] = None
     contents: dict[str, int] = field(default_factory=dict)
     checksum: str = ""
+    database_path: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -97,9 +92,7 @@ class BackupMetadata:
 class BackupContents:
     """Contents included in a backup."""
 
-    messages: bool = True
-    contacts: bool = True
-    folders: bool = True
+    database: bool = True
     configuration: bool = True
     dkim_keys: bool = True
     pgp_keys: bool = True
@@ -116,7 +109,7 @@ class RestorePreview:
     has_configuration: bool = False
     has_dkim_keys: bool = False
     has_pgp_keys: bool = False
-    conflicts: dict[str, list[str]] = field(default_factory=dict)
+    database_size_bytes: int = 0
 
 
 @dataclass
@@ -243,35 +236,34 @@ class BackupService:
     """
     Service for creating and restoring unitMail backups.
 
-    Supports full and incremental backups with AES-256 encryption.
+    Supports full backups with AES-256 encryption.
+    Backups include the SQLite database file and configuration.
     """
 
     BACKUP_EXTENSION = ".unitmail-backup"
     METADATA_FILE = "metadata.json"
-    MESSAGES_FILE = "messages.json"
-    CONTACTS_FILE = "contacts.json"
-    FOLDERS_FILE = "folders.json"
+    DATABASE_FILE = "unitmail.db"
     CONFIG_FILE = "config.json"
     DKIM_KEYS_DIR = "dkim_keys/"
     PGP_KEYS_DIR = "pgp_keys/"
 
     def __init__(
         self,
-        db: Optional[SupabaseClient] = None,
+        storage: Optional[EmailStorage] = None,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> None:
         """
         Initialize the backup service.
 
         Args:
-            db: Database client. If None, uses global instance.
+            storage: EmailStorage instance. If None, uses global instance.
             progress_callback: Optional callback for progress updates.
         """
-        self._db = db or get_db()
+        self._storage = storage or get_storage()
         self._progress_callback = progress_callback
         self._last_backup_path: Optional[Path] = None
 
-        logger.info("BackupService initialized")
+        logger.info("BackupService initialized with SQLite storage")
 
     def set_progress_callback(self, callback: Optional[ProgressCallback]) -> None:
         """Set the progress callback."""
@@ -299,15 +291,11 @@ class BackupService:
             )
             self._progress_callback(progress)
 
-    async def create_backup(
+    def create_backup(
         self,
         output_path: Union[str, Path],
         password: str,
-        user_id: UUID,
-        user_email: str = "",
         contents: Optional[BackupContents] = None,
-        incremental: bool = False,
-        last_backup_timestamp: Optional[datetime] = None,
     ) -> BackupMetadata:
         """
         Create a backup of user data.
@@ -315,11 +303,7 @@ class BackupService:
         Args:
             output_path: Path for the backup file.
             password: Encryption password.
-            user_id: ID of user to backup.
-            user_email: User's email for metadata.
             contents: What to include in backup.
-            incremental: If True, only backup changes since last_backup_timestamp.
-            last_backup_timestamp: For incremental backups, the timestamp of last backup.
 
         Returns:
             Backup metadata.
@@ -336,77 +320,81 @@ class BackupService:
         self._report_progress("backup", "Initializing backup", 0, 100)
 
         try:
+            # Get database path from storage
+            db_path = self._storage.db_path
+
             # Create metadata
             metadata = BackupMetadata(
                 created_at=datetime.utcnow().isoformat(),
-                backup_type=BackupType.INCREMENTAL.value if incremental else BackupType.FULL.value,
-                user_id=str(user_id),
-                user_email=user_email,
-                last_backup_timestamp=last_backup_timestamp.isoformat() if last_backup_timestamp else None,
+                backup_type=BackupType.FULL.value,
+                database_path=db_path,
             )
+
+            # Get database stats for metadata
+            stats = self._storage.get_database_stats()
+            metadata.contents = {
+                "messages": stats.get("total_messages", 0),
+                "attachments": stats.get("total_attachments", 0),
+                "folders": stats.get("folder_count", 0),
+            }
 
             # Create in-memory zip
             zip_buffer = io.BytesIO()
 
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-                item_counts: dict[str, int] = {}
                 total_steps = sum([
-                    contents.messages,
-                    contents.contacts,
-                    contents.folders,
+                    contents.database,
                     contents.configuration,
                     contents.dkim_keys,
                     contents.pgp_keys,
                 ])
                 current_step = 0
 
-                # Backup messages
-                if contents.messages:
-                    self._report_progress("backup", "Backing up messages", current_step, total_steps)
-                    count = await self._backup_messages(
-                        zf, user_id, incremental, last_backup_timestamp
-                    )
-                    item_counts["messages"] = count
-                    current_step += 1
-
-                # Backup contacts
-                if contents.contacts:
-                    self._report_progress("backup", "Backing up contacts", current_step, total_steps)
-                    count = await self._backup_contacts(
-                        zf, user_id, incremental, last_backup_timestamp
-                    )
-                    item_counts["contacts"] = count
-                    current_step += 1
-
-                # Backup folders
-                if contents.folders:
-                    self._report_progress("backup", "Backing up folders", current_step, total_steps)
-                    count = await self._backup_folders(zf, user_id)
-                    item_counts["folders"] = count
+                # Backup database file
+                if contents.database:
+                    self._report_progress("backup", "Backing up database", current_step, total_steps)
+                    if os.path.exists(db_path):
+                        # Read the database file
+                        with open(db_path, "rb") as f:
+                            zf.writestr(self.DATABASE_FILE, f.read())
+                        metadata.contents["database_size"] = os.path.getsize(db_path)
                     current_step += 1
 
                 # Backup configuration
                 if contents.configuration:
                     self._report_progress("backup", "Backing up configuration", current_step, total_steps)
-                    count = await self._backup_configuration(zf, user_id)
-                    item_counts["configuration"] = count
+                    config_path = os.path.expanduser("~/.config/unitmail/settings.json")
+                    if os.path.exists(config_path):
+                        with open(config_path, "r") as f:
+                            zf.writestr(self.CONFIG_FILE, f.read())
+                        metadata.contents["configuration"] = 1
                     current_step += 1
 
                 # Backup DKIM keys
                 if contents.dkim_keys:
                     self._report_progress("backup", "Backing up DKIM keys", current_step, total_steps)
-                    count = await self._backup_dkim_keys(zf, user_id)
-                    item_counts["dkim_keys"] = count
+                    dkim_dir = os.path.expanduser("~/.unitmail/keys/dkim")
+                    if os.path.exists(dkim_dir):
+                        for filename in os.listdir(dkim_dir):
+                            filepath = os.path.join(dkim_dir, filename)
+                            if os.path.isfile(filepath):
+                                with open(filepath, "rb") as f:
+                                    zf.writestr(f"{self.DKIM_KEYS_DIR}{filename}", f.read())
+                        metadata.contents["dkim_keys"] = 1
                     current_step += 1
 
                 # Backup PGP keys
                 if contents.pgp_keys:
                     self._report_progress("backup", "Backing up PGP keys", current_step, total_steps)
-                    count = await self._backup_pgp_keys(zf, user_id)
-                    item_counts["pgp_keys"] = count
+                    pgp_dir = os.path.expanduser("~/.unitmail/keys/pgp")
+                    if os.path.exists(pgp_dir):
+                        for filename in os.listdir(pgp_dir):
+                            filepath = os.path.join(pgp_dir, filename)
+                            if os.path.isfile(filepath):
+                                with open(filepath, "rb") as f:
+                                    zf.writestr(f"{self.PGP_KEYS_DIR}{filename}", f.read())
+                        metadata.contents["pgp_keys"] = 1
                     current_step += 1
-
-                metadata.contents = item_counts
 
                 # Calculate checksum of zip contents
                 zip_buffer.seek(0)
@@ -446,146 +434,7 @@ class BackupService:
             logger.error("Backup failed: %s", str(e))
             raise BackupError(f"Failed to create backup: {e}")
 
-    async def _backup_messages(
-        self,
-        zf: zipfile.ZipFile,
-        user_id: UUID,
-        incremental: bool,
-        since: Optional[datetime],
-    ) -> int:
-        """Backup messages to zip file."""
-        try:
-            if incremental and since:
-                # For incremental, we'd need to filter by updated_at
-                # This is a simplified version - full implementation would
-                # add a filter to the query
-                messages = await self._db.messages.get_by_user(user_id, limit=10000)
-                messages = [m for m in messages if m.updated_at >= since]
-            else:
-                messages = await self._db.messages.get_by_user(user_id, limit=10000)
-
-            messages_data = [m.to_dict() for m in messages]
-            zf.writestr(self.MESSAGES_FILE, json.dumps(messages_data, indent=2, default=str))
-
-            return len(messages_data)
-
-        except Exception as e:
-            logger.warning("Failed to backup messages: %s", str(e))
-            return 0
-
-    async def _backup_contacts(
-        self,
-        zf: zipfile.ZipFile,
-        user_id: UUID,
-        incremental: bool,
-        since: Optional[datetime],
-    ) -> int:
-        """Backup contacts to zip file."""
-        try:
-            if incremental and since:
-                contacts = await self._db.contacts.get_by_user(user_id, limit=10000)
-                contacts = [c for c in contacts if c.updated_at >= since]
-            else:
-                contacts = await self._db.contacts.get_by_user(user_id, limit=10000)
-
-            contacts_data = [c.to_dict() for c in contacts]
-            zf.writestr(self.CONTACTS_FILE, json.dumps(contacts_data, indent=2, default=str))
-
-            return len(contacts_data)
-
-        except Exception as e:
-            logger.warning("Failed to backup contacts: %s", str(e))
-            return 0
-
-    async def _backup_folders(
-        self,
-        zf: zipfile.ZipFile,
-        user_id: UUID,
-    ) -> int:
-        """Backup folders to zip file."""
-        try:
-            folders = await self._db.folders.get_by_user(user_id)
-            folders_data = [f.to_dict() for f in folders]
-            zf.writestr(self.FOLDERS_FILE, json.dumps(folders_data, indent=2, default=str))
-
-            return len(folders_data)
-
-        except Exception as e:
-            logger.warning("Failed to backup folders: %s", str(e))
-            return 0
-
-    async def _backup_configuration(
-        self,
-        zf: zipfile.ZipFile,
-        user_id: UUID,
-    ) -> int:
-        """Backup configuration to zip file."""
-        try:
-            configs = await self._db.config.get_all(filters={"user_id": user_id})
-            configs_data = [c.to_dict() for c in configs]
-            zf.writestr(self.CONFIG_FILE, json.dumps(configs_data, indent=2, default=str))
-
-            return len(configs_data)
-
-        except Exception as e:
-            logger.warning("Failed to backup configuration: %s", str(e))
-            return 0
-
-    async def _backup_dkim_keys(
-        self,
-        zf: zipfile.ZipFile,
-        user_id: UUID,
-    ) -> int:
-        """Backup DKIM keys to zip file."""
-        try:
-            # Get DKIM keys from config
-            dkim_keys = await self._db.config.get_value(
-                "dkim_keys",
-                user_id=user_id,
-                default={},
-            )
-
-            if dkim_keys:
-                zf.writestr(
-                    f"{self.DKIM_KEYS_DIR}keys.json",
-                    json.dumps(dkim_keys, indent=2),
-                )
-                return 1
-
-            return 0
-
-        except Exception as e:
-            logger.warning("Failed to backup DKIM keys: %s", str(e))
-            return 0
-
-    async def _backup_pgp_keys(
-        self,
-        zf: zipfile.ZipFile,
-        user_id: UUID,
-    ) -> int:
-        """Backup PGP keys to zip file."""
-        try:
-            # Get PGP keys from config
-            pgp_keys = await self._db.config.get_value(
-                "pgp_keys",
-                user_id=user_id,
-                default={},
-            )
-
-            if pgp_keys:
-                zf.writestr(
-                    f"{self.PGP_KEYS_DIR}keys.json",
-                    json.dumps(pgp_keys, indent=2),
-                )
-                return 1
-
-            return 0
-
-        except Exception as e:
-            logger.warning("Failed to backup PGP keys: %s", str(e))
-            return 0
-
-    async def preview_restore(
+    def preview_restore(
         self,
         backup_path: Union[str, Path],
         password: str,
@@ -622,18 +471,10 @@ class BackupService:
 
                 preview = RestorePreview(metadata=metadata)
 
-                # Count items
-                if self.MESSAGES_FILE in zf.namelist():
-                    messages_json = zf.read(self.MESSAGES_FILE).decode("utf-8")
-                    preview.messages_count = len(json.loads(messages_json))
-
-                if self.CONTACTS_FILE in zf.namelist():
-                    contacts_json = zf.read(self.CONTACTS_FILE).decode("utf-8")
-                    preview.contacts_count = len(json.loads(contacts_json))
-
-                if self.FOLDERS_FILE in zf.namelist():
-                    folders_json = zf.read(self.FOLDERS_FILE).decode("utf-8")
-                    preview.folders_count = len(json.loads(folders_json))
+                # Get counts from metadata
+                preview.messages_count = metadata.contents.get("messages", 0)
+                preview.folders_count = metadata.contents.get("folders", 0)
+                preview.database_size_bytes = metadata.contents.get("database_size", 0)
 
                 preview.has_configuration = self.CONFIG_FILE in zf.namelist()
                 preview.has_dkim_keys = any(
@@ -650,14 +491,12 @@ class BackupService:
         except Exception as e:
             raise RestoreError(f"Failed to read backup: {e}")
 
-    async def restore(
+    def restore(
         self,
         backup_path: Union[str, Path],
         password: str,
-        user_id: UUID,
         mode: RestoreMode = RestoreMode.FULL,
         contents: Optional[BackupContents] = None,
-        conflict_resolution: ConflictResolution = ConflictResolution.SKIP,
     ) -> dict[str, int]:
         """
         Restore data from a backup.
@@ -665,10 +504,8 @@ class BackupService:
         Args:
             backup_path: Path to backup file.
             password: Decryption password.
-            user_id: ID of user to restore data for.
             mode: Full or selective restore.
             contents: What to restore (for selective mode).
-            conflict_resolution: How to handle conflicts.
 
         Returns:
             Dictionary with counts of restored items.
@@ -689,7 +526,6 @@ class BackupService:
             self._report_progress("restore", "Decrypting backup", 10, 100)
             decrypted_data = BackupEncryption.decrypt(encrypted_data, password)
 
-            # Verify checksum
             zip_buffer = io.BytesIO(decrypted_data)
             restored_counts: dict[str, int] = {}
 
@@ -698,71 +534,83 @@ class BackupService:
                 metadata_json = zf.read(self.METADATA_FILE).decode("utf-8")
                 metadata = BackupMetadata.from_dict(json.loads(metadata_json))
 
-                total_steps = 6
+                total_steps = 4
                 current_step = 0
 
-                # Restore folders first (needed for message folder references)
-                if contents.folders and self.FOLDERS_FILE in zf.namelist():
-                    self._report_progress("restore", "Restoring folders", current_step, total_steps)
-                    folders_json = zf.read(self.FOLDERS_FILE).decode("utf-8")
-                    count = await self._restore_folders(
-                        json.loads(folders_json), user_id, conflict_resolution
-                    )
-                    restored_counts["folders"] = count
-                current_step += 1
+                # Restore database
+                if contents.database and self.DATABASE_FILE in zf.namelist():
+                    self._report_progress("restore", "Restoring database", current_step, total_steps)
 
-                # Restore messages
-                if contents.messages and self.MESSAGES_FILE in zf.namelist():
-                    self._report_progress("restore", "Restoring messages", current_step, total_steps)
-                    messages_json = zf.read(self.MESSAGES_FILE).decode("utf-8")
-                    count = await self._restore_messages(
-                        json.loads(messages_json), user_id, conflict_resolution
-                    )
-                    restored_counts["messages"] = count
-                current_step += 1
+                    # Close current storage connection
+                    self._storage.close()
 
-                # Restore contacts
-                if contents.contacts and self.CONTACTS_FILE in zf.namelist():
-                    self._report_progress("restore", "Restoring contacts", current_step, total_steps)
-                    contacts_json = zf.read(self.CONTACTS_FILE).decode("utf-8")
-                    count = await self._restore_contacts(
-                        json.loads(contacts_json), user_id, conflict_resolution
-                    )
-                    restored_counts["contacts"] = count
+                    # Get database path
+                    db_path = self._storage.db_path
+
+                    # Backup existing database
+                    if os.path.exists(db_path):
+                        backup_existing = f"{db_path}.pre-restore"
+                        shutil.copy2(db_path, backup_existing)
+                        logger.info(f"Backed up existing database to {backup_existing}")
+
+                    # Extract new database
+                    db_data = zf.read(self.DATABASE_FILE)
+                    with open(db_path, "wb") as f:
+                        f.write(db_data)
+
+                    restored_counts["database"] = 1
+                    restored_counts["messages"] = metadata.contents.get("messages", 0)
+                    restored_counts["folders"] = metadata.contents.get("folders", 0)
+
                 current_step += 1
 
                 # Restore configuration
                 if contents.configuration and self.CONFIG_FILE in zf.namelist():
                     self._report_progress("restore", "Restoring configuration", current_step, total_steps)
-                    config_json = zf.read(self.CONFIG_FILE).decode("utf-8")
-                    count = await self._restore_configuration(
-                        json.loads(config_json), user_id, conflict_resolution
-                    )
-                    restored_counts["configuration"] = count
+                    config_path = os.path.expanduser("~/.config/unitmail/settings.json")
+                    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+                    config_data = zf.read(self.CONFIG_FILE)
+                    with open(config_path, "wb") as f:
+                        f.write(config_data)
+
+                    restored_counts["configuration"] = 1
                 current_step += 1
 
                 # Restore DKIM keys
                 if contents.dkim_keys:
-                    dkim_file = f"{self.DKIM_KEYS_DIR}keys.json"
-                    if dkim_file in zf.namelist():
+                    dkim_files = [n for n in zf.namelist() if n.startswith(self.DKIM_KEYS_DIR)]
+                    if dkim_files:
                         self._report_progress("restore", "Restoring DKIM keys", current_step, total_steps)
-                        dkim_json = zf.read(dkim_file).decode("utf-8")
-                        count = await self._restore_dkim_keys(
-                            json.loads(dkim_json), user_id
-                        )
-                        restored_counts["dkim_keys"] = count
+                        dkim_dir = os.path.expanduser("~/.unitmail/keys/dkim")
+                        os.makedirs(dkim_dir, exist_ok=True)
+
+                        for dkim_file in dkim_files:
+                            filename = os.path.basename(dkim_file)
+                            if filename:
+                                data = zf.read(dkim_file)
+                                with open(os.path.join(dkim_dir, filename), "wb") as f:
+                                    f.write(data)
+
+                        restored_counts["dkim_keys"] = len(dkim_files)
                 current_step += 1
 
                 # Restore PGP keys
                 if contents.pgp_keys:
-                    pgp_file = f"{self.PGP_KEYS_DIR}keys.json"
-                    if pgp_file in zf.namelist():
+                    pgp_files = [n for n in zf.namelist() if n.startswith(self.PGP_KEYS_DIR)]
+                    if pgp_files:
                         self._report_progress("restore", "Restoring PGP keys", current_step, total_steps)
-                        pgp_json = zf.read(pgp_file).decode("utf-8")
-                        count = await self._restore_pgp_keys(
-                            json.loads(pgp_json), user_id
-                        )
-                        restored_counts["pgp_keys"] = count
+                        pgp_dir = os.path.expanduser("~/.unitmail/keys/pgp")
+                        os.makedirs(pgp_dir, exist_ok=True)
+
+                        for pgp_file in pgp_files:
+                            filename = os.path.basename(pgp_file)
+                            if filename:
+                                data = zf.read(pgp_file)
+                                with open(os.path.join(pgp_dir, filename), "wb") as f:
+                                    f.write(data)
+
+                        restored_counts["pgp_keys"] = len(pgp_files)
                 current_step += 1
 
             self._report_progress("restore", "Restore complete", total_steps, total_steps)
@@ -776,171 +624,6 @@ class BackupService:
         except Exception as e:
             logger.error("Restore failed: %s", str(e))
             raise RestoreError(f"Restore failed: {e}")
-
-    async def _restore_messages(
-        self,
-        messages_data: list[dict[str, Any]],
-        user_id: UUID,
-        conflict_resolution: ConflictResolution,
-    ) -> int:
-        """Restore messages from backup data."""
-        restored_count = 0
-
-        for msg_data in messages_data:
-            try:
-                # Check for existing message with same message_id
-                existing = None
-                if "message_id" in msg_data:
-                    # Would need to add a get_by_message_id method
-                    pass
-
-                if existing and conflict_resolution == ConflictResolution.SKIP:
-                    continue
-
-                # Update user_id to current user
-                msg_data["user_id"] = str(user_id)
-
-                if existing and conflict_resolution == ConflictResolution.OVERWRITE:
-                    await self._db.messages.update(existing.id, msg_data)
-                else:
-                    # Remove id to create new record
-                    msg_data.pop("id", None)
-                    await self._db.messages.create(msg_data)
-
-                restored_count += 1
-
-            except Exception as e:
-                logger.warning("Failed to restore message: %s", str(e))
-
-        return restored_count
-
-    async def _restore_contacts(
-        self,
-        contacts_data: list[dict[str, Any]],
-        user_id: UUID,
-        conflict_resolution: ConflictResolution,
-    ) -> int:
-        """Restore contacts from backup data."""
-        restored_count = 0
-
-        for contact_data in contacts_data:
-            try:
-                email = contact_data.get("email", "")
-                existing = await self._db.contacts.get_by_email(user_id, email)
-
-                if existing and conflict_resolution == ConflictResolution.SKIP:
-                    continue
-
-                contact_data["user_id"] = str(user_id)
-
-                if existing and conflict_resolution == ConflictResolution.OVERWRITE:
-                    await self._db.contacts.update(existing.id, contact_data)
-                else:
-                    contact_data.pop("id", None)
-                    await self._db.contacts.create(contact_data)
-
-                restored_count += 1
-
-            except Exception as e:
-                logger.warning("Failed to restore contact: %s", str(e))
-
-        return restored_count
-
-    async def _restore_folders(
-        self,
-        folders_data: list[dict[str, Any]],
-        user_id: UUID,
-        conflict_resolution: ConflictResolution,
-    ) -> int:
-        """Restore folders from backup data."""
-        restored_count = 0
-
-        for folder_data in folders_data:
-            try:
-                # Skip system folders
-                if folder_data.get("is_system"):
-                    continue
-
-                folder_data["user_id"] = str(user_id)
-                folder_data.pop("id", None)
-
-                await self._db.folders.create(folder_data)
-                restored_count += 1
-
-            except Exception as e:
-                logger.warning("Failed to restore folder: %s", str(e))
-
-        return restored_count
-
-    async def _restore_configuration(
-        self,
-        config_data: list[dict[str, Any]],
-        user_id: UUID,
-        conflict_resolution: ConflictResolution,
-    ) -> int:
-        """Restore configuration from backup data."""
-        restored_count = 0
-
-        for config in config_data:
-            try:
-                key = config.get("key", "")
-
-                await self._db.config.set_value(
-                    key=key,
-                    value=config.get("value"),
-                    user_id=user_id,
-                    description=config.get("description"),
-                    is_secret=config.get("is_secret", False),
-                    category=config.get("category", "general"),
-                )
-                restored_count += 1
-
-            except Exception as e:
-                logger.warning("Failed to restore config %s: %s", key, str(e))
-
-        return restored_count
-
-    async def _restore_dkim_keys(
-        self,
-        dkim_data: dict[str, Any],
-        user_id: UUID,
-    ) -> int:
-        """Restore DKIM keys from backup data."""
-        try:
-            await self._db.config.set_value(
-                key="dkim_keys",
-                value=dkim_data,
-                user_id=user_id,
-                description="DKIM signing keys",
-                is_secret=True,
-                category="security",
-            )
-            return 1
-
-        except Exception as e:
-            logger.warning("Failed to restore DKIM keys: %s", str(e))
-            return 0
-
-    async def _restore_pgp_keys(
-        self,
-        pgp_data: dict[str, Any],
-        user_id: UUID,
-    ) -> int:
-        """Restore PGP keys from backup data."""
-        try:
-            await self._db.config.set_value(
-                key="pgp_keys",
-                value=pgp_data,
-                user_id=user_id,
-                description="PGP encryption keys",
-                is_secret=True,
-                category="security",
-            )
-            return 1
-
-        except Exception as e:
-            logger.warning("Failed to restore PGP keys: %s", str(e))
-            return 0
 
     @staticmethod
     def validate_backup_file(path: Union[str, Path]) -> bool:
@@ -962,7 +645,8 @@ class BackupService:
             return False
 
         # Check file size (minimum size for encrypted data)
-        if path.stat().st_size < BackupEncryption.SALT_SIZE + BackupEncryption.NONCE_SIZE + BackupEncryption.TAG_SIZE:
+        min_size = BackupEncryption.SALT_SIZE + BackupEncryption.NONCE_SIZE + BackupEncryption.TAG_SIZE
+        if path.stat().st_size < min_size:
             return False
 
         return True
@@ -970,6 +654,22 @@ class BackupService:
     def get_last_backup_path(self) -> Optional[Path]:
         """Get the path of the last created backup."""
         return self._last_backup_path
+
+    def get_backup_recommendations(self) -> dict[str, Any]:
+        """
+        Get recommendations for backup based on current state.
+
+        Returns:
+            Dictionary with backup recommendations.
+        """
+        stats = self._storage.get_database_stats()
+
+        return {
+            "database_size_mb": stats.get("database_size_bytes", 0) / (1024 * 1024),
+            "message_count": stats.get("total_messages", 0),
+            "recommended_backup": stats.get("total_messages", 0) > 100,
+            "estimated_backup_size_mb": stats.get("database_size_bytes", 0) / (1024 * 1024) * 1.1,
+        }
 
 
 # Singleton instance

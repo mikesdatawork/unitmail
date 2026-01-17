@@ -2,8 +2,8 @@
 unitMail Search Service.
 
 This module provides the SearchService class for executing searches
-against the Supabase database, including full-text search, advanced
-filtering, result caching, and search history management.
+against the SQLite database, including full-text search using FTS5,
+advanced filtering, result caching, and search history management.
 """
 
 import hashlib
@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from uuid import UUID
+
+from common.storage import EmailStorage, get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -178,65 +179,71 @@ class SearchResult:
     A single search result item.
 
     Attributes:
-        id: Message UUID.
+        id: Message ID.
         message_id: RFC 5322 Message-ID.
-        folder_id: Folder UUID.
+        folder_id: Folder ID.
         from_address: Sender email address.
         to_addresses: List of recipient addresses.
         subject: Message subject.
         body_preview: First 200 characters of body.
         received_at: Message received timestamp.
-        flags: Message flags (read, starred, etc.).
+        is_read: Whether message is read.
+        is_starred: Whether message is starred.
         encrypted: Whether message is encrypted.
         rank: Relevance rank from FTS (if applicable).
         has_attachments: Whether message has attachments.
     """
 
-    id: str
+    id: int
     message_id: str
-    folder_id: Optional[str]
+    folder_id: Optional[int]
     from_address: str
     to_addresses: List[str]
     subject: Optional[str]
     body_preview: Optional[str]
     received_at: datetime
-    flags: Dict[str, bool]
+    is_read: bool
+    is_starred: bool
     encrypted: bool
     rank: Optional[float] = None
     has_attachments: bool = False
 
-    @property
-    def is_read(self) -> bool:
-        """Check if message is read."""
-        return self.flags.get("read", False)
-
-    @property
-    def is_starred(self) -> bool:
-        """Check if message is starred."""
-        return self.flags.get("starred", False)
-
     @classmethod
-    def from_supabase_row(cls, row: Dict[str, Any]) -> "SearchResult":
-        """Create SearchResult from Supabase query result row."""
-        # Handle attachments - check if attachments field exists and is non-empty
-        attachments = row.get("attachments", [])
-        has_attachments = bool(attachments and len(attachments) > 0)
+    def from_sqlite_row(cls, row: Dict[str, Any]) -> "SearchResult":
+        """Create SearchResult from SQLite query result row."""
+        # Handle to_addresses - may be JSON string or list
+        to_addresses = row.get("to_addresses", [])
+        if isinstance(to_addresses, str):
+            try:
+                to_addresses = json.loads(to_addresses)
+            except json.JSONDecodeError:
+                to_addresses = [to_addresses] if to_addresses else []
+
+        # Parse received_at
+        received_at = row.get("received_at")
+        if isinstance(received_at, str):
+            received_at = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+        elif received_at is None:
+            received_at = datetime.now()
+
+        # Get body preview
+        body_text = row.get("body_text", "") or ""
+        body_preview = body_text[:200] if body_text else None
 
         return cls(
-            id=str(row["id"]),
-            message_id=row["message_id"],
-            folder_id=str(row["folder"]) if row.get("folder") else None,
-            from_address=row["from_addr"],
-            to_addresses=row.get("to_addr", []),
+            id=row["id"],
+            message_id=row.get("message_id", ""),
+            folder_id=row.get("folder_id"),
+            from_address=row.get("from_address", ""),
+            to_addresses=to_addresses if isinstance(to_addresses, list) else [],
             subject=row.get("subject"),
-            body_preview=row.get("body_preview"),
-            received_at=datetime.fromisoformat(row["received_at"].replace("Z", "+00:00"))
-            if isinstance(row["received_at"], str)
-            else row["received_at"],
-            flags=row.get("flags", {"read": False, "starred": False}),
-            encrypted=row.get("encrypted", False),
+            body_preview=body_preview,
+            received_at=received_at,
+            is_read=bool(row.get("is_read", False)),
+            is_starred=bool(row.get("is_starred", False)),
+            encrypted=bool(row.get("is_encrypted", False)),
             rank=row.get("rank"),
-            has_attachments=has_attachments,
+            has_attachments=bool(row.get("has_attachments", False)),
         )
 
 
@@ -390,7 +397,7 @@ class SearchResultCache:
 
 class SearchService:
     """
-    Service for executing message searches against Supabase.
+    Service for executing message searches against SQLite using FTS5.
 
     Provides methods for:
     - Quick search (simple text query)
@@ -403,20 +410,20 @@ class SearchService:
     MAX_HISTORY_SIZE = 50
     MAX_SAVED_SEARCHES = 20
 
-    def __init__(self, supabase_client: Any) -> None:
+    def __init__(self, storage: Optional[EmailStorage] = None) -> None:
         """
         Initialize the search service.
 
         Args:
-            supabase_client: Supabase client instance for database access.
+            storage: EmailStorage instance for database access.
         """
-        self._client = supabase_client
+        self._storage = storage or get_storage()
         self._cache = SearchResultCache()
         self._history: List[SearchHistoryEntry] = []
         self._saved_searches: Dict[str, SavedSearch] = {}
         self._search_listeners: List[Callable[[SearchResults], None]] = []
 
-        logger.info("SearchService initialized")
+        logger.info("SearchService initialized with SQLite FTS5")
 
     def add_search_listener(
         self, callback: Callable[[SearchResults], None]
@@ -449,18 +456,15 @@ class SearchService:
             except Exception as e:
                 logger.error(f"Error in search listener: {e}")
 
-    async def quick_search(
+    def quick_search(
         self,
         query: str,
-        folder_id: Optional[str] = None,
+        folder_id: Optional[int] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> SearchResults:
         """
-        Perform a quick full-text search.
-
-        Uses the database search_messages function for efficient
-        full-text search with relevance ranking.
+        Perform a quick full-text search using FTS5.
 
         Args:
             query: Search query string.
@@ -473,14 +477,14 @@ class SearchService:
         """
         criteria = SearchCriteria(
             query=query,
-            folder_id=folder_id,
+            folder_id=str(folder_id) if folder_id else None,
             sort_order=SearchSortOrder.RELEVANCE,
             limit=limit,
             offset=offset,
         )
-        return await self.search(criteria)
+        return self.search(criteria)
 
-    async def search(
+    def search(
         self,
         criteria: SearchCriteria,
         use_cache: bool = True,
@@ -509,10 +513,10 @@ class SearchService:
                 return cached
 
         # Execute search based on criteria complexity
-        if self._should_use_advanced_search(criteria):
-            results = await self._execute_advanced_search(criteria)
+        if criteria.query:
+            results = self._execute_fts_search(criteria)
         else:
-            results = await self._execute_simple_search(criteria)
+            results = self._execute_filter_search(criteria)
 
         # Calculate search time
         search_time_ms = (time.time() - start_time) * 1000
@@ -534,25 +538,9 @@ class SearchService:
 
         return results
 
-    def _should_use_advanced_search(self, criteria: SearchCriteria) -> bool:
-        """Determine if advanced search function should be used."""
-        return any(
-            [
-                criteria.from_address,
-                criteria.to_address,
-                criteria.date_from,
-                criteria.date_to,
-                criteria.is_starred is not None,
-                criteria.is_unread is not None,
-                criteria.is_encrypted is not None,
-            ]
-        )
-
-    async def _execute_simple_search(
-        self, criteria: SearchCriteria
-    ) -> SearchResults:
+    def _execute_fts_search(self, criteria: SearchCriteria) -> SearchResults:
         """
-        Execute a simple full-text search using the database function.
+        Execute a full-text search using SQLite FTS5.
 
         Args:
             criteria: Search criteria.
@@ -561,42 +549,56 @@ class SearchService:
             SearchResults from the search.
         """
         try:
-            # Call the search_messages database function
-            response = await self._client.rpc(
-                "search_messages",
-                {
-                    "search_query": criteria.query or "",
-                    "folder_filter": criteria.folder_id,
-                    "limit_count": criteria.limit,
-                    "offset_count": criteria.offset,
-                },
-            ).execute()
+            # Get folder name if folder_id provided
+            folder_name = None
+            if criteria.folder_id:
+                try:
+                    folder_id = int(criteria.folder_id)
+                    folders = self._storage.get_folders()
+                    for f in folders:
+                        if f["id"] == folder_id:
+                            folder_name = f["name"]
+                            break
+                except (ValueError, TypeError):
+                    pass
 
-            results = [
-                SearchResult.from_supabase_row(row) for row in response.data
-            ]
+            # Use storage's FTS5 search method
+            rows = self._storage.search_messages(
+                query=criteria.query or "",
+                folder_name=folder_name,
+                limit=criteria.limit,
+            )
 
-            # Get total count (approximate for performance)
+            results = [SearchResult.from_sqlite_row(dict(row)) for row in rows]
+
+            # Apply additional filters
+            results = self._apply_filters(results, criteria)
+
+            # Apply sorting
+            results = self._sort_results(results, criteria.sort_order)
+
+            # Apply offset
+            if criteria.offset > 0:
+                results = results[criteria.offset:]
+
+            # Get total count
             total_count = len(results)
             if len(results) == criteria.limit:
-                # There might be more results
                 total_count = criteria.offset + criteria.limit + 1
 
             return SearchResults(
-                results=results,
+                results=results[:criteria.limit],
                 total_count=total_count,
                 criteria=criteria,
             )
 
         except Exception as e:
-            logger.error(f"Simple search failed: {e}")
+            logger.error(f"FTS search failed: {e}")
             raise SearchError(f"Search failed: {e}") from e
 
-    async def _execute_advanced_search(
-        self, criteria: SearchCriteria
-    ) -> SearchResults:
+    def _execute_filter_search(self, criteria: SearchCriteria) -> SearchResults:
         """
-        Execute an advanced search with multiple filters.
+        Execute a search using filters without FTS.
 
         Args:
             criteria: Search criteria with filters.
@@ -605,56 +607,38 @@ class SearchService:
             SearchResults from the search.
         """
         try:
-            # Build parameters for the advanced search function
-            params = {
-                "search_query": criteria.query if criteria.query else None,
-                "folder_filter": criteria.folder_id,
-                "from_filter": criteria.from_address,
-                "to_filter": criteria.to_address,
-                "date_from": criteria.date_from.isoformat()
-                if criteria.date_from
-                else None,
-                "date_to": criteria.date_to.isoformat()
-                if criteria.date_to
-                else None,
-                "is_read": not criteria.is_unread
-                if criteria.is_unread is not None
-                else None,
-                "is_starred": criteria.is_starred,
-                "is_encrypted": criteria.is_encrypted,
-                "limit_count": criteria.limit,
-                "offset_count": criteria.offset,
-            }
+            # Get all messages from the folder or all folders
+            folder_name = None
+            if criteria.folder_id:
+                try:
+                    folder_id = int(criteria.folder_id)
+                    folders = self._storage.get_folders()
+                    for f in folders:
+                        if f["id"] == folder_id:
+                            folder_name = f["name"]
+                            break
+                except (ValueError, TypeError):
+                    pass
 
-            response = await self._client.rpc(
-                "search_messages_advanced", params
-            ).execute()
+            if folder_name:
+                rows = self._storage.get_messages_by_folder(folder_name)
+            else:
+                # Get messages from all folders
+                rows = []
+                for folder in self._storage.get_folders():
+                    rows.extend(self._storage.get_messages_by_folder(folder["name"]))
 
-            results = [
-                SearchResult.from_supabase_row(row) for row in response.data
-            ]
+            results = [SearchResult.from_sqlite_row(dict(row)) for row in rows]
 
-            # Apply client-side filters for criteria not in the DB function
-            if criteria.subject_contains:
-                results = [
-                    r
-                    for r in results
-                    if r.subject
-                    and criteria.subject_contains.lower() in r.subject.lower()
-                ]
-
-            if criteria.has_attachments is not None:
-                results = [
-                    r for r in results if r.has_attachments == criteria.has_attachments
-                ]
+            # Apply filters
+            results = self._apply_filters(results, criteria)
 
             # Apply sorting
             results = self._sort_results(results, criteria.sort_order)
 
-            # Get total count
+            # Apply pagination
             total_count = len(results)
-            if len(results) == criteria.limit:
-                total_count = criteria.offset + criteria.limit + 1
+            results = results[criteria.offset:criteria.offset + criteria.limit]
 
             return SearchResults(
                 results=results,
@@ -663,8 +647,59 @@ class SearchService:
             )
 
         except Exception as e:
-            logger.error(f"Advanced search failed: {e}")
+            logger.error(f"Filter search failed: {e}")
             raise SearchError(f"Search failed: {e}") from e
+
+    def _apply_filters(
+        self,
+        results: List[SearchResult],
+        criteria: SearchCriteria,
+    ) -> List[SearchResult]:
+        """Apply additional filters to search results."""
+        filtered = results
+
+        if criteria.from_address:
+            filtered = [
+                r for r in filtered
+                if criteria.from_address.lower() in r.from_address.lower()
+            ]
+
+        if criteria.to_address:
+            filtered = [
+                r for r in filtered
+                if any(
+                    criteria.to_address.lower() in addr.lower()
+                    for addr in r.to_addresses
+                )
+            ]
+
+        if criteria.subject_contains:
+            filtered = [
+                r for r in filtered
+                if r.subject and criteria.subject_contains.lower() in r.subject.lower()
+            ]
+
+        if criteria.date_from:
+            filtered = [r for r in filtered if r.received_at >= criteria.date_from]
+
+        if criteria.date_to:
+            filtered = [r for r in filtered if r.received_at <= criteria.date_to]
+
+        if criteria.is_starred is not None:
+            filtered = [r for r in filtered if r.is_starred == criteria.is_starred]
+
+        if criteria.is_unread is not None:
+            filtered = [r for r in filtered if r.is_read != criteria.is_unread]
+
+        if criteria.is_encrypted is not None:
+            filtered = [r for r in filtered if r.encrypted == criteria.is_encrypted]
+
+        if criteria.has_attachments is not None:
+            filtered = [
+                r for r in filtered if r.has_attachments == criteria.has_attachments
+            ]
+
+        return filtered
 
     def _sort_results(
         self,
@@ -705,7 +740,7 @@ class SearchService:
             )
         return results
 
-    async def search_by_sender(
+    def search_by_sender(
         self,
         sender: str,
         limit: int = 50,
@@ -724,9 +759,9 @@ class SearchService:
             from_address=sender,
             limit=limit,
         )
-        return await self.search(criteria)
+        return self.search(criteria)
 
-    async def search_by_date_range(
+    def search_by_date_range(
         self,
         start_date: datetime,
         end_date: datetime,
@@ -751,9 +786,9 @@ class SearchService:
             folder_id=folder_id,
             limit=limit,
         )
-        return await self.search(criteria)
+        return self.search(criteria)
 
-    async def search_unread(
+    def search_unread(
         self,
         folder_id: Optional[str] = None,
         limit: int = 50,
@@ -773,9 +808,9 @@ class SearchService:
             folder_id=folder_id,
             limit=limit,
         )
-        return await self.search(criteria)
+        return self.search(criteria)
 
-    async def search_starred(
+    def search_starred(
         self,
         folder_id: Optional[str] = None,
         limit: int = 50,
@@ -795,9 +830,9 @@ class SearchService:
             folder_id=folder_id,
             limit=limit,
         )
-        return await self.search(criteria)
+        return self.search(criteria)
 
-    async def search_with_attachments(
+    def search_with_attachments(
         self,
         folder_id: Optional[str] = None,
         limit: int = 50,
@@ -817,7 +852,7 @@ class SearchService:
             folder_id=folder_id,
             limit=limit,
         )
-        return await self.search(criteria)
+        return self.search(criteria)
 
     # Search History Management
 
@@ -964,7 +999,7 @@ class SearchService:
             return True
         return False
 
-    async def run_saved_search(self, search_id: str) -> Optional[SearchResults]:
+    def run_saved_search(self, search_id: str) -> Optional[SearchResults]:
         """
         Execute a saved search.
 
@@ -981,7 +1016,7 @@ class SearchService:
         saved.last_used = datetime.now()
         saved.use_count += 1
 
-        return await self.search(saved.criteria)
+        return self.search(saved.criteria)
 
     # Cache Management
 
@@ -1063,3 +1098,22 @@ class SearchError(Exception):
     """Exception raised for search-related errors."""
 
     pass
+
+
+# Singleton instance
+_search_service: Optional[SearchService] = None
+
+
+def get_search_service() -> SearchService:
+    """
+    Get the global search service instance.
+
+    Returns:
+        The singleton SearchService instance.
+    """
+    global _search_service
+
+    if _search_service is None:
+        _search_service = SearchService()
+
+    return _search_service

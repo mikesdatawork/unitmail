@@ -48,7 +48,7 @@ This guide covers the installation of unitMail on Linux systems. unitMail provid
 
 - Python 3.11 or later
 - GTK 4.0 or later
-- PostgreSQL 3.35 or later
+- SQLite 3.35 or later (built into Python)
 - OpenSSL 3.0 or later
 - systemd (for service management)
 
@@ -205,7 +205,7 @@ sudo python setup.py install
 | Package | Purpose |
 |---------|---------|
 | WireGuard | Mesh networking |
-| pgcrypto | Database encryption |
+| SQLCipher | Database encryption |
 | Rspamd | Spam filtering |
 | ClamAV | Antivirus scanning |
 
@@ -216,9 +216,9 @@ sudo python setup.py install
 sudo apt install wireguard  # Ubuntu/Debian
 sudo dnf install wireguard-tools  # Fedora
 
-# PostgreSQL with pgcrypto (for encrypted database)
-sudo apt install postgresql postgresql-contrib libpq-dev  # Ubuntu/Debian
-sudo dnf install postgresql postgresql-contrib libpq-devel  # Fedora
+# SQLCipher (for encrypted database - optional)
+sudo apt install sqlcipher libsqlcipher-dev  # Ubuntu/Debian
+sudo dnf install sqlcipher sqlcipher-devel  # Fedora
 ```
 
 ---
@@ -286,7 +286,7 @@ _dmarc.yourdomain.com. IN TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdoma
 ### Step 5: Security Settings (Optional)
 
 - **PGP Key Generation**: Create a new key pair for end-to-end encryption
-- **Database Encryption**: Enable pgcrypto for encrypted local storage
+- **Database Encryption**: Enable SQLCipher for encrypted local storage
 - **Mesh Network**: Join or create a private mesh network
 
 ### Step 6: Complete Setup
@@ -355,19 +355,22 @@ sudo setcap 'cap_net_bind_service=+ep' /usr/bin/unitmail-gateway
 
 #### Database Connection Error
 
-**Problem**: "Unable to connect to Supabase"
+**Problem**: "Unable to open database"
 
 **Solution**:
-1. Verify your Supabase URL and API key in `~/.config/unitmail/settings.toml`
-2. Check internet connectivity
-3. Ensure your Supabase project is active
+1. Verify the data directory exists and is writable
+2. Check for database file corruption
+3. Ensure sufficient disk space
 
 ```bash
-# Test connectivity
-curl -I https://your-project.supabase.co/rest/v1/
+# Check data directory
+ls -la ~/.unitmail/data/
 
-# Check configuration
-cat ~/.config/unitmail/settings.toml
+# Test database integrity
+sqlite3 ~/.unitmail/data/unitmail.db "PRAGMA integrity_check;"
+
+# Check disk space
+df -h ~/.unitmail/
 ```
 
 ### Startup Issues

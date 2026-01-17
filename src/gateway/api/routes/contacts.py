@@ -3,21 +3,19 @@ Contact routes for unitMail Gateway API.
 
 This module provides endpoints for contact/address book management
 including listing, creating, updating, and deleting contacts.
+Uses SQLite for storage.
 """
 
-import asyncio
 import logging
 from typing import Any, Optional
-from uuid import UUID
 
 from flask import Blueprint, Response, g, jsonify, request
 from pydantic import BaseModel, EmailStr, Field, ValidationError
 
-from ....common.database import get_db
-from ....common.exceptions import DuplicateRecordError, RecordNotFoundError
-from ....common.models import ContactCreate, ContactUpdate
+from common.storage import get_storage
+from common.exceptions import DuplicateRecordError, RecordNotFoundError
 from ..middleware import rate_limit
-from .auth import require_auth
+from ..auth import require_auth
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -33,13 +31,12 @@ class CreateContactRequest(BaseModel):
 
     email: EmailStr = Field(..., description="Contact email address")
     name: Optional[str] = Field(None, max_length=200, description="Contact name")
-    nickname: Optional[str] = Field(None, max_length=50, description="Contact nickname")
+    display_name: Optional[str] = Field(None, max_length=200, description="Display name")
     phone: Optional[str] = Field(None, max_length=20, description="Phone number")
     organization: Optional[str] = Field(
         None, max_length=200, description="Organization name"
     )
     notes: Optional[str] = Field(None, description="Additional notes")
-    tags: list[str] = Field(default_factory=list, description="Contact tags")
     is_favorite: bool = Field(default=False, description="Mark as favorite")
 
 
@@ -48,13 +45,12 @@ class UpdateContactRequest(BaseModel):
 
     email: Optional[EmailStr] = Field(None, description="Contact email address")
     name: Optional[str] = Field(None, max_length=200, description="Contact name")
-    nickname: Optional[str] = Field(None, max_length=50, description="Contact nickname")
+    display_name: Optional[str] = Field(None, max_length=200, description="Display name")
     phone: Optional[str] = Field(None, max_length=20, description="Phone number")
     organization: Optional[str] = Field(
         None, max_length=200, description="Organization name"
     )
     notes: Optional[str] = Field(None, description="Additional notes")
-    tags: Optional[list[str]] = Field(None, description="Contact tags")
     is_favorite: Optional[bool] = Field(None, description="Favorite status")
 
 
@@ -63,32 +59,21 @@ class UpdateContactRequest(BaseModel):
 # =============================================================================
 
 
-def run_async(coro):
-    """Run an async coroutine synchronously."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
-def serialize_contact(contact) -> dict[str, Any]:
-    """Serialize a contact model to JSON-compatible dict."""
+def serialize_contact(contact: dict) -> dict[str, Any]:
+    """Serialize a contact dict for JSON response."""
     return {
-        "id": str(contact.id),
-        "user_id": str(contact.user_id),
-        "email": contact.email,
-        "name": contact.name,
-        "nickname": contact.nickname,
-        "phone": contact.phone,
-        "organization": contact.organization,
-        "notes": contact.notes,
-        "is_favorite": contact.is_favorite,
-        "tags": contact.tags,
-        "metadata": contact.metadata,
-        "created_at": contact.created_at.isoformat(),
-        "updated_at": contact.updated_at.isoformat(),
+        "id": contact["id"],
+        "user_id": contact["user_id"],
+        "email": contact["email"],
+        "name": contact.get("name"),
+        "display_name": contact.get("display_name"),
+        "phone": contact.get("phone"),
+        "organization": contact.get("organization"),
+        "notes": contact.get("notes"),
+        "is_favorite": contact.get("is_favorite", False),
+        "contact_frequency": contact.get("contact_frequency", 0),
+        "created_at": contact.get("created_at"),
+        "updated_at": contact.get("updated_at"),
     }
 
 
@@ -119,7 +104,6 @@ def create_contacts_blueprint() -> Blueprint:
             - per_page: Items per page (default: 50, max: 100)
             - search: Search in name and email
             - favorites: Filter to favorites only (true/false)
-            - tag: Filter by tag
 
         Returns:
             Paginated list of contacts.
@@ -130,47 +114,32 @@ def create_contacts_blueprint() -> Blueprint:
             per_page = min(100, max(1, int(request.args.get("per_page", 50))))
             search = request.args.get("search", "").strip()
             favorites_only = request.args.get("favorites", "").lower() == "true"
-            tag_filter = request.args.get("tag", "").strip()
 
             offset = (page - 1) * per_page
 
-            db = get_db()
-
-            # Build filters
-            filters = {"user_id": UUID(g.current_user_id)}
-
-            if favorites_only:
-                filters["is_favorite"] = True
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get contacts
-            contacts = run_async(
-                db.contacts.get_all(
+            if search:
+                contacts = storage.search_contacts(
+                    query=search,
+                    user_id=user_id,
+                    limit=per_page,
+                )
+                # Apply favorites filter to search results if needed
+                if favorites_only:
+                    contacts = [c for c in contacts if c.get("is_favorite")]
+            else:
+                contacts = storage.get_contacts(
+                    user_id=user_id,
                     limit=per_page,
                     offset=offset,
-                    order_by="name",
-                    ascending=True,
-                    filters=filters,
+                    favorites_only=favorites_only,
                 )
-            )
 
-            # Apply additional filters that may need post-processing
-            if search:
-                search_lower = search.lower()
-                contacts = [
-                    c for c in contacts
-                    if (c.name and search_lower in c.name.lower()) or
-                       search_lower in c.email.lower() or
-                       (c.nickname and search_lower in c.nickname.lower())
-                ]
-
-            if tag_filter:
-                contacts = [
-                    c for c in contacts
-                    if tag_filter in c.tags
-                ]
-
-            # Get total count (approximate for filtered results)
-            total = run_async(db.contacts.count(filters={"user_id": UUID(g.current_user_id)}))
+            # Get total count
+            total = storage.count_contacts(user_id=user_id)
 
             return jsonify({
                 "contacts": [serialize_contact(c) for c in contacts],
@@ -178,7 +147,7 @@ def create_contacts_blueprint() -> Blueprint:
                     "page": page,
                     "per_page": per_page,
                     "total": total,
-                    "total_pages": (total + per_page - 1) // per_page,
+                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
                     "has_next": page * per_page < total,
                     "has_prev": page > 1,
                 },
@@ -204,32 +173,24 @@ def create_contacts_blueprint() -> Blueprint:
             Contact details.
         """
         try:
-            # Validate UUID
-            try:
-                contact_uuid = UUID(contact_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "contact_id must be a valid UUID",
-                }), 400
+            storage = get_storage()
+            contact = storage.get_contact(contact_id)
 
-            db = get_db()
-            contact = run_async(db.contacts.get_by_id(contact_uuid))
+            if not contact:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Contact not found",
+                }), 404
 
             # Check ownership
-            if str(contact.user_id) != g.current_user_id:
+            user_id = getattr(g, "user_id", None)
+            if contact.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Contact not found",
                 }), 404
 
             return jsonify(serialize_contact(contact)), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Contact not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Get contact error: {e}")
@@ -249,11 +210,10 @@ def create_contacts_blueprint() -> Blueprint:
         Request Body:
             - email: Contact email address (required)
             - name: Contact name
-            - nickname: Contact nickname
+            - display_name: Display name
             - phone: Phone number
             - organization: Organization name
             - notes: Additional notes
-            - tags: List of tags
             - is_favorite: Mark as favorite
 
         Returns:
@@ -275,12 +235,11 @@ def create_contacts_blueprint() -> Blueprint:
             }), 400
 
         try:
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Check if contact with this email already exists for user
-            existing = run_async(
-                db.contacts.get_by_email(UUID(g.current_user_id), data.email)
-            )
+            existing = storage.get_contact_by_email(str(data.email), user_id)
             if existing:
                 return jsonify({
                     "error": "Duplicate contact",
@@ -288,31 +247,24 @@ def create_contacts_blueprint() -> Blueprint:
                 }), 409
 
             # Create contact
-            contact_create = ContactCreate(
-                email=data.email,
-                name=data.name,
-                nickname=data.nickname,
-                phone=data.phone,
-                organization=data.organization,
-                notes=data.notes,
-                tags=data.tags,
-            )
+            contact_data = {
+                "user_id": user_id,
+                "email": str(data.email),
+                "name": data.name,
+                "display_name": data.display_name or data.name,
+                "phone": data.phone,
+                "organization": data.organization,
+                "notes": data.notes,
+                "is_favorite": data.is_favorite,
+            }
 
-            contact = run_async(
-                db.contacts.create_contact(UUID(g.current_user_id), contact_create)
-            )
-
-            # Update is_favorite if set
-            if data.is_favorite:
-                contact = run_async(
-                    db.contacts.update(contact.id, {"is_favorite": True})
-                )
+            contact = storage.create_contact(contact_data)
 
             logger.info(
                 "Contact created",
                 extra={
-                    "user_id": g.current_user_id,
-                    "contact_id": str(contact.id),
+                    "user_id": user_id,
+                    "contact_id": contact["id"],
                 },
             )
 
@@ -343,26 +295,16 @@ def create_contacts_blueprint() -> Blueprint:
         Request Body:
             - email: Contact email address
             - name: Contact name
-            - nickname: Contact nickname
+            - display_name: Display name
             - phone: Phone number
             - organization: Organization name
             - notes: Additional notes
-            - tags: List of tags
             - is_favorite: Favorite status
 
         Returns:
             Updated contact details.
         """
         try:
-            # Validate UUID
-            try:
-                contact_uuid = UUID(contact_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "contact_id must be a valid UUID",
-                }), 400
-
             if not request.is_json:
                 return jsonify({
                     "error": "Invalid request",
@@ -378,24 +320,29 @@ def create_contacts_blueprint() -> Blueprint:
                     "details": e.errors(),
                 }), 400
 
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing contact
-            contact = run_async(db.contacts.get_by_id(contact_uuid))
+            contact = storage.get_contact(contact_id)
+
+            if not contact:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Contact not found",
+                }), 404
 
             # Check ownership
-            if str(contact.user_id) != g.current_user_id:
+            if contact.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Contact not found",
                 }), 404
 
             # Check for email conflict if changing email
-            if data.email and data.email != contact.email:
-                existing = run_async(
-                    db.contacts.get_by_email(UUID(g.current_user_id), data.email)
-                )
-                if existing and existing.id != contact.id:
+            if data.email and str(data.email) != contact.get("email"):
+                existing = storage.get_contact_by_email(str(data.email), user_id)
+                if existing and existing["id"] != contact_id:
                     return jsonify({
                         "error": "Duplicate contact",
                         "message": f"A contact with email '{data.email}' already exists",
@@ -403,6 +350,8 @@ def create_contacts_blueprint() -> Blueprint:
 
             # Build update data (only include non-None values)
             update_data = data.model_dump(exclude_unset=True)
+            if "email" in update_data:
+                update_data["email"] = str(update_data["email"])
 
             if not update_data:
                 return jsonify({
@@ -410,25 +359,17 @@ def create_contacts_blueprint() -> Blueprint:
                     "message": "No valid fields to update",
                 }), 400
 
-            # Create update model
-            contact_update = ContactUpdate(**update_data)
-            contact = run_async(db.contacts.update_contact(contact_uuid, contact_update))
+            contact = storage.update_contact(contact_id, update_data)
 
             logger.info(
                 "Contact updated",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": user_id,
                     "contact_id": contact_id,
                 },
             )
 
             return jsonify(serialize_contact(contact)), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Contact not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Update contact error: {e}")
@@ -450,34 +391,32 @@ def create_contacts_blueprint() -> Blueprint:
             Success message.
         """
         try:
-            # Validate UUID
-            try:
-                contact_uuid = UUID(contact_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "contact_id must be a valid UUID",
-                }), 400
-
-            db = get_db()
+            storage = get_storage()
+            user_id = getattr(g, "user_id", None)
 
             # Get existing contact
-            contact = run_async(db.contacts.get_by_id(contact_uuid))
+            contact = storage.get_contact(contact_id)
+
+            if not contact:
+                return jsonify({
+                    "error": "Not found",
+                    "message": "Contact not found",
+                }), 404
 
             # Check ownership
-            if str(contact.user_id) != g.current_user_id:
+            if contact.get("user_id") != user_id:
                 return jsonify({
                     "error": "Not found",
                     "message": "Contact not found",
                 }), 404
 
             # Delete contact
-            run_async(db.contacts.delete(contact_uuid))
+            storage.delete_contact(contact_id)
 
             logger.info(
                 "Contact deleted",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": user_id,
                     "contact_id": contact_id,
                 },
             )
@@ -485,12 +424,6 @@ def create_contacts_blueprint() -> Blueprint:
             return jsonify({
                 "message": "Contact deleted successfully",
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Contact not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Delete contact error: {e}")

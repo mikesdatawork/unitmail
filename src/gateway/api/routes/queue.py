@@ -4,20 +4,19 @@ Queue routes for unitMail Gateway API.
 This module provides endpoints for message queue management
 including listing queue items, viewing statistics, retrying
 failed items, and removing items from the queue.
+Uses SQLite for storage.
 """
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID
 
 from flask import Blueprint, Response, g, jsonify, request
 
-from ....common.database import get_db
-from ....common.exceptions import RecordNotFoundError
+from common.storage import get_storage
+from common.exceptions import RecordNotFoundError
 from ..middleware import rate_limit
-from .auth import require_auth
+from ..auth import require_auth
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -28,37 +27,23 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-def run_async(coro):
-    """Run an async coroutine synchronously."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
-def serialize_queue_item(item) -> dict[str, Any]:
-    """Serialize a queue item model to JSON-compatible dict."""
-    status = item.status
-    if hasattr(status, 'value'):
-        status = status.value
-
+def serialize_queue_item(item: dict) -> dict[str, Any]:
+    """Serialize a queue item dict for JSON response."""
     return {
-        "id": str(item.id),
-        "message_id": str(item.message_id),
-        "user_id": str(item.user_id),
-        "recipient": item.recipient,
-        "status": status,
-        "priority": item.priority,
-        "attempts": item.attempts,
-        "max_attempts": item.max_attempts,
-        "last_attempt_at": item.last_attempt_at.isoformat() if item.last_attempt_at else None,
-        "next_attempt_at": item.next_attempt_at.isoformat() if item.next_attempt_at else None,
-        "error_message": item.error_message,
-        "metadata": item.metadata,
-        "created_at": item.created_at.isoformat(),
-        "updated_at": item.updated_at.isoformat(),
+        "id": item["id"],
+        "message_id": item["message_id"],
+        "user_id": item.get("user_id"),
+        "recipient": item.get("recipient"),
+        "status": item["status"],
+        "priority": item["priority"],
+        "attempts": item["attempts"],
+        "max_attempts": item["max_attempts"],
+        "last_attempt_at": item.get("last_attempt_at") or item.get("last_attempt"),
+        "next_attempt_at": item.get("next_attempt_at"),
+        "error_message": item.get("error_message"),
+        "metadata": item.get("metadata", {}),
+        "created_at": item.get("created_at"),
+        "updated_at": item.get("updated_at"),
     }
 
 
@@ -88,7 +73,6 @@ def create_queue_blueprint() -> Blueprint:
             - page: Page number (default: 1)
             - per_page: Items per page (default: 50, max: 100)
             - status: Filter by status (pending, processing, completed, failed, retrying)
-            - message_id: Filter by message ID
 
         Returns:
             Paginated list of queue items.
@@ -98,15 +82,12 @@ def create_queue_blueprint() -> Blueprint:
             page = max(1, int(request.args.get("page", 1)))
             per_page = min(100, max(1, int(request.args.get("per_page", 50))))
             status = request.args.get("status")
-            message_id = request.args.get("message_id")
 
             offset = (page - 1) * per_page
 
-            db = get_db()
+            storage = get_storage()
 
-            # Build filters
-            filters = {"user_id": UUID(g.current_user_id)}
-
+            # Build items based on status filter
             if status:
                 valid_statuses = ["pending", "processing", "completed", "failed", "retrying"]
                 if status.lower() not in valid_statuses:
@@ -114,30 +95,12 @@ def create_queue_blueprint() -> Blueprint:
                         "error": "Invalid parameter",
                         "message": f"status must be one of: {', '.join(valid_statuses)}",
                     }), 400
-                filters["status"] = status.lower()
-
-            if message_id:
-                try:
-                    filters["message_id"] = UUID(message_id)
-                except ValueError:
-                    return jsonify({
-                        "error": "Invalid parameter",
-                        "message": "message_id must be a valid UUID",
-                    }), 400
-
-            # Get queue items
-            items = run_async(
-                db.queue.get_all(
-                    limit=per_page,
-                    offset=offset,
-                    order_by="created_at",
-                    ascending=False,
-                    filters=filters,
-                )
-            )
+                items = storage.get_queue_items_by_status(status.lower(), limit=per_page)
+            else:
+                items = storage.get_pending_queue_items(limit=per_page)
 
             # Get total count
-            total = run_async(db.queue.count(filters=filters))
+            total = storage.count_queue_items(status.lower() if status else None)
 
             return jsonify({
                 "items": [serialize_queue_item(item) for item in items],
@@ -145,7 +108,7 @@ def create_queue_blueprint() -> Blueprint:
                     "page": page,
                     "per_page": per_page,
                     "total": total,
-                    "total_pages": (total + per_page - 1) // per_page,
+                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
                     "has_next": page * per_page < total,
                     "has_prev": page > 1,
                 },
@@ -163,31 +126,21 @@ def create_queue_blueprint() -> Blueprint:
     @rate_limit()
     def get_queue_stats() -> tuple[Response, int]:
         """
-        Get queue statistics for the current user.
+        Get queue statistics.
 
         Returns:
             Queue statistics including counts by status.
         """
         try:
-            db = get_db()
-            user_id = UUID(g.current_user_id)
+            storage = get_storage()
 
             # Get counts for each status
-            pending_count = run_async(
-                db.queue.count(filters={"user_id": user_id, "status": "pending"})
-            )
-            processing_count = run_async(
-                db.queue.count(filters={"user_id": user_id, "status": "processing"})
-            )
-            completed_count = run_async(
-                db.queue.count(filters={"user_id": user_id, "status": "completed"})
-            )
-            failed_count = run_async(
-                db.queue.count(filters={"user_id": user_id, "status": "failed"})
-            )
-            retrying_count = run_async(
-                db.queue.count(filters={"user_id": user_id, "status": "retrying"})
-            )
+            stats = storage.get_queue_stats()
+            pending_count = stats.get("pending", 0)
+            processing_count = stats.get("processing", 0)
+            completed_count = stats.get("completed", 0)
+            failed_count = stats.get("failed", 0)
+            retrying_count = stats.get("retrying", 0)
 
             total_count = (
                 pending_count + processing_count + completed_count +
@@ -195,14 +148,7 @@ def create_queue_blueprint() -> Blueprint:
             )
 
             # Get recent failed items for quick view
-            failed_items = run_async(
-                db.queue.get_all(
-                    limit=5,
-                    order_by="updated_at",
-                    ascending=False,
-                    filters={"user_id": user_id, "status": "failed"},
-                )
-            )
+            failed_items = storage.get_queue_items_by_status("failed", limit=5)
 
             return jsonify({
                 "statistics": {
@@ -219,14 +165,11 @@ def create_queue_blueprint() -> Blueprint:
                 },
                 "recent_failures": [
                     {
-                        "id": str(item.id),
-                        "recipient": item.recipient,
-                        "error_message": item.error_message,
-                        "attempts": item.attempts,
-                        "last_attempt_at": (
-                            item.last_attempt_at.isoformat()
-                            if item.last_attempt_at else None
-                        ),
+                        "id": item["id"],
+                        "recipient": item.get("recipient"),
+                        "error_message": item.get("error_message"),
+                        "attempts": item["attempts"],
+                        "last_attempt_at": item.get("last_attempt_at") or item.get("last_attempt"),
                     }
                     for item in failed_items
                 ],
@@ -253,32 +196,16 @@ def create_queue_blueprint() -> Blueprint:
             Queue item details.
         """
         try:
-            # Validate UUID
-            try:
-                item_uuid = UUID(item_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "item_id must be a valid UUID",
-                }), 400
+            storage = get_storage()
+            item = storage.get_queue_item(item_id)
 
-            db = get_db()
-            item = run_async(db.queue.get_by_id(item_uuid))
-
-            # Check ownership
-            if str(item.user_id) != g.current_user_id:
+            if not item:
                 return jsonify({
                     "error": "Not found",
                     "message": "Queue item not found",
                 }), 404
 
             return jsonify(serialize_queue_item(item)), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Queue item not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Get queue item error: {e}")
@@ -304,32 +231,19 @@ def create_queue_blueprint() -> Blueprint:
             Updated queue item.
         """
         try:
-            # Validate UUID
-            try:
-                item_uuid = UUID(item_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "item_id must be a valid UUID",
-                }), 400
-
-            db = get_db()
+            storage = get_storage()
 
             # Get existing item
-            item = run_async(db.queue.get_by_id(item_uuid))
+            item = storage.get_queue_item(item_id)
 
-            # Check ownership
-            if str(item.user_id) != g.current_user_id:
+            if not item:
                 return jsonify({
                     "error": "Not found",
                     "message": "Queue item not found",
                 }), 404
 
             # Check if item can be retried
-            status = item.status
-            if hasattr(status, 'value'):
-                status = status.value
-
+            status = item["status"]
             if status not in ["failed", "retrying"]:
                 return jsonify({
                     "error": "Cannot retry",
@@ -340,22 +254,21 @@ def create_queue_blueprint() -> Blueprint:
             data = request.get_json(silent=True) or {}
             reset_attempts = data.get("reset_attempts", False)
 
-            # Reset the item for retry
-            update_data = {
-                "status": "pending",
-                "error_message": None,
-                "next_attempt_at": datetime.now(timezone.utc),
-            }
-
             if reset_attempts:
-                update_data["attempts"] = 0
-
-            item = run_async(db.queue.update(item_uuid, update_data))
+                # Full retry reset
+                item = storage.retry_queue_item(item_id)
+            else:
+                # Just reset status
+                item = storage.update_queue_item(item_id, {
+                    "status": "pending",
+                    "error_message": None,
+                    "next_attempt_at": datetime.now(timezone.utc).isoformat(),
+                })
 
             logger.info(
                 "Queue item reset for retry",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": getattr(g, "user_id", None),
                     "item_id": item_id,
                     "reset_attempts": reset_attempts,
                 },
@@ -365,12 +278,6 @@ def create_queue_blueprint() -> Blueprint:
                 "message": "Queue item reset for retry",
                 "item": serialize_queue_item(item),
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Queue item not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Retry queue item error: {e}")
@@ -395,34 +302,21 @@ def create_queue_blueprint() -> Blueprint:
             Success message.
         """
         try:
-            # Validate UUID
-            try:
-                item_uuid = UUID(item_id)
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid parameter",
-                    "message": "item_id must be a valid UUID",
-                }), 400
-
             force = request.args.get("force", "false").lower() == "true"
 
-            db = get_db()
+            storage = get_storage()
 
             # Get existing item
-            item = run_async(db.queue.get_by_id(item_uuid))
+            item = storage.get_queue_item(item_id)
 
-            # Check ownership
-            if str(item.user_id) != g.current_user_id:
+            if not item:
                 return jsonify({
                     "error": "Not found",
                     "message": "Queue item not found",
                 }), 404
 
             # Check if item is processing
-            status = item.status
-            if hasattr(status, 'value'):
-                status = status.value
-
+            status = item["status"]
             if status == "processing" and not force:
                 return jsonify({
                     "error": "Cannot delete",
@@ -431,12 +325,12 @@ def create_queue_blueprint() -> Blueprint:
                 }), 400
 
             # Delete the item
-            run_async(db.queue.delete(item_uuid))
+            storage.delete_queue_item(item_id)
 
             logger.info(
                 "Queue item deleted",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": getattr(g, "user_id", None),
                     "item_id": item_id,
                 },
             )
@@ -444,12 +338,6 @@ def create_queue_blueprint() -> Blueprint:
             return jsonify({
                 "message": "Queue item deleted successfully",
             }), 200
-
-        except RecordNotFoundError:
-            return jsonify({
-                "error": "Not found",
-                "message": "Queue item not found",
-            }), 404
 
         except Exception as e:
             logger.error(f"Delete queue item error: {e}")
@@ -485,66 +373,42 @@ def create_queue_blueprint() -> Blueprint:
         reset_attempts = data.get("reset_attempts", False)
 
         try:
-            db = get_db()
-            user_id = UUID(g.current_user_id)
-
+            storage = get_storage()
             retried_count = 0
 
             if all_failed:
-                # Get all failed items for user
-                failed_items = run_async(
-                    db.queue.get_all(
-                        limit=1000,
-                        filters={"user_id": user_id, "status": "failed"},
-                    )
-                )
-                item_uuids = [item.id for item in failed_items]
-            else:
-                # Validate provided IDs
-                item_uuids = []
-                for item_id in item_ids:
-                    try:
-                        item_uuids.append(UUID(item_id))
-                    except ValueError:
-                        pass
+                # Get all failed items
+                failed_items = storage.get_queue_items_by_status("failed", limit=1000)
+                item_ids = [item["id"] for item in failed_items]
 
             # Reset each item
-            for item_uuid in item_uuids:
+            for item_id in item_ids:
                 try:
-                    item = run_async(db.queue.get_by_id(item_uuid))
-
-                    # Check ownership
-                    if str(item.user_id) != g.current_user_id:
+                    item = storage.get_queue_item(item_id)
+                    if not item:
                         continue
 
                     # Check status
-                    status = item.status
-                    if hasattr(status, 'value'):
-                        status = status.value
-
-                    if status not in ["failed", "retrying"]:
+                    if item["status"] not in ["failed", "retrying"]:
                         continue
 
-                    # Reset for retry
-                    update_data = {
-                        "status": "pending",
-                        "error_message": None,
-                        "next_attempt_at": datetime.now(timezone.utc),
-                    }
-
                     if reset_attempts:
-                        update_data["attempts"] = 0
-
-                    run_async(db.queue.update(item_uuid, update_data))
+                        storage.retry_queue_item(item_id)
+                    else:
+                        storage.update_queue_item(item_id, {
+                            "status": "pending",
+                            "error_message": None,
+                            "next_attempt_at": datetime.now(timezone.utc).isoformat(),
+                        })
                     retried_count += 1
 
-                except RecordNotFoundError:
+                except Exception:
                     continue
 
             logger.info(
                 "Batch retry completed",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": getattr(g, "user_id", None),
                     "retried_count": retried_count,
                 },
             )
@@ -586,9 +450,7 @@ def create_queue_blueprint() -> Blueprint:
         status_filter = data.get("status")
 
         try:
-            db = get_db()
-            user_id = UUID(g.current_user_id)
-
+            storage = get_storage()
             deleted_count = 0
 
             if status_filter:
@@ -600,42 +462,22 @@ def create_queue_blueprint() -> Blueprint:
                         "message": f"status must be one of: {', '.join(valid_statuses)}",
                     }), 400
 
-                # Get all items with this status for user
-                items = run_async(
-                    db.queue.get_all(
-                        limit=1000,
-                        filters={"user_id": user_id, "status": status_filter.lower()},
-                    )
-                )
-                item_uuids = [item.id for item in items]
-            else:
-                # Validate provided IDs
-                item_uuids = []
-                for item_id in item_ids:
-                    try:
-                        item_uuids.append(UUID(item_id))
-                    except ValueError:
-                        pass
+                # Get all items with this status
+                items = storage.get_queue_items_by_status(status_filter.lower(), limit=1000)
+                item_ids = [item["id"] for item in items]
 
             # Delete each item
-            for item_uuid in item_uuids:
+            for item_id in item_ids:
                 try:
-                    item = run_async(db.queue.get_by_id(item_uuid))
-
-                    # Check ownership
-                    if str(item.user_id) != g.current_user_id:
-                        continue
-
-                    run_async(db.queue.delete(item_uuid))
-                    deleted_count += 1
-
-                except RecordNotFoundError:
+                    if storage.delete_queue_item(item_id):
+                        deleted_count += 1
+                except Exception:
                     continue
 
             logger.info(
                 "Batch delete completed",
                 extra={
-                    "user_id": g.current_user_id,
+                    "user_id": getattr(g, "user_id", None),
                     "deleted_count": deleted_count,
                 },
             )

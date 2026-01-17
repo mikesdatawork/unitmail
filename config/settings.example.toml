@@ -12,18 +12,26 @@ environment = "development"
 debug = true
 
 
-[database]
-# Supabase project URL
-# Get this from your Supabase project settings
-url = "https://your-project-id.supabase.co"
+[storage]
+# SQLite database storage configuration
 
-# Supabase API key (anon/public key for client-side operations)
-# Get this from your Supabase project settings > API
-key = "your-anon-key-here"
+# Directory for database and data files
+data_dir = "~/.unitmail/data"
 
-# Supabase service role key (for server-side admin operations)
-# WARNING: Keep this secret! Never expose in client-side code
-# service_role_key = "your-service-role-key-here"
+# SQLite database filename
+database_name = "unitmail.db"
+
+# Enable automatic backups
+backup_enabled = true
+
+# Directory for database backups
+backup_dir = "~/.unitmail/backups"
+
+# Number of days to retain backups
+backup_retention_days = 30
+
+# SQLite cache size in megabytes
+cache_size_mb = 32
 
 
 [smtp]
