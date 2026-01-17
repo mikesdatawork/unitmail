@@ -12,17 +12,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from common.storage import EmailStorage, get_storage
 from common.exceptions import (
     MessageQueueError,
-    RecordNotFoundError,
-    QueryError,
 )
-from common.models import QueueItemStatus
 
 
 logger = logging.getLogger(__name__)

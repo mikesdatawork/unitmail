@@ -20,9 +20,9 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gio", "2.0")
 gi.require_version("GLib", "2.0")
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Adw, Gdk, Gio, GObject, Gtk, Pango
 
-from .widgets.folder_tree import FolderData, FolderTree, FolderType, SYSTEM_FOLDERS
+from .widgets.folder_tree import FolderData, FolderType
 
 logger = logging.getLogger(__name__)
 
@@ -469,7 +469,6 @@ class FolderManagerDialog(Adw.Window):
 
     def _on_drop_leave(self, target: Gtk.DropTarget) -> None:
         """Handle drag leave."""
-        pass
 
     def _on_drop(
         self,

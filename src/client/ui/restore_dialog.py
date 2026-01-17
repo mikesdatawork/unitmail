@@ -21,7 +21,6 @@ from client.services.backup_service import (
     BackupContents,
     BackupService,
     ConflictResolution,
-    RestoreError,
     RestoreMode,
     RestorePreview,
     BackupProgress,

@@ -12,7 +12,7 @@ Provides a full-featured email composition interface with:
 
 import gi
 gi.require_version('Gtk', '4.0')
-from gi.repository import Gtk, GObject, Gdk, Pango, Gio, GLib
+from gi.repository import Gtk, GObject, Gdk, Pango, GLib
 from typing import Optional, List, Callable
 from enum import Enum
 from dataclasses import dataclass

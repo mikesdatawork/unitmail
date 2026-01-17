@@ -13,7 +13,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, GLib, GObject, Gtk
+from gi.repository import Adw, GObject, Gtk
 
 from common.local_storage import get_local_storage
 

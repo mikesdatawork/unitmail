@@ -27,7 +27,7 @@ from ...common.exceptions import (
     SMTPConnectionError,
     SMTPError,
 )
-from ...common.models import Message, MessageStatus
+from ...common.models import Message
 
 logger = logging.getLogger(__name__)
 

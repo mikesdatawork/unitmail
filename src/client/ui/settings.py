@@ -12,7 +12,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import gi
 
@@ -23,7 +23,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GdkPixbuf", "2.0")
 
-from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk
+from gi.repository import Adw, GdkPixbuf, Gio, GLib, Gtk
 
 from client.services.settings_service import (
     SettingsService,

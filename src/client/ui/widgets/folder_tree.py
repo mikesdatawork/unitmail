@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import gi
 
@@ -20,7 +20,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gio", "2.0")
 gi.require_version("GLib", "2.0")
 
-from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, Gio, GObject, Gtk, Pango
 
 logger = logging.getLogger(__name__)
 
@@ -409,7 +409,6 @@ class FolderTree(Gtk.Box):
         list_item: Gtk.ListItem,
     ) -> None:
         """Unbind data from a folder list item widget."""
-        pass
 
     def _get_box_children(self, box: Gtk.Box) -> list[Gtk.Widget]:
         """Get all children of a box widget."""

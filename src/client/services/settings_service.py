@@ -8,7 +8,6 @@ notifications, server configuration, and user preferences.
 
 import json
 import logging
-import os
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from pathlib import Path
@@ -19,7 +18,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gio, GLib, GObject
+from gi.repository import Adw, GLib, GObject
 
 logger = logging.getLogger(__name__)
 

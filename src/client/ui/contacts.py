@@ -7,12 +7,10 @@ for contact groups, PGP key management, and vCard import/export.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable, Optional
 from uuid import uuid4
 
@@ -24,7 +22,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gio", "2.0")
 gi.require_version("GLib", "2.0")
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Adw, Gio, GLib, GObject, Gtk, Pango
 
 logger = logging.getLogger(__name__)
 
@@ -655,7 +653,7 @@ class ContactsWindow(Adw.Window):
 
         # Set avatar color based on name/email
         color_idx = hash(item.email) % 8
-        colors = [
+        _colors = [  # noqa: F841 - colors defined in CSS, kept for reference
             "#e01b24", "#ff7800", "#f6d32d", "#33d17a",
             "#3584e4", "#9141ac", "#986a44", "#77767b"
         ]

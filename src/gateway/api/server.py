@@ -7,10 +7,9 @@ lifecycle, including WebSocket support and graceful shutdown handling.
 
 import logging
 import signal
-import sys
 import threading
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from flask import Flask
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -78,11 +77,9 @@ class GatewayServer:
         async_mode = "threading"
 
         try:
-            import eventlet
             async_mode = "eventlet"
         except ImportError:
             try:
-                import gevent
                 async_mode = "gevent"
             except ImportError:
                 pass

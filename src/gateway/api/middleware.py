@@ -5,7 +5,6 @@ This module provides middleware for request validation, rate limiting,
 request ID tracking, and timing/metrics collection.
 """
 
-import hashlib
 import logging
 import re
 import time
@@ -17,8 +16,7 @@ from functools import wraps
 from threading import Lock
 from typing import Any, Callable, Optional, TypeVar
 
-from flask import Flask, Response, abort, g, jsonify, request
-from werkzeug.exceptions import BadRequest, TooManyRequests
+from flask import Flask, Response, abort, g, request
 
 from ..config import GatewaySettings, get_gateway_settings
 

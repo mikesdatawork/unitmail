@@ -11,9 +11,7 @@ import html
 import re
 import subprocess
 import webbrowser
-from datetime import datetime
 from typing import Any, Callable, Optional
-from uuid import UUID
 
 import gi
 
@@ -21,7 +19,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gio", "2.0")
 gi.require_version("GLib", "2.0")
 
-from gi.repository import Gio, GLib, GObject, Gtk
+from gi.repository import Gio, GObject, Gtk
 
 # Try to import WebKit for HTML rendering
 try:
@@ -1015,7 +1013,6 @@ class MessageViewer(Gtk.Box):
     def _on_link_clicked(self, body_view: MessageBodyView, uri: str) -> None:
         """Handle link click in message body."""
         # Links are already opened in browser by MessageBodyView
-        pass
 
     def _on_attachment_download(
         self,

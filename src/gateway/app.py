@@ -9,8 +9,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
-from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Optional
 
 from flask import Flask, Response, g, jsonify, request
 from flask_cors import CORS

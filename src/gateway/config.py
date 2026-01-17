@@ -5,7 +5,6 @@ This module provides configuration settings specific to the Gateway service,
 extending the common application configuration.
 """
 
-import os
 from functools import lru_cache
 from typing import Optional
 

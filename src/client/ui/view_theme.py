@@ -11,14 +11,14 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Callable, Optional
+from typing import Optional
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gio", "2.0")
 
-from gi.repository import Gio, GLib, GObject, Gtk
+from gi.repository import Gio, GObject, Gtk
 
 logger = logging.getLogger(__name__)
 

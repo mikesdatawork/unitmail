@@ -8,8 +8,6 @@ for outgoing email delivery.
 import base64
 import logging
 import mimetypes
-import os
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email import encoders
@@ -19,7 +17,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import format_datetime, make_msgid
 from pathlib import Path
-from typing import Any, BinaryIO, Optional, Union
+from typing import Any, Optional, Union
 
 from ...common.exceptions import InvalidMessageError
 from ...common.models import Message, MessagePriority

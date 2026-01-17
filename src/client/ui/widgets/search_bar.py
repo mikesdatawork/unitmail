@@ -14,7 +14,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
 logger = logging.getLogger(__name__)
 

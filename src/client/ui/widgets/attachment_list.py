@@ -11,7 +11,6 @@ import mimetypes
 import os
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import Any, Callable, Optional
 
 import gi
@@ -21,7 +20,7 @@ gi.require_version("Gio", "2.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Gdk", "4.0")
 
-from gi.repository import Gdk, Gio, GLib, GObject, Gtk
+from gi.repository import GObject, Gtk
 
 
 class AttachmentType(Enum):

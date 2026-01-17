@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional, TYPE_CHECKING
 
-from common.storage import EmailStorage, get_storage
+from common.storage import EmailStorage
 from common.exceptions import (
     MessageDeliveryError,
     SMTPConnectionError,
@@ -305,7 +305,6 @@ class BaseQueueWorker(ABC):
         Returns:
             DeliveryResult with success status and error details.
         """
-        pass
 
     async def process(self, item: dict) -> None:
         """

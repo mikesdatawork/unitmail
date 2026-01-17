@@ -12,22 +12,17 @@ import ssl
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
-from uuid import UUID, uuid4
 
 from aiosmtpd.controller import Controller
-from aiosmtpd.handlers import AsyncMessage
 from aiosmtpd.smtp import SMTP, AuthResult, Envelope, LoginPassword, Session
 
 from common.config import SMTPSettings, get_settings
 from common.storage import EmailStorage, get_storage
 from common.exceptions import (
     InvalidMessageError,
-    QueryError,
-    SMTPAuthError,
     SMTPConnectionError,
-    SMTPError,
 )
-from common.models import FolderType, Message, MessageStatus
+from common.models import FolderType, MessageStatus
 
 from .parser import EmailParser, ParsedEmail
 
@@ -70,7 +65,7 @@ class SMTPAuthenticator:
         """
         try:
             username = auth_data.login.decode("utf-8", errors="replace")
-            password = auth_data.password.decode("utf-8", errors="replace")
+            _password = auth_data.password.decode("utf-8", errors="replace")  # noqa: F841 - TODO: verify password
 
             logger.debug("Authentication attempt for user: %s", username)
 

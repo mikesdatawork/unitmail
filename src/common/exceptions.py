@@ -33,13 +33,11 @@ class UnitMailError(Exception):
 class DatabaseError(UnitMailError):
     """Base exception for database-related errors."""
 
-    pass
 
 
 class ConnectionError(DatabaseError):
     """Raised when database connection fails."""
 
-    pass
 
 
 class QueryError(DatabaseError):
@@ -117,14 +115,12 @@ class DuplicateRecordError(DatabaseError):
 class TransactionError(DatabaseError):
     """Raised when a database transaction fails."""
 
-    pass
 
 
 # Authentication Exceptions
 class AuthenticationError(UnitMailError):
     """Base exception for authentication-related errors."""
 
-    pass
 
 
 class InvalidCredentialsError(AuthenticationError):
@@ -177,7 +173,6 @@ class PermissionDeniedError(AuthenticationError):
 class ConfigurationError(UnitMailError):
     """Base exception for configuration-related errors."""
 
-    pass
 
 
 class MissingConfigError(ConfigurationError):
@@ -229,13 +224,11 @@ class InvalidConfigError(ConfigurationError):
 class MessageError(UnitMailError):
     """Base exception for message-related errors."""
 
-    pass
 
 
 class InvalidMessageError(MessageError):
     """Raised when a message is malformed or invalid."""
 
-    pass
 
 
 class MessageDeliveryError(MessageError):
@@ -266,33 +259,28 @@ class MessageDeliveryError(MessageError):
 class MessageQueueError(MessageError):
     """Raised when message queue operations fail."""
 
-    pass
 
 
 # SMTP Exceptions
 class SMTPError(UnitMailError):
     """Base exception for SMTP-related errors."""
 
-    pass
 
 
 class SMTPConnectionError(SMTPError):
     """Raised when SMTP connection fails."""
 
-    pass
 
 
 class SMTPAuthError(SMTPError):
     """Raised when SMTP authentication fails."""
 
-    pass
 
 
 # DNS Exceptions
 class DNSError(UnitMailError):
     """Base exception for DNS-related errors."""
 
-    pass
 
 
 class DNSLookupError(DNSError):
@@ -323,7 +311,6 @@ class DNSLookupError(DNSError):
 class MeshError(UnitMailError):
     """Base exception for mesh network-related errors."""
 
-    pass
 
 
 class PeerConnectionError(MeshError):
@@ -372,31 +359,26 @@ class PeerNotFoundError(MeshError):
 class CryptoError(UnitMailError):
     """Base exception for cryptography-related errors."""
 
-    pass
 
 
 class EncryptionError(CryptoError):
     """Raised when encryption fails."""
 
-    pass
 
 
 class DecryptionError(CryptoError):
     """Raised when decryption fails."""
 
-    pass
 
 
 class SignatureError(CryptoError):
     """Raised when signature verification fails."""
 
-    pass
 
 
 class KeyError(CryptoError):
     """Raised when there's an issue with cryptographic keys."""
 
-    pass
 
 
 # Validation Exceptions

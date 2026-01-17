@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
-from uuid import UUID
 
 if TYPE_CHECKING:
     import cairo
@@ -23,7 +22,7 @@ gi.require_version("Gio", "2.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Pango", "1.0")
 
-from gi.repository import Gio, GLib, GObject, Gtk, Pango
+from gi.repository import GLib, GObject, Gtk, Pango
 
 
 def format_email_address(email: str, name: Optional[str] = None) -> str:

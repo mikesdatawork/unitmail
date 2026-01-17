@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
-from typing import Callable, Optional
+from typing import Optional
 
 import gi
 

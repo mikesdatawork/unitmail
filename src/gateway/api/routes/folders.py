@@ -13,7 +13,6 @@ from flask import Blueprint, Response, g, jsonify, request
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from common.storage import get_storage
-from common.exceptions import RecordNotFoundError
 from ..middleware import rate_limit
 from ..auth import require_auth
 

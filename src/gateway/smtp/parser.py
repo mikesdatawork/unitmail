@@ -6,17 +6,15 @@ extracting headers, body content, and attachments with proper
 handling of MIME multipart messages and various encodings.
 """
 
-import base64
 import email
 import email.header
 import email.utils
 import logging
 import mimetypes
-import quopri
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from email.message import EmailMessage, Message
+from email.message import Message
 from typing import Any, Optional
 from uuid import uuid4
 

@@ -19,12 +19,10 @@ from pydantic import BaseModel, EmailStr, Field, ValidationError
 
 from common.storage import get_storage
 from common.exceptions import (
-    InvalidCredentialsError,
-    RecordNotFoundError,
     TokenExpiredError,
     TokenInvalidError,
 )
-from ..middleware import RequestValidator, rate_limit
+from ..middleware import rate_limit
 
 # Configure module logger
 logger = logging.getLogger(__name__)

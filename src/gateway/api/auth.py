@@ -5,7 +5,6 @@ This module provides JWT token management, password hashing, and authentication
 decorators for securing API endpoints. Uses SQLite for token blacklist storage.
 """
 
-import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -21,8 +20,6 @@ from common.config import get_settings
 from common.storage import EmailStorage, get_storage
 from common.exceptions import (
     AuthenticationError,
-    InvalidCredentialsError,
-    PermissionDeniedError,
     TokenExpiredError,
     TokenInvalidError,
 )

@@ -14,7 +14,6 @@ from typing import Any
 from flask import Blueprint, Response, g, jsonify, request
 
 from common.storage import get_storage
-from common.exceptions import RecordNotFoundError
 from ..middleware import rate_limit
 from ..auth import require_auth
 
@@ -83,7 +82,7 @@ def create_queue_blueprint() -> Blueprint:
             per_page = min(100, max(1, int(request.args.get("per_page", 50))))
             status = request.args.get("status")
 
-            offset = (page - 1) * per_page
+            _offset = (page - 1) * per_page  # noqa: F841 - TODO: implement offset pagination
 
             storage = get_storage()
 

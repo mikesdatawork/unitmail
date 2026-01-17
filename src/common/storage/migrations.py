@@ -20,7 +20,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 from uuid import uuid4
 
 from .connection import get_db
@@ -82,7 +82,7 @@ def run_migrations(target_version: Optional[int] = None) -> bool:
     if target_version is None:
         target_version = SCHEMA_VERSION
 
-    db = get_db()
+    _db = get_db()  # noqa: F841 - ensures DB connection is initialized
     current_version = get_schema_version()
 
     if current_version >= target_version:

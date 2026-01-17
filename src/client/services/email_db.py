@@ -8,7 +8,6 @@ designed to sync with the gateway server when connected.
 
 import json
 import logging
-import os
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -16,7 +15,6 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Generator, Optional
-from uuid import UUID, uuid4
 
 from gi.repository import GLib
 

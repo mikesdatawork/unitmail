@@ -18,7 +18,6 @@ import ssl
 import sqlite3
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 from urllib.parse import urlparse
@@ -47,31 +46,26 @@ class SetupError(Exception):
 class ConnectionTestError(SetupError):
     """Error during connection testing."""
 
-    pass
 
 
 class DNSVerificationError(SetupError):
     """Error during DNS verification."""
 
-    pass
 
 
 class DatabaseInitError(SetupError):
     """Error during database initialization."""
 
-    pass
 
 
 class KeyGenerationError(SetupError):
     """Error during key generation."""
 
-    pass
 
 
 class ConfigurationError(SetupError):
     """Error during configuration."""
 
-    pass
 
 
 @dataclass
@@ -430,7 +424,7 @@ class SetupService:
                 checker = DNSChecker()
             except ImportError:
                 # Fallback to basic DNS resolution
-                import dns.resolver
+                pass
 
                 checker = None
 
@@ -823,7 +817,6 @@ class SetupService:
                 from cryptography.hazmat.backends import default_backend
                 from cryptography.hazmat.primitives import serialization
                 from cryptography.hazmat.primitives.asymmetric import rsa
-                import base64
 
                 private_key = rsa.generate_private_key(
                     public_exponent=65537,
@@ -1103,8 +1096,8 @@ class SetupService:
             # 1. Initialize database
             self.initialize_database()
 
-            # 2. Generate DKIM keys
-            dkim_keys = self.generate_dkim_keys(
+            # 2. Generate DKIM keys (stored by generate_dkim_keys)
+            _dkim_keys = self.generate_dkim_keys(  # noqa: F841
                 setup_data.domain,
                 setup_data.dkim_selector,
             )

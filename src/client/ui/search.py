@@ -14,7 +14,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Adw, Gdk, Gio, GObject, Gtk, Pango
 
 logger = logging.getLogger(__name__)
 
@@ -559,7 +559,7 @@ class SearchDialog(Adw.Window):
             children.append(child)
             child = child.get_next_sibling()
 
-        icon, content_box, delete_button = children[0], children[1], children[2]
+        _icon, content_box, delete_button = children[0], children[1], children[2]  # noqa: F841
 
         content_children = []
         child = content_box.get_first_child()
@@ -911,7 +911,6 @@ class SearchDialog(Adw.Window):
     ) -> None:
         """Handle history row activation."""
         # The row data was stored during creation
-        pass
 
     def _on_use_history_entry(self, entry: Dict[str, Any]) -> None:
         """Use a history entry to populate filters."""
@@ -1198,7 +1197,6 @@ class SearchPopover(Gtk.Popover):
 
     def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
         """Handle search text change."""
-        pass
 
     def _on_advanced_clicked(self, button: Gtk.Button) -> None:
         """Handle advanced search click."""

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Adw, GLib, GObject, Gtk, Pango
 
 logger = logging.getLogger(__name__)
 

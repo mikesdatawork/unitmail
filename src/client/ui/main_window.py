@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional
-from uuid import UUID
+from typing import TYPE_CHECKING, Optional
 
 import gi
 
@@ -2885,7 +2884,6 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     def _update_select_all_state(self) -> None:
         """Update select all checkbox state based on current selection."""
         # Select all checkbox removed - function kept for compatibility
-        pass
 
     def _refresh_message_list(self) -> None:
         """Refresh the message list to update all item widgets."""

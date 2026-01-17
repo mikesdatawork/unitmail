@@ -7,16 +7,15 @@ server configuration, including SPF, DKIM, DMARC, MX, and PTR records.
 
 import ipaddress
 import logging
-import re
 import socket
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional
 
 import dns.resolver
 import dns.reversename
 
-from src.common.exceptions import DNSError, DNSLookupError
+from src.common.exceptions import DNSLookupError
 
 logger = logging.getLogger(__name__)
 

@@ -34,13 +34,11 @@ logger = logging.getLogger(__name__)
 class BackupError(UnitMailError):
     """Exception raised for backup-related errors."""
 
-    pass
 
 
 class RestoreError(UnitMailError):
     """Exception raised for restore-related errors."""
 
-    pass
 
 
 class BackupType(str, Enum):

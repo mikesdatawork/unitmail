@@ -7,7 +7,6 @@ to adjust column widths, with persistence via settings.
 """
 
 import logging
-from typing import Optional
 
 import gi
 
