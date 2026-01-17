@@ -68,7 +68,7 @@ class PGPKey:
     def formatted_fingerprint(self) -> str:
         """Get fingerprint formatted in groups of 4."""
         fp = self.fingerprint.upper()
-        return " ".join(fp[i : i + 4] for i in range(0, len(fp), 4))
+        return " ".join(fp[i:i + 4] for i in range(0, len(fp), 4))
 
     @property
     def status_text(self) -> str:

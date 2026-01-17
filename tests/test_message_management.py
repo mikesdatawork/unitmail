@@ -153,11 +153,16 @@ class MessageManagementTests:
             else:
                 test.status = "FAIL"
                 missing = []
-                if not has_from: missing.append("from_address")
-                if not has_to: missing.append("to_addresses")
-                if not has_subject: missing.append("subject")
-                if not has_body: missing.append("body_text")
-                if not has_date: missing.append("received_at")
+                if not has_from:
+                    missing.append("from_address")
+                if not has_to:
+                    missing.append("to_addresses")
+                if not has_subject:
+                    missing.append("subject")
+                if not has_body:
+                    missing.append("body_text")
+                if not has_date:
+                    missing.append("received_at")
                 test.actual = f"Missing fields: {', '.join(missing)}"
                 test.bugs.append(
                     f"Message missing required fields: {', '.join(missing)}")

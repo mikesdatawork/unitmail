@@ -866,7 +866,7 @@ class SMTPSender:
             self._delivery_results.clear()
             return count
 
-        cutoff = lambda: datetime.now(timezone.utc)() - older_than
+        cutoff = datetime.now(timezone.utc) - older_than
         keys_to_remove = [
             key
             for key, result in self._delivery_results.items()

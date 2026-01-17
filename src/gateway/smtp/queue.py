@@ -41,7 +41,7 @@ RETRY_INTERVALS = [
     15 * 60,      # 15 minutes
     60 * 60,      # 1 hour
     4 * 60 * 60,  # 4 hours
-    24 * 60 * 60, # 24 hours
+    24 * 60 * 60,  # 24 hours
 ]
 
 DEFAULT_MAX_RETRIES = len(RETRY_INTERVALS)

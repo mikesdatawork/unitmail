@@ -216,10 +216,14 @@ class GUIFeatureTests:
                 test.actual = f"Message has all required pop-out fields. Subject: '{full_msg['subject'][:30]}...'"
             else:
                 missing = []
-                if not has_subject: missing.append("subject")
-                if not has_sender: missing.append("from_address")
-                if not has_date: missing.append("received_at")
-                if not has_body: missing.append("body_text")
+                if not has_subject:
+                    missing.append("subject")
+                if not has_sender:
+                    missing.append("from_address")
+                if not has_date:
+                    missing.append("received_at")
+                if not has_body:
+                    missing.append("body_text")
                 test.status = "FAIL"
                 test.actual = f"Missing fields: {', '.join(missing)}"
 

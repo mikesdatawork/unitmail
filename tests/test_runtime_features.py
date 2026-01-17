@@ -120,7 +120,7 @@ def test_message_operations():
 
         # Test mark read
         window._set_message_read(first_message.message_id, True)
-        assert first_message.is_read == True
+        assert first_message.is_read is True
         logger.info("✓ Mark read works")
 
         # Test delete (get count before and after)
