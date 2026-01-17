@@ -23,7 +23,7 @@ from playwright.async_api import (
 )
 
 # Import page objects
-from pages import (
+from .pages import (
     LoginPage,
     InboxPage,
     ComposePage,
