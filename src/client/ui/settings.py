@@ -6,18 +6,24 @@ a sidebar navigation pattern with organized pages for account, server,
 security, appearance, notifications, database, and advanced settings.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import gi
 
+if TYPE_CHECKING:
+    import cairo
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+gi.require_version("GdkPixbuf", "2.0")
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
+from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk
 
 from client.services.settings_service import (
     SettingsService,

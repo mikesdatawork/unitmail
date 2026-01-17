@@ -6,15 +6,21 @@ initial configuration including deployment model selection, network
 setup, domain configuration, account creation, and security options.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import secrets
 import string
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 import gi
+
+if TYPE_CHECKING:
+    import cairo
+    from client.services.setup_service import SetupService
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")

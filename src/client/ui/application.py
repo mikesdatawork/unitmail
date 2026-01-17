@@ -5,12 +5,17 @@ This module provides the main GTK 4 application class that manages
 the application lifecycle, actions, and window management.
 """
 
+from __future__ import annotations
+
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import gi
+
+if TYPE_CHECKING:
+    from .main_window import MainWindow
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")

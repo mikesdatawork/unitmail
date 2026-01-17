@@ -6,6 +6,8 @@ operations for the setup wizard including connectivity testing,
 DNS verification, database initialization, and key generation.
 """
 
+from __future__ import annotations
+
 import asyncio
 import hashlib
 import json
@@ -18,10 +20,13 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from urllib.parse import urlparse
 
 import gi
+
+if TYPE_CHECKING:
+    from client.ui.setup_wizard import SetupData
 
 gi.require_version("GLib", "2.0")
 

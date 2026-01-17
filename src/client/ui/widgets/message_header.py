@@ -8,8 +8,11 @@ with expandable details to show all headers.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
+
+if TYPE_CHECKING:
+    import cairo
 
 from client.services.date_format_service import get_date_format_service
 

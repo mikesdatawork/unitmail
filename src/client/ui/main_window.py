@@ -5,12 +5,17 @@ This module provides the main application window with a three-pane layout
 for folder navigation, message list, and message preview.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from uuid import UUID
 
 import gi
+
+if TYPE_CHECKING:
+    from .application import UnitMailApplication
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
