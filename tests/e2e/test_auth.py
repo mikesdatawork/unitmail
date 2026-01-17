@@ -11,7 +11,7 @@ Tests cover:
 import pytest
 from playwright.async_api import Page, expect
 
-from pages import LoginPage, InboxPage
+from .pages import LoginPage, InboxPage
 
 
 # =============================================================================
