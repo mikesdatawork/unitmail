@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-class TestResults:
+class FeatureTestResults:
     """Track test results."""
     def __init__(self):
         self.passed = []
@@ -41,7 +41,7 @@ class TestResults:
         logger.warning(f"⚠ {test_name}: {message}")
 
 
-def test_imports(results: TestResults):
+def test_imports(results: FeatureTestResults):
     """Test that all modified modules can be imported."""
     logger.info("\n=== Testing Imports ===")
 
@@ -66,7 +66,7 @@ def test_imports(results: TestResults):
             results.add_fail(f"Import {module_name}", str(e))
 
 
-def test_widget_instantiation(results: TestResults):
+def test_widget_instantiation(results: FeatureTestResults):
     """Test that GTK widgets can be instantiated."""
     logger.info("\n=== Testing Widget Instantiation ===")
 
@@ -114,7 +114,7 @@ def test_widget_instantiation(results: TestResults):
         results.add_fail("FolderItem instantiation", str(e))
 
 
-def test_feature_implementation(results: TestResults):
+def test_feature_implementation(results: FeatureTestResults):
     """Test that features are properly implemented."""
     logger.info("\n=== Testing Feature Implementation ===")
 
@@ -215,7 +215,7 @@ def test_feature_implementation(results: TestResults):
         results.add_fail("Threaded messages feature", str(e))
 
 
-def test_view_theme_manager(results: TestResults):
+def test_view_theme_manager(results: FeatureTestResults):
     """Test view theme manager functionality."""
     logger.info("\n=== Testing View Theme Manager ===")
 
@@ -243,7 +243,7 @@ def test_view_theme_manager(results: TestResults):
         results.add_fail("View theme manager", f"{str(e)}\n{traceback.format_exc()}")
 
 
-def generate_report(results: TestResults):
+def generate_report(results: FeatureTestResults):
     """Generate test report."""
     print("\n" + "="*70)
     print("TEST AUTOMATION REPORT".center(70))
@@ -351,7 +351,7 @@ def generate_report(results: TestResults):
 
 def main():
     """Run all tests."""
-    results = TestResults()
+    results = FeatureTestResults()
 
     print("="*70)
     print("Starting Test Automation".center(70))

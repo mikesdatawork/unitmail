@@ -151,4 +151,4 @@ format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 # file = "/var/log/unitmail/unitmail.log"
 
 # Use JSON format for structured logging
-json = false
+json_format = false

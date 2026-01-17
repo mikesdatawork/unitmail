@@ -37,13 +37,11 @@ def test_application_initialization():
         assert app is not None
         logger.info("✓ Application instance is valid")
 
-        return True
-
     except Exception as e:
         logger.error(f"✗ Application initialization failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_main_window_creation():
@@ -81,13 +79,11 @@ def test_main_window_creation():
         message_count = window._message_store.get_n_items()
         logger.info(f"✓ {message_count} messages loaded")
 
-        return True
-
     except Exception as e:
         logger.error(f"✗ Main window creation failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_message_operations():
@@ -110,7 +106,7 @@ def test_message_operations():
         initial_count = window._message_store.get_n_items()
         if initial_count == 0:
             logger.warning("⚠ No messages loaded for testing")
-            return True
+            return  # Skip rest of test if no messages
 
         first_message = window._message_store.get_item(0)
         logger.info(f"✓ Retrieved message: {first_message.subject}")
@@ -134,13 +130,11 @@ def test_message_operations():
         assert after_delete == before_delete - 1
         logger.info("✓ Delete message works")
 
-        return True
-
     except Exception as e:
         logger.error(f"✗ Message operations failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_search_functionality():
@@ -180,13 +174,11 @@ def test_search_functionality():
         assert restored_count == initial_count, f"Expected {initial_count}, got {restored_count}"
         logger.info("✓ Search filter and clear works")
 
-        return True
-
     except Exception as e:
         logger.error(f"✗ Search functionality failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_view_theme_switching():
@@ -210,13 +202,11 @@ def test_view_theme_switching():
         assert manager.current_theme == ViewTheme.STANDARD
         logger.info("✓ Switched to standard theme")
 
-        return True
-
     except Exception as e:
         logger.error(f"✗ View theme switching failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def main():
@@ -239,8 +229,8 @@ def main():
         print(f"Running: {test_name}")
         print('='*70)
         try:
-            result = test_func()
-            results.append((test_name, result))
+            test_func()
+            results.append((test_name, True))
         except Exception as e:
             logger.error(f"Test {test_name} crashed: {e}")
             results.append((test_name, False))
@@ -251,7 +241,7 @@ def main():
     print("="*70)
 
     passed = sum(1 for _, result in results if result)
-    failed = sum(1 for _, result in results if not result)
+    failed = len(results) - passed
 
     for test_name, result in results:
         status = "✓ PASS" if result else "✗ FAIL"

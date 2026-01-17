@@ -23,7 +23,7 @@ from datetime import datetime
 from common.local_storage import get_local_storage, LocalEmailStorage
 from common.sample_data import generate_sample_messages
 
-class TestResult:
+class MessageTestResult:
     """Stores test result information."""
     def __init__(self, name: str):
         self.name = name
@@ -82,7 +82,7 @@ class MessageManagementTests:
 
     def _verify_test_data(self):
         """Verify test data exists."""
-        test = TestResult("Test Data Verification")
+        test = MessageTestResult("Test Data Verification")
         test.steps.append("Check database for sample messages")
         test.expected = "Database contains 50 messages (43 inbox, 5 sent, 2 drafts)"
 
@@ -104,7 +104,7 @@ class MessageManagementTests:
 
     def test_message_selection_and_preview(self):
         """Test 1: Message Selection & Preview."""
-        test = TestResult("Message Selection & Preview")
+        test = MessageTestResult("Message Selection & Preview")
         test.steps = [
             "Get messages from Inbox folder",
             "Select first message by ID",
@@ -160,7 +160,7 @@ class MessageManagementTests:
 
     def test_favorite_star_toggle(self):
         """Test 2: Favorite/Star Toggle."""
-        test = TestResult("Favorite/Star Toggle")
+        test = MessageTestResult("Favorite/Star Toggle")
         test.steps = [
             "Find a non-starred message",
             "Toggle star on (mark as favorite)",
@@ -219,7 +219,7 @@ class MessageManagementTests:
 
     def test_delete_message(self):
         """Test 3: Delete Messages."""
-        test = TestResult("Delete Message")
+        test = MessageTestResult("Delete Message")
         test.steps = [
             "Create a test message for deletion",
             "Verify message exists in database",
@@ -284,7 +284,7 @@ class MessageManagementTests:
 
     def test_mark_read_unread(self):
         """Test 4: Mark Read/Unread."""
-        test = TestResult("Mark Read/Unread")
+        test = MessageTestResult("Mark Read/Unread")
         test.steps = [
             "Find an unread message",
             "Mark it as read",
@@ -345,7 +345,7 @@ class MessageManagementTests:
 
     def test_move_to_folder(self):
         """Test 5: Move to Folder."""
-        test = TestResult("Move to Folder")
+        test = MessageTestResult("Move to Folder")
         test.steps = [
             "Get a message from Inbox",
             "Move it to Trash folder",
@@ -414,7 +414,7 @@ class MessageManagementTests:
 
     def test_search_functionality(self):
         """Test 6: Search Functionality."""
-        test = TestResult("Search Functionality")
+        test = MessageTestResult("Search Functionality")
         test.steps = [
             "Search by sender email (partial match)",
             "Search by subject keyword",
@@ -474,7 +474,7 @@ class MessageManagementTests:
 
     def test_folder_navigation(self):
         """Test 7: Folder Navigation."""
-        test = TestResult("Folder Navigation")
+        test = MessageTestResult("Folder Navigation")
         test.steps = [
             "Get all folders",
             "Verify Inbox, Sent, Drafts folders exist",
@@ -535,7 +535,7 @@ class MessageManagementTests:
 
     def test_database_persistence(self):
         """Test 8: Database Persistence."""
-        test = TestResult("Database Persistence")
+        test = MessageTestResult("Database Persistence")
         test.steps = [
             "Make a change to a message (star it)",
             "Create a new LocalEmailStorage instance",

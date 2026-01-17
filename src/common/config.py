@@ -210,7 +210,7 @@ class LoggingSettings(BaseSettings):
         description="Log format",
     )
     file: Optional[str] = Field(None, description="Log file path")
-    json: bool = Field(default=False, description="Use JSON log format")
+    json_format: bool = Field(default=False, description="Use JSON log format")
 
     @field_validator("level")
     @classmethod

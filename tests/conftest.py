@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
-class TestResults:
+class FeatureTestResults:
     """Track test results for feature verification tests."""
 
     def __init__(self):
@@ -32,5 +32,5 @@ class TestResults:
 
 @pytest.fixture
 def results():
-    """Provide a TestResults instance for tracking test outcomes."""
-    return TestResults()
+    """Provide a FeatureTestResults instance for tracking test outcomes."""
+    return FeatureTestResults()

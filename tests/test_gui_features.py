@@ -27,7 +27,7 @@ from common.local_storage import get_local_storage
 
 
 @dataclass
-class TestResult:
+class FeatureTestResult:
     """Test result container."""
     name: str
     expected: str
@@ -80,7 +80,7 @@ class GUIFeatureTests:
 
     def test_reply_mode_setup(self):
         """Test: Reply mode sets up correct subject and recipient."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Composer Reply Mode Setup",
             expected="Subject prefixed with 'Re:', recipient set to original sender",
             actual=""
@@ -124,7 +124,7 @@ class GUIFeatureTests:
 
     def test_forward_mode_setup(self):
         """Test: Forward mode sets up correct subject."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Composer Forward Mode Setup",
             expected="Subject prefixed with 'Fwd:'",
             actual=""
@@ -162,7 +162,7 @@ class GUIFeatureTests:
 
     def test_compose_new_mode(self):
         """Test: New message mode has empty fields."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Composer New Mode Setup",
             expected="Empty subject, no recipients pre-filled",
             actual=""
@@ -184,7 +184,7 @@ class GUIFeatureTests:
 
     def test_message_popout_data(self):
         """Test: Message pop-out receives correct data."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Message Pop-out Data",
             expected="Pop-out window receives subject, sender, date, body",
             actual=""
@@ -231,7 +231,7 @@ class GUIFeatureTests:
 
     def test_search_filter_logic(self):
         """Test: Search filtering works for from, subject, body."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Search Filter Logic",
             expected="Filter matches in from_address, subject, and body_text",
             actual=""
@@ -287,7 +287,7 @@ class GUIFeatureTests:
 
     def test_folder_unread_counts(self):
         """Test: Folder unread counts are accurate."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Folder Unread Counts",
             expected="Unread counts match actual unread messages in each folder",
             actual=""
@@ -324,7 +324,7 @@ class GUIFeatureTests:
 
     def test_attachment_display(self):
         """Test: Messages with attachments have attachment data."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Attachment Data Available",
             expected="Messages with attachments have attachment list with filename, size, type",
             actual=""
@@ -368,7 +368,7 @@ class GUIFeatureTests:
 
     def test_starred_indicator(self):
         """Test: Starred messages can be identified and toggled."""
-        test = TestResult(
+        test = FeatureTestResult(
             name="Starred/Favorite Indicator",
             expected="Messages can be starred/unstarred, state persists",
             actual=""
