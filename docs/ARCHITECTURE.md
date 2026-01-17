@@ -503,15 +503,13 @@ _dmarc.example.com. IN TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com
 ```
 unitmail-1.0.0/
 ├── bin/
-│   ├── unitmail              # GTK launcher
-│   ├── unitmail-gateway      # Service binary
+│   ├── unitmail              # GTK launcher (CLI entry point)
+│   ├── unitmail-gateway      # Gateway service binary
 │   └── unitmail-setup        # First-run wizard
 ├── lib/
-│   ├── python3.11/
-│   └── libpq.so
+│   └── python3.11/           # Python packages (SQLite built-in)
 ├── share/
 │   ├── applications/unitmail.desktop
-│   ├── icons/
 │   └── doc/
 └── systemd/
     └── unitmail-gateway.service

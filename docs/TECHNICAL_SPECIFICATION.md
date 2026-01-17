@@ -771,9 +771,9 @@ def upgrade_v1_to_v2(db):
 
 **Dependencies Management**
 ```
-requirements.txt      - Core dependencies
-requirements-dev.txt  - Development dependencies
-requirements-test.txt - Testing dependencies
+requirements.txt      - Core runtime dependencies
+requirements-dev.txt  - Development + testing dependencies
+pyproject.toml        - Package configuration with optional [dev] extras
 ```
 
 ### Release Checklist
