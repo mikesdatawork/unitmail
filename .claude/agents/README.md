@@ -9,7 +9,7 @@ This directory contains specialized AI agents for the unitMail project. Each age
 | **change-coordinator** | sonnet | Meta-orchestrator - routes tasks to specialist agents |
 | **email-client-expert** | opus | Email protocols, features, modular testing, fixes |
 | **email-ui-expert** | sonnet | UI/UX review, accessibility, design recommendations |
-| **db-email-integrator** | opus | PostgreSQL database design and email integration |
+| **db-email-integrator** | opus | SQLite database design and email integration |
 | **performance-engineer** | sonnet | Performance optimization, profiling, bottlenecks |
 | **security-auditor** | sonnet | Security vulnerabilities, encryption, OWASP compliance |
 | **test-automation** | sonnet | Test infrastructure, coverage, pytest fixtures |
@@ -85,7 +85,7 @@ change-coordinator; review all UI features and test functionality
 
 ### Database Setup
 ```
-change-coordinator; build PostgreSQL database for email storage
+change-coordinator; build SQLite database for email storage
 ```
 
 ### Security Audit

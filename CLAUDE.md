@@ -8,7 +8,7 @@ For **ALL non-trivial tasks** in this project you **MUST** follow this workflow:
 **ALWAYS** delegate to the `change-coordinator` agent FIRST before any complex work.
 
 The coordinator will:
-- Scan all 8 available specialist agents
+- Scan all 10 available specialist agents
 - Analyze the request and decompose into sub-tasks
 - Build an optimal, non-overlapping delegation plan
 - Enforce structured logging from every agent
@@ -47,7 +47,9 @@ All agent outputs flow back through the coordinator for traceability.
 | Agent | Specialization |
 |-------|---------------|
 | `change-coordinator` | **PRIMARY ROUTER** - Task analysis, delegation, logging enforcement |
+| `email-client-expert` | Email protocols, features, modular testing, fixes |
 | `email-ui-expert` | Email UI/UX review, accessibility, design |
+| `db-email-integrator` | SQLite database design and email integration |
 | `performance-engineer` | Memory, speed, bundle size, bottlenecks |
 | `security-auditor` | OWASP, crypto, auth, vulnerability assessment |
 | `test-automation` | Test execution, coverage, regression detection |

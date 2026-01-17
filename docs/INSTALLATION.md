@@ -163,8 +163,10 @@ source .venv/bin/activate
 # Install dependencies
 pip install -e ".[dev]"
 
-# Run the application
-python -m unitmail
+# Run the application (either method works)
+unitmail              # Using installed command
+python -m unitmail    # Using module syntax
+python scripts/run_client.py  # Development script
 ```
 
 #### System-Wide Installation from Source

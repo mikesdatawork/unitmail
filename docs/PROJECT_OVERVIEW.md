@@ -169,7 +169,7 @@ The project succeeds when:
 **Software License**
 - $99 one-time purchase
 - Includes all updates for life
-- Open source core (LGPL)
+- Open source core (MIT)
 - Premium features optional
 
 **Gateway Service** (Optional)

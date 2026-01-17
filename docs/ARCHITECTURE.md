@@ -195,24 +195,34 @@ Direct SMTP over encrypted mesh (no internet required)
 
 **File Structure**
 ```
-unitmail-client/
+src/client/
 ├── ui/
-│   ├── main_window.py
-│   ├── composer.py
-│   ├── reader.py
-│   ├── settings.py
-│   └── contacts.py
+│   ├── application.py      # Main GTK application
+│   ├── main_window.py      # Primary window
+│   ├── composer.py         # Email composition
+│   ├── reader.py           # Email reading view
+│   ├── settings.py         # Settings panel
+│   ├── folders.py          # Folder management
+│   ├── contacts.py         # Contact management
+│   ├── search.py           # Search interface
+│   ├── setup_wizard.py     # First-run wizard
+│   ├── backup_dialog.py    # Backup UI
+│   ├── restore_dialog.py   # Restore UI
+│   └── widgets/            # Reusable UI components
+│       ├── search_bar.py
+│       ├── folder_tree.py
+│       ├── attachment_panel.py
+│       ├── recipient_entry.py
+│       └── pgp_key_manager.py
 ├── models/
-│   ├── message.py
-│   ├── contact.py
-│   └── config.py
-├── services/
-│   ├── gateway_client.py
-│   ├── crypto.py
-│   └── search.py
-└── resources/
-    ├── icons/
-    └── templates/
+│   └── __init__.py
+└── services/
+    ├── email_db.py         # Database operations
+    ├── search_service.py   # FTS5 search
+    ├── settings_service.py # Configuration
+    ├── backup_service.py   # Backup/restore
+    ├── setup_service.py    # Initial setup
+    └── date_format_service.py
 ```
 
 **Inter-Process Communication**
@@ -254,25 +264,33 @@ Client request → Queue in SQLite → SMTP delivery → Status update
 
 **File Structure**
 ```
-unitmail-gateway/
+src/gateway/
+├── app.py              # Main gateway application
+├── config.py           # Configuration management
 ├── smtp/
-│   ├── receiver.py
-│   ├── sender.py
-│   └── queue.py
+│   ├── receiver.py     # Incoming mail handling
+│   ├── sender.py       # Outgoing mail delivery
+│   ├── parser.py       # Email parsing
+│   ├── composer.py     # Email composition
+│   ├── queue.py        # Queue management
+│   └── worker.py       # Background processing
 ├── api/
-│   ├── server.py
-│   ├── auth.py
-│   └── handlers.py
+│   ├── server.py       # Flask API server
+│   ├── auth.py         # Authentication
+│   ├── middleware.py   # Request middleware
+│   ├── schemas.py      # Pydantic schemas
+│   └── routes/
+│       ├── auth.py
+│       ├── messages.py
+│       ├── contacts.py
+│       ├── folders.py
+│       └── queue.py
 ├── dns/
-│   ├── updater.py
-│   └── checker.py
-├── crypto/
-│   ├── dkim.py
-│   ├── tls.py
-│   └── pgp.py
-└── config/
-    ├── postfix/
-    └── settings.py
+│   └── checker.py      # DNS verification
+└── crypto/
+    ├── dkim.py         # DKIM signing
+    ├── tls.py          # TLS configuration
+    └── pgp.py          # PGP encryption
 ```
 
 **Service Configuration**

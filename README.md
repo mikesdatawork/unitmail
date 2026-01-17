@@ -216,7 +216,7 @@ We're explicit: if you want zero-effort email, use Gmail. If you want **ownershi
 
 ```bash
 # Clone the repository
-git clone https://github.com/mikesdatawork/unitmail.git
+git clone https://github.com/unitmail/unitmail.git
 cd unitmail
 
 # Create virtual environment
@@ -431,7 +431,7 @@ A: Simply copy the `~/.unitmail/data/unitmail.db` file. It's a standard SQLite d
 
 ## License
 
-unitMail is released under the GNU Lesser General Public License (LGPL).
+unitMail is released under the MIT License.
 
 - **Core:** Open source, free forever
 - **Premium features:** Optional paid add-ons (planned)
@@ -441,8 +441,8 @@ unitMail is released under the GNU Lesser General Public License (LGPL).
 ## Support
 
 - **Documentation:** [docs/](./docs/)
-- **Issues:** [GitHub Issues](https://github.com/mikesdatawork/unitmail/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/mikesdatawork/unitmail/discussions)
+- **Issues:** [GitHub Issues](https://github.com/unitmail/unitmail/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/unitmail/unitmail/discussions)
 
 ---
 
