@@ -2,7 +2,7 @@
 Inbox Page Object for email list and management tests.
 """
 
-from typing import Optional, List
+from typing import List
 from playwright.async_api import Page, expect, Locator
 from .base_page import BasePage
 

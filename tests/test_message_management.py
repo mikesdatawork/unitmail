@@ -21,7 +21,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from datetime import datetime
 from common.local_storage import get_local_storage, LocalEmailStorage
-from common.sample_data import generate_sample_messages
 
 class MessageTestResult:
     """Stores test result information."""
@@ -358,7 +357,7 @@ class MessageManagementTests:
 
         try:
             folders = self.storage.get_folders()
-            inbox_id = next((f["id"] for f in folders if f["name"] == "Inbox"), None)
+            _inbox_id = next((f["id"] for f in folders if f["name"] == "Inbox"), None)  # noqa: F841
             trash_id = next((f["id"] for f in folders if f["name"] == "Trash"), None)
 
             inbox_messages = self.storage.get_messages_by_folder("Inbox")
@@ -370,7 +369,7 @@ class MessageManagementTests:
 
             test_msg = inbox_messages[-1]  # Use last message to minimize impact
             msg_id = test_msg["id"]
-            original_folder = test_msg.get("folder_id")
+            _original_folder = test_msg.get("folder_id")  # noqa: F841
 
             # Move to Trash
             self.storage.move_to_folder(msg_id, "Trash")

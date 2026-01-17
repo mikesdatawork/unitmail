@@ -11,7 +11,7 @@ Tests cover:
 import pytest
 from playwright.async_api import Page, expect
 
-from .pages import ContactsPage, ComposePage, LoginPage
+from .pages import ContactsPage, ComposePage
 
 
 # =============================================================================
@@ -180,7 +180,7 @@ class TestAddContact:
     ):
         """Test adding a contact with duplicate email."""
         # Create existing contact
-        existing = await api_client.create_test_contact(email="duplicate@test.com")
+        _existing = await api_client.create_test_contact(email="duplicate@test.com")  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -207,7 +207,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test opening edit form for a contact."""
-        contact = await api_client.create_test_contact()
+        _contact = await api_client.create_test_contact()  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -221,7 +221,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test editing contact name."""
-        contact = await api_client.create_test_contact(name="Original Name")
+        _contact = await api_client.create_test_contact(name="Original Name")  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -240,7 +240,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test editing contact email."""
-        contact = await api_client.create_test_contact(
+        _contact = await api_client.create_test_contact(  # noqa: F841
             email="original@example.com"
         )
 
@@ -261,7 +261,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test editing contact phone number."""
-        contact = await api_client.create_test_contact()
+        _contact = await api_client.create_test_contact()  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -275,7 +275,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test that editing preserves unchanged fields."""
-        contact = await api_client.create_test_contact(
+        _contact = await api_client.create_test_contact(  # noqa: F841
             name="Preserve Test",
             email="preserve@test.com"
         )
@@ -297,7 +297,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test canceling contact edit."""
-        contact = await api_client.create_test_contact(name="Cancel Edit Test")
+        _contact = await api_client.create_test_contact(name="Cancel Edit Test")  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -314,7 +314,7 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test validation when editing contact."""
-        contact = await api_client.create_test_contact()
+        _contact = await api_client.create_test_contact()  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -341,7 +341,7 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test deleting a contact."""
-        contact = await api_client.create_test_contact(name="Delete Test")
+        _contact = await api_client.create_test_contact(name="Delete Test")  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -358,7 +358,7 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test that delete shows confirmation dialog."""
-        contact = await api_client.create_test_contact()
+        _contact = await api_client.create_test_contact()  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -374,7 +374,7 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test canceling contact deletion."""
-        contact = await api_client.create_test_contact(name="Cancel Delete Test")
+        _contact = await api_client.create_test_contact(name="Cancel Delete Test")  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -403,7 +403,7 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test deleting contact with keyboard shortcut."""
-        contact = await api_client.create_test_contact()
+        _contact = await api_client.create_test_contact()  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -557,7 +557,7 @@ class TestContactDetails:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test viewing contact details."""
-        contact = await api_client.create_test_contact(
+        _contact = await api_client.create_test_contact(  # noqa: F841
             name="Details Test Contact",
             email="details@test.com"
         )
@@ -574,7 +574,7 @@ class TestContactDetails:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test that contact details shows email."""
-        contact = await api_client.create_test_contact(
+        _contact = await api_client.create_test_contact(  # noqa: F841
             name="Email Details Test",
             email="email-details@test.com"
         )
@@ -592,7 +592,7 @@ class TestContactDetails:
         compose_page: ComposePage, api_client
     ):
         """Test composing email to a contact."""
-        contact = await api_client.create_test_contact(
+        _contact = await api_client.create_test_contact(  # noqa: F841
             name="Compose To Contact",
             email="compose-to@test.com"
         )
@@ -619,7 +619,7 @@ class TestContactGroups:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test adding a contact to a group."""
-        contact = await api_client.create_test_contact()
+        _contact = await api_client.create_test_contact()  # noqa: F841
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -635,7 +635,7 @@ class TestContactGroups:
         await contacts_page.goto()
 
         # Look for group filter
-        group_filter = authenticated_page.locator(
+        _group_filter = authenticated_page.locator(  # noqa: F841
             "[data-testid='group-filter'], .group-filter, "
             ".contact-groups"
         )
@@ -658,7 +658,7 @@ class TestImportExport:
         contacts_page.page = authenticated_page
         await contacts_page.goto()
 
-        export_visible = await contacts_page.export_contacts_button.count() > 0
+        _export_visible = await contacts_page.export_contacts_button.count() > 0  # noqa: F841
         # Document export functionality
 
     @pytest.mark.asyncio
@@ -669,7 +669,7 @@ class TestImportExport:
         contacts_page.page = authenticated_page
         await contacts_page.goto()
 
-        import_visible = await contacts_page.import_contacts_button.count() > 0
+        _import_visible = await contacts_page.import_contacts_button.count() > 0  # noqa: F841
         # Document import functionality
 
 
@@ -746,7 +746,7 @@ class TestContactsAccessibility:
         await contacts_page.search_contacts("test")
 
         # Check for live region
-        live_region = authenticated_page.locator("[aria-live]")
+        _live_region = authenticated_page.locator("[aria-live]")  # noqa: F841
         # Document screen reader announcements
 
 

@@ -12,7 +12,7 @@ Tests cover:
 import pytest
 from playwright.async_api import Page, expect
 
-from .pages import InboxPage, EmailReaderPage, LoginPage
+from .pages import InboxPage, EmailReaderPage
 
 
 # =============================================================================
@@ -51,7 +51,7 @@ class TestViewingInbox:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test that inbox shows email subjects."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Unique Test Subject"
         )
 
@@ -65,7 +65,7 @@ class TestViewingInbox:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test that inbox shows email sender."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             sender="test-sender@example.com"
         )
 
@@ -139,13 +139,13 @@ class TestViewingInbox:
     ):
         """Test that unread emails are visually indicated."""
         # Create unread email
-        test_email = await api_client.create_test_email()
+        _test_email = await api_client.create_test_email()  # noqa: F841
 
         inbox_page.page = authenticated_page
         await inbox_page.goto()
 
         # Should have unread indicator
-        is_unread = await inbox_page.is_email_unread(0)
+        _is_unread = await inbox_page.is_email_unread(0)  # noqa: F841
         # Document unread indicator behavior
 
 
@@ -178,7 +178,7 @@ class TestReadingEmail:
         email_reader_page: EmailReaderPage, api_client
     ):
         """Test that email reader shows the subject."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Reader Subject Test"
         )
 
@@ -196,7 +196,7 @@ class TestReadingEmail:
         email_reader_page: EmailReaderPage, api_client
     ):
         """Test that email reader shows the body content."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Body Test",
             body="This is the email body content for testing."
         )
@@ -215,7 +215,7 @@ class TestReadingEmail:
         email_reader_page: EmailReaderPage, api_client
     ):
         """Test that email reader shows sender information."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             sender="sender-test@example.com"
         )
 
@@ -252,7 +252,6 @@ class TestReadingEmail:
         """Test that email reader shows attachments."""
         # Note: This would need an email with attachments
         # Document attachment display behavior
-        pass
 
     @pytest.mark.asyncio
     async def test_back_to_inbox_from_reader(
@@ -307,7 +306,7 @@ class TestMarkReadUnread:
         email_reader_page: EmailReaderPage, api_client
     ):
         """Test that opening an email marks it as read."""
-        test_email = await api_client.create_test_email()
+        _test_email = await api_client.create_test_email()  # noqa: F841
 
         inbox_page.page = authenticated_page
         email_reader_page.page = authenticated_page
@@ -315,7 +314,7 @@ class TestMarkReadUnread:
         await inbox_page.goto()
 
         # Email should be unread initially
-        initial_unread_count = await inbox_page.get_unread_count()
+        _initial_unread_count = await inbox_page.get_unread_count()  # noqa: F841
 
         # Open the email
         await inbox_page.click_email(0)
@@ -332,7 +331,7 @@ class TestMarkReadUnread:
         email_reader_page: EmailReaderPage, api_client
     ):
         """Test marking an email as unread."""
-        test_email = await api_client.create_test_email()
+        _test_email = await api_client.create_test_email()  # noqa: F841
         # Mark as read via API first
         await api_client.mark_email_read(test_email.id, True)
 
@@ -347,7 +346,7 @@ class TestMarkReadUnread:
 
         # Go back and verify
         await email_reader_page.go_back()
-        is_unread = await inbox_page.is_email_unread(0)
+        _is_unread = await inbox_page.is_email_unread(0)  # noqa: F841
         assert is_unread
 
     @pytest.mark.asyncio
@@ -355,7 +354,7 @@ class TestMarkReadUnread:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test marking email as read from inbox list."""
-        test_email = await api_client.create_test_email()
+        _test_email = await api_client.create_test_email()  # noqa: F841
 
         inbox_page.page = authenticated_page
         await inbox_page.goto()
@@ -364,7 +363,7 @@ class TestMarkReadUnread:
         await inbox_page.mark_email_read(0)
 
         # Verify it's marked as read
-        is_unread = await inbox_page.is_email_unread(0)
+        _is_unread = await inbox_page.is_email_unread(0)  # noqa: F841
         assert not is_unread
 
     @pytest.mark.asyncio
@@ -418,7 +417,7 @@ class TestStarring:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test unstarring a starred email."""
-        test_email = await api_client.create_test_email()
+        _test_email = await api_client.create_test_email()  # noqa: F841
         await api_client.star_email(test_email.id, True)
 
         inbox_page.page = authenticated_page
@@ -487,7 +486,7 @@ class TestDeleting:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test deleting an email from inbox list."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Delete Test Email"
         )
 
@@ -508,7 +507,7 @@ class TestDeleting:
         email_reader_page: EmailReaderPage, api_client
     ):
         """Test deleting an email from reader view."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Reader Delete Test"
         )
 
@@ -553,7 +552,7 @@ class TestDeleting:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test that deleted email appears in trash folder."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Trash Test Email"
         )
 
@@ -574,7 +573,7 @@ class TestDeleting:
         self, authenticated_page: Page, inbox_page: InboxPage, api_client
     ):
         """Test permanently deleting an email from trash."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Permanent Delete Test"
         )
 
@@ -607,7 +606,7 @@ class TestDeleting:
         await inbox_page.delete_button.click()
 
         # Check for confirmation dialog
-        confirm_dialog = authenticated_page.locator(
+        _confirm_dialog = authenticated_page.locator(  # noqa: F841
             "[role='alertdialog'], .confirm-dialog, [data-testid='confirm-delete']"
         )
 
@@ -818,7 +817,7 @@ class TestInboxAccessibility:
         inbox_page.page = authenticated_page
         await inbox_page.goto()
 
-        role = await inbox_page.email_list.get_attribute("role")
+        _role = await inbox_page.email_list.get_attribute("role")  # noqa: F841
         # Should have list role or similar
 
     @pytest.mark.asyncio
@@ -832,5 +831,5 @@ class TestInboxAccessibility:
         await inbox_page.goto()
 
         # Check for live regions
-        live_regions = authenticated_page.locator("[aria-live]")
+        _live_regions = authenticated_page.locator("[aria-live]")  # noqa: F841
         # Document screen reader support

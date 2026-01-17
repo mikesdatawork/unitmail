@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List
 from common.local_storage import get_local_storage
 
 
@@ -347,8 +347,8 @@ class GUIFeatureTests:
             valid_attachments = []
             for att in attachments:
                 has_filename = "filename" in att and att["filename"]
-                has_size = "size" in att
-                has_type = "content_type" in att
+                _has_size = "size" in att  # noqa: F841
+                _has_type = "content_type" in att  # noqa: F841
 
                 if has_filename:
                     valid_attachments.append(att["filename"])

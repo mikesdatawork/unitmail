@@ -25,7 +25,7 @@ def test_application_initialization():
         import gi
         gi.require_version('Gtk', '4.0')
         gi.require_version('Adw', '1')
-        from gi.repository import Gtk, Adw, Gio
+        from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
 
@@ -52,7 +52,7 @@ def test_main_window_creation():
         import gi
         gi.require_version('Gtk', '4.0')
         gi.require_version('Adw', '1')
-        from gi.repository import Gtk, Adw, Gio
+        from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
         from client.ui.main_window import MainWindow
@@ -94,7 +94,7 @@ def test_message_operations():
         import gi
         gi.require_version('Gtk', '4.0')
         gi.require_version('Adw', '1')
-        from gi.repository import Gtk, Adw, Gio
+        from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
         from client.ui.main_window import MainWindow
@@ -145,7 +145,7 @@ def test_search_functionality():
         import gi
         gi.require_version('Gtk', '4.0')
         gi.require_version('Adw', '1')
-        from gi.repository import Gtk, Adw, Gio
+        from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
         from client.ui.main_window import MainWindow

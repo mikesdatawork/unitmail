@@ -74,7 +74,7 @@ def test_widget_instantiation(results: FeatureTestResults):
         import gi
         gi.require_version('Gtk', '4.0')
         gi.require_version('Adw', '1')
-        from gi.repository import Gtk, Adw, Gio
+        from gi.repository import Gtk, Adw, Gio  # noqa: F401
         results.add_pass("GTK4 initialization", "GTK4 and Adwaita available")
     except Exception as e:
         results.add_fail("GTK4 initialization", str(e))
@@ -220,7 +220,7 @@ def test_view_theme_manager(results: FeatureTestResults):
     logger.info("\n=== Testing View Theme Manager ===")
 
     try:
-        from client.ui.view_theme import ViewTheme, ViewThemeManager, get_view_theme_manager
+        from client.ui.view_theme import ViewTheme, ViewThemeManager, get_view_theme_manager  # noqa: F401
 
         # Test enum values exist
         assert hasattr(ViewTheme, 'STANDARD')

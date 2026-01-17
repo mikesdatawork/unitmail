@@ -398,7 +398,7 @@ class TestAuthSecurity:
         )
 
         # Document whether CSRF is implemented
-        csrf_count = await csrf_input.count()
+        _csrf_count = await csrf_input.count()  # noqa: F841
         # If csrf_count > 0, CSRF is implemented
 
 

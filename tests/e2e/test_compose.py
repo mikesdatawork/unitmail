@@ -12,7 +12,7 @@ Tests cover:
 import pytest
 from playwright.async_api import Page, expect
 
-from .pages import ComposePage, InboxPage, LoginPage
+from .pages import ComposePage, InboxPage
 
 
 # =============================================================================
@@ -252,7 +252,7 @@ class TestAddRecipients:
     ):
         """Test recipient autocomplete from contacts."""
         # Create a contact first
-        contact = await api_client.create_test_contact(
+        _contact = await api_client.create_test_contact(  # noqa: F841
             name="John Doe",
             email="john.doe@example.com"
         )
@@ -267,7 +267,7 @@ class TestAddRecipients:
         await authenticated_page.wait_for_timeout(1000)
 
         # Check for autocomplete dropdown
-        autocomplete = authenticated_page.locator(
+        _autocomplete = authenticated_page.locator(  # noqa: F841
             "[data-testid='autocomplete'], .autocomplete, "
             "[role='listbox'], .suggestions"
         )
@@ -361,7 +361,7 @@ class TestAttachments:
         await compose_page.goto()
 
         # Create a large file (this is a mock - adjust size as needed)
-        large_file = tmp_path / "large_file.bin"
+        _large_file = tmp_path / "large_file.bin"  # noqa: F841
         # Note: Creating actual large files in tests is not recommended
         # This documents expected size limit behavior
 
@@ -701,7 +701,7 @@ class TestReplyAndForward:
     ):
         """Test that reply prefills the original sender as recipient."""
         # Create test email
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Reply Test",
             sender="original-sender@example.com",
         )
@@ -726,7 +726,7 @@ class TestReplyAndForward:
         compose_page: ComposePage, api_client
     ):
         """Test that reply includes quoted original message."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Quote Test",
             body="Original message content",
         )
@@ -742,7 +742,7 @@ class TestReplyAndForward:
         await reader.reply()
 
         # Body should contain quoted text
-        body_text = await compose_page.body_editor.text_content()
+        _body_text = await compose_page.body_editor.text_content()  # noqa: F841
         # Document expected quote format
 
     @pytest.mark.asyncio
@@ -751,7 +751,7 @@ class TestReplyAndForward:
         compose_page: ComposePage, api_client
     ):
         """Test that forward prefills subject with Fwd: prefix."""
-        test_email = await api_client.create_test_email(
+        _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Forward Test",
         )
 
@@ -815,5 +815,5 @@ class TestComposeAccessibility:
         await compose_page.goto()
 
         # Send button might be disabled without recipient
-        is_disabled = await compose_page.send_button.is_disabled()
+        _is_disabled = await compose_page.send_button.is_disabled()  # noqa: F841
         # Document expected button state behavior
