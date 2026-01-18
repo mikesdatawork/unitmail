@@ -1347,12 +1347,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Create sort list model wrapping the message store
         self._sort_list_model = Gtk.SortListModel(model=self._message_store)
 
-        # Create selection model on top of the sort model
-        self._column_view_selection = Gtk.SingleSelection(
+        # Create multi-selection model for CTRL+Click and SHIFT+Click support
+        self._column_view_selection = Gtk.MultiSelection(
             model=self._sort_list_model
         )
         self._column_view_selection.connect(
-            "selection-changed", self._on_column_view_selection_changed
+            "selection-changed", self._on_column_view_multi_selection_changed
         )
 
         # Create the ColumnView
@@ -1898,12 +1898,48 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         position: int,
         n_items: int,
     ) -> None:
-        """Handle selection change in the ColumnView."""
+        """Handle selection change in the ColumnView (legacy SingleSelection)."""
         selected = selection.get_selected_item()
         if selected:
             self._selected_message_id = selected.message_id
             self._show_message_preview(selected)
             logger.info(f"ColumnView selected: {selected.subject}")
+
+    def _on_column_view_multi_selection_changed(
+        self,
+        selection: Gtk.MultiSelection,
+        position: int,
+        n_items: int,
+    ) -> None:
+        """Handle multi-selection change in the ColumnView.
+
+        Syncs GTK's MultiSelection with our _selected_messages set
+        for compatibility with bulk actions.
+        """
+        # Clear and rebuild _selected_messages from MultiSelection
+        self._selected_messages.clear()
+
+        # Get the selection bitset and iterate through selected positions
+        bitset = selection.get_selection()
+        n_total = selection.get_n_items()
+
+        # Iterate through all items and check if selected
+        for i in range(n_total):
+            if bitset.contains(i):
+                item = selection.get_item(i)
+                if item:
+                    self._selected_messages.add(item.message_id)
+
+        # Update the preview for the most recently selected item
+        if n_total > 0 and position < n_total:
+            item = selection.get_item(position)
+            if item:
+                self._selected_message_id = item.message_id
+                self._show_message_preview(item)
+                logger.info(f"ColumnView selected: {item.subject}")
+
+        # Update UI
+        self._update_message_count()
 
     def _on_column_view_activated(
         self,
@@ -1949,6 +1985,7 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         click_gesture = Gtk.GestureClick(button=3)  # Right click
         click_gesture.connect("pressed", self._on_column_view_right_click)
         column_view.add_controller(click_gesture)
+        # Note: CTRL+Click and SHIFT+Click handled natively by MultiSelection
 
     def _on_column_view_right_click(
         self,
@@ -2690,9 +2727,17 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         count = self._message_store.get_n_items()
         selected = len(self._selected_messages)
 
+        # Check if we're in minimal (ColumnView) mode
+        is_minimal_view = (
+            hasattr(self, "_view_type_stack") and
+            self._view_type_stack.get_visible_child_name() == "minimal-view"
+        )
+
         # Show/hide bulk actions bar based on selection
+        # Hide in minimal view - uses checkboxes for visual feedback instead
         if hasattr(self, "_bulk_actions_bar"):
-            self._bulk_actions_bar.set_visible(selected > 0)
+            show_bar = selected > 0 and not is_minimal_view
+            self._bulk_actions_bar.set_visible(show_bar)
             if selected > 0:
                 self._bulk_selected_label.set_label(f"{selected} selected")
 
