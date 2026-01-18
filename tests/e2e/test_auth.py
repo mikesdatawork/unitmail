@@ -28,6 +28,7 @@ INVALID_PASSWORD = "wrongpassword"
 # Login Flow Tests
 # =============================================================================
 
+
 class TestLoginFlow:
     """Tests for the login functionality."""
 
@@ -39,7 +40,8 @@ class TestLoginFlow:
 
     @pytest.mark.asyncio
     async def test_login_page_has_required_elements(
-            self, login_page: LoginPage):
+        self, login_page: LoginPage
+    ):
         """Test that login page has all required elements."""
         await login_page.goto()
 
@@ -50,7 +52,8 @@ class TestLoginFlow:
 
     @pytest.mark.asyncio
     async def test_successful_login(
-            self, login_page: LoginPage, inbox_page: InboxPage):
+        self, login_page: LoginPage, inbox_page: InboxPage
+    ):
         """Test successful login with valid credentials."""
         await login_page.goto()
         await login_page.login_and_wait(VALID_EMAIL, VALID_PASSWORD)
@@ -64,9 +67,7 @@ class TestLoginFlow:
         """Test login with remember me option checked."""
         await login_page.goto()
         await login_page.login_and_wait(
-            VALID_EMAIL,
-            VALID_PASSWORD,
-            remember_me=True
+            VALID_EMAIL, VALID_PASSWORD, remember_me=True
         )
 
         await login_page.assert_login_successful()
@@ -85,7 +86,8 @@ class TestLoginFlow:
 
     @pytest.mark.asyncio
     async def test_login_with_enter_key(
-            self, login_page: LoginPage, inbox_page: InboxPage):
+        self, login_page: LoginPage, inbox_page: InboxPage
+    ):
         """Test that pressing Enter submits the login form."""
         await login_page.goto()
 
@@ -119,6 +121,7 @@ class TestLoginFlow:
 # =============================================================================
 # Invalid Credentials Tests
 # =============================================================================
+
 
 class TestInvalidCredentials:
     """Tests for handling invalid login attempts."""
@@ -154,9 +157,9 @@ class TestInvalidCredentials:
         await login_page.login("", VALID_PASSWORD)
 
         # Should show validation error or login error
-        await expect(login_page.login_error.or_(
-            login_page.validation_error
-        ).first).to_be_visible()
+        await expect(
+            login_page.login_error.or_(login_page.validation_error).first
+        ).to_be_visible()
 
     @pytest.mark.asyncio
     async def test_login_with_empty_password(self, login_page: LoginPage):
@@ -165,9 +168,9 @@ class TestInvalidCredentials:
         await login_page.login(VALID_EMAIL, "")
 
         # Should show validation error or login error
-        await expect(login_page.login_error.or_(
-            login_page.validation_error
-        ).first).to_be_visible()
+        await expect(
+            login_page.login_error.or_(login_page.validation_error).first
+        ).to_be_visible()
 
     @pytest.mark.asyncio
     async def test_login_with_malformed_email(self, login_page: LoginPage):
@@ -176,9 +179,9 @@ class TestInvalidCredentials:
         await login_page.login("not-an-email", VALID_PASSWORD)
 
         # Should show validation error
-        await expect(login_page.login_error.or_(
-            login_page.validation_error
-        ).first).to_be_visible()
+        await expect(
+            login_page.login_error.or_(login_page.validation_error).first
+        ).to_be_visible()
 
     @pytest.mark.asyncio
     async def test_login_error_message_is_generic(self, login_page: LoginPage):
@@ -231,6 +234,7 @@ class TestInvalidCredentials:
 # =============================================================================
 # Logout Tests
 # =============================================================================
+
 
 class TestLogout:
     """Tests for the logout functionality."""
@@ -294,6 +298,7 @@ class TestLogout:
 # =============================================================================
 # Session Expiration Tests
 # =============================================================================
+
 
 class TestSessionExpiration:
     """Tests for session expiration handling."""
@@ -360,6 +365,7 @@ class TestSessionExpiration:
 # Security Tests
 # =============================================================================
 
+
 class TestAuthSecurity:
     """Security-related authentication tests."""
 
@@ -382,7 +388,8 @@ class TestAuthSecurity:
 
     @pytest.mark.asyncio
     async def test_login_over_https_warning(
-            self, page: Page, login_page: LoginPage):
+        self, page: Page, login_page: LoginPage
+    ):
         """Test for HTTPS requirement or warning on login page."""
         await login_page.goto()
 
@@ -410,6 +417,7 @@ class TestAuthSecurity:
 # Accessibility Tests
 # =============================================================================
 
+
 class TestAuthAccessibility:
     """Accessibility tests for authentication pages."""
 
@@ -425,7 +433,9 @@ class TestAuthAccessibility:
             label_count = await label.count()
             # Either has label or aria-label
             if label_count == 0:
-                aria_label = await login_page.email_input.get_attribute("aria-label")
+                aria_label = await login_page.email_input.get_attribute(
+                    "aria-label"
+                )
                 assert aria_label is not None
 
     @pytest.mark.asyncio
@@ -461,15 +471,15 @@ class TestAuthAccessibility:
 # Cross-Browser Tests
 # =============================================================================
 
-@pytest.mark.parametrize("browser_name",
-                         ["chromium", "firefox", "webkit"], indirect=True)
+
+@pytest.mark.parametrize(
+    "browser_name", ["chromium", "firefox", "webkit"], indirect=True
+)
 class TestAuthCrossBrowser:
     """Cross-browser authentication tests."""
 
     @pytest.mark.asyncio
-    async def test_login_works_across_browsers(
-        self, cross_browser_page: Page
-    ):
+    async def test_login_works_across_browsers(self, cross_browser_page: Page):
         """Test that login works in all supported browsers."""
         login_page = LoginPage(cross_browser_page)
         await login_page.goto()

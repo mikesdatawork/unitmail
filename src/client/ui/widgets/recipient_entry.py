@@ -3,7 +3,8 @@ Custom recipient entry widget with auto-complete and chip/tag support.
 """
 
 import gi
-gi.require_version('Gtk', '4.0')
+
+gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GObject, Gdk, Pango
 import re
 from typing import List, Optional, Callable
@@ -15,14 +16,14 @@ class RecipientChip(Gtk.Box):
     """
 
     __gsignals__ = {
-        'remove-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "remove-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     def __init__(self, email: str, display_name: Optional[str] = None):
         super().__init__(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=4,
-            css_classes=['recipient-chip']
+            css_classes=["recipient-chip"],
         )
 
         self.email = email
@@ -35,7 +36,8 @@ class RecipientChip(Gtk.Box):
         self.label.set_ellipsize(Pango.EllipsizeMode.END)
         self.label.set_max_width_chars(25)
         self.label.set_tooltip_text(
-            f"{display_name} <{email}>" if display_name else email)
+            f"{display_name} <{email}>" if display_name else email
+        )
         self.append(self.label)
 
         # Remove button
@@ -52,7 +54,8 @@ class RecipientChip(Gtk.Box):
     def _apply_styles(self):
         """Apply CSS styles to the chip."""
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
+        css_provider.load_from_data(
+            b"""
             .recipient-chip {
                 background-color: alpha(@accent_bg_color, 0.3);
                 border-radius: 12px;
@@ -67,24 +70,25 @@ class RecipientChip(Gtk.Box):
                 min-height: 16px;
                 padding: 0;
             }
-        """)
+        """
+        )
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
     def _on_remove_clicked(self, button):
         """Handle remove button click."""
-        self.emit('remove-requested')
+        self.emit("remove-requested")
 
     def set_valid(self, valid: bool):
         """Set validation state of the chip."""
         self._is_valid = valid
         if valid:
-            self.remove_css_class('invalid')
+            self.remove_css_class("invalid")
         else:
-            self.add_css_class('invalid')
+            self.add_css_class("invalid")
 
     def is_valid(self) -> bool:
         """Return whether the recipient is valid."""
@@ -98,30 +102,33 @@ class RecipientEntry(Gtk.Box):
     """
 
     __gsignals__ = {
-        'recipients-changed': (GObject.SignalFlags.RUN_FIRST, None, ()),
-        'validation-changed': (GObject.SignalFlags.RUN_FIRST, None, (bool,)),
+        "recipients-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "validation-changed": (GObject.SignalFlags.RUN_FIRST, None, (bool,)),
     }
 
     # Email validation pattern
     EMAIL_PATTERN = re.compile(
-        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     )
 
-    def __init__(self,
-                 placeholder: str = "Enter recipients...",
-                 contacts_provider: Optional[Callable[[], List[dict]]] = None):
+    def __init__(
+        self,
+        placeholder: str = "Enter recipients...",
+        contacts_provider: Optional[Callable[[], List[dict]]] = None,
+    ):
         """
         Initialize the recipient entry.
 
         Args:
             placeholder: Placeholder text for the entry
-            contacts_provider: Callable that returns list of contacts for auto-complete
-                              Each contact should be dict with 'email' and optional 'name'
+            contacts_provider: Callable that returns list of contacts
+                for auto-complete. Each contact should be dict with
+                'email' and optional 'name'
         """
         super().__init__(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=0,
-            css_classes=['recipient-entry-container']
+            css_classes=["recipient-entry-container"],
         )
 
         self._recipients: List[dict] = []
@@ -131,7 +138,8 @@ class RecipientEntry(Gtk.Box):
         # Scrollable container for chips
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_policy(
-            Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+            Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER
+        )
         self.scrolled.set_hexpand(True)
         self.scrolled.set_min_content_height(36)
 
@@ -182,7 +190,8 @@ class RecipientEntry(Gtk.Box):
     def _apply_styles(self):
         """Apply CSS styles."""
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
+        css_provider.load_from_data(
+            b"""
             .recipient-entry-container {
                 background-color: @view_bg_color;
                 border: 1px solid @borders;
@@ -199,11 +208,12 @@ class RecipientEntry(Gtk.Box):
                 box-shadow: none;
                 min-height: 28px;
             }
-        """)
+        """
+        )
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
     def _setup_autocomplete(self):
@@ -244,8 +254,8 @@ class RecipientEntry(Gtk.Box):
         if self._contacts_provider:
             contacts = self._contacts_provider()
             for contact in contacts:
-                email = contact.get('email', '')
-                name = contact.get('name', '')
+                email = contact.get("email", "")
+                name = contact.get("name", "")
                 display = f"{name} <{email}>" if name else email
                 self._completion_model.append([email, display])
 
@@ -264,8 +274,8 @@ class RecipientEntry(Gtk.Box):
 
         # Extract name from display if present
         name = None
-        if '<' in display and '>' in display:
-            name = display.split('<')[0].strip()
+        if "<" in display and ">" in display:
+            name = display.split("<")[0].strip()
 
         self._add_recipient(email, name)
         self.entry.set_text("")
@@ -283,8 +293,8 @@ class RecipientEntry(Gtk.Box):
         text = entry.get_text()
 
         # Check for comma or semicolon separators
-        if ',' in text or ';' in text:
-            parts = re.split(r'[,;]', text)
+        if "," in text or ";" in text:
+            parts = re.split(r"[,;]", text)
             for part in parts[:-1]:
                 part = part.strip()
                 if part:
@@ -321,7 +331,7 @@ class RecipientEntry(Gtk.Box):
         email = text
         name = None
 
-        match = re.match(r'^(.+?)\s*<([^>]+)>$', text)
+        match = re.match(r"^(.+?)\s*<([^>]+)>$", text)
         if match:
             name = match.group(1).strip()
             email = match.group(2).strip()
@@ -332,7 +342,7 @@ class RecipientEntry(Gtk.Box):
         """Add a recipient."""
         # Check for duplicates
         for recipient in self._recipients:
-            if recipient['email'].lower() == email.lower():
+            if recipient["email"].lower() == email.lower():
                 return
 
         # Validate email
@@ -341,7 +351,7 @@ class RecipientEntry(Gtk.Box):
         # Create chip
         chip = RecipientChip(email, name)
         chip.set_valid(is_valid)
-        chip.connect('remove-requested', self._on_chip_remove_requested)
+        chip.connect("remove-requested", self._on_chip_remove_requested)
 
         # Add to flow box before the entry
         chip_child = Gtk.FlowBoxChild()
@@ -352,21 +362,23 @@ class RecipientEntry(Gtk.Box):
         self.flow_box.insert(chip_child, position)
 
         # Store recipient
-        self._recipients.append({
-            'email': email,
-            'name': name,
-            'chip': chip,
-            'child': chip_child,
-            'valid': is_valid
-        })
+        self._recipients.append(
+            {
+                "email": email,
+                "name": name,
+                "chip": chip,
+                "child": chip_child,
+                "valid": is_valid,
+            }
+        )
 
-        self.emit('recipients-changed')
+        self.emit("recipients-changed")
         self._emit_validation_status()
 
     def _on_chip_remove_requested(self, chip):
         """Handle chip removal request."""
         for i, recipient in enumerate(self._recipients):
-            if recipient['chip'] == chip:
+            if recipient["chip"] == chip:
                 self._remove_recipient_at(i)
                 break
 
@@ -376,28 +388,28 @@ class RecipientEntry(Gtk.Box):
             return
 
         recipient = self._recipients.pop(index)
-        self.flow_box.remove(recipient['child'])
+        self.flow_box.remove(recipient["child"])
 
-        self.emit('recipients-changed')
+        self.emit("recipients-changed")
         self._emit_validation_status()
 
     def _emit_validation_status(self):
         """Emit validation status."""
-        all_valid = all(r['valid'] for r in self._recipients)
-        self.emit('validation-changed', all_valid)
+        all_valid = all(r["valid"] for r in self._recipients)
+        self.emit("validation-changed", all_valid)
 
     def get_recipients(self) -> List[str]:
         """Get list of recipient email addresses."""
-        return [r['email'] for r in self._recipients]
+        return [r["email"] for r in self._recipients]
 
     def get_recipients_formatted(self) -> List[str]:
         """Get list of formatted recipient strings."""
         result = []
         for r in self._recipients:
-            if r['name']:
+            if r["name"]:
                 result.append(f"{r['name']} <{r['email']}>")
             else:
-                result.append(r['email'])
+                result.append(r["email"])
         return result
 
     def set_recipients(self, recipients: List[str]):
@@ -417,7 +429,7 @@ class RecipientEntry(Gtk.Box):
 
     def is_valid(self) -> bool:
         """Check if all recipients are valid."""
-        return all(r['valid'] for r in self._recipients)
+        return all(r["valid"] for r in self._recipients)
 
     def has_recipients(self) -> bool:
         """Check if there are any recipients."""

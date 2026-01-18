@@ -76,7 +76,9 @@ class JWTManager:
 
         self.secret = secret or settings.api.jwt_secret
         self.algorithm = algorithm or settings.api.jwt_algorithm
-        self.access_token_expiry = access_token_expiry or settings.api.jwt_expiration
+        self.access_token_expiry = (
+            access_token_expiry or settings.api.jwt_expiration
+        )
         # Refresh tokens last 7 days by default
         self.refresh_token_expiry = refresh_token_expiry or (7 * 24 * 3600)
 
@@ -84,7 +86,10 @@ class JWTManager:
         self._storage = storage or get_storage()
 
         # Validate secret in production
-        if settings.environment == "production" and self.secret == "change-me-in-production":
+        if (
+            settings.environment == "production"
+            and self.secret == "change-me-in-production"
+        ):
             logger.warning("JWT secret is using default value in production!")
 
         logger.debug(
@@ -217,13 +222,18 @@ class JWTManager:
             if expected_type and payload.get("type") != expected_type:
                 raise TokenInvalidError(
                     details={
-                        "reason": f"Expected {expected_type} token, got {payload.get('type')}"}
+                        "reason": (
+                            f"Expected {expected_type} token, "
+                            f"got {payload.get('type')}"
+                        )
+                    }
                 )
 
             # Check if token is revoked
             if self.is_revoked(token):
                 raise TokenInvalidError(
-                    details={"reason": "Token has been revoked"})
+                    details={"reason": "Token has been revoked"}
+                )
 
             logger.debug(
                 "Token verified",
@@ -278,7 +288,8 @@ class JWTManager:
             expires_at = None
             if exp:
                 expires_at = datetime.fromtimestamp(
-                    exp, tz=timezone.utc).isoformat()
+                    exp, tz=timezone.utc
+                ).isoformat()
 
             # Add to SQLite blacklist
             result = self._storage.add_to_blacklist(
@@ -472,6 +483,7 @@ def require_auth(f: F) -> F:
     Raises:
         401 Unauthorized: If no token is provided or token is invalid.
     """
+
     @wraps(f)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         jwt_manager = get_jwt_manager()
@@ -483,7 +495,8 @@ def require_auth(f: F) -> F:
 
         try:
             payload = jwt_manager.verify_token(
-                token, expected_type=JWTManager.TOKEN_TYPE_ACCESS)
+                token, expected_type=JWTManager.TOKEN_TYPE_ACCESS
+            )
 
             # Store user info in Flask's g object
             g.user_id = payload.get("sub")
@@ -504,7 +517,9 @@ def require_auth(f: F) -> F:
             abort(401, description="Token has expired")
         except TokenInvalidError as e:
             abort(
-                401, description=f"Invalid token: {e.details.get('reason', 'Unknown error')}")
+                401,
+                description=f"Invalid token: {e.details.get('reason', 'Error')}",
+            )
         except AuthenticationError as e:
             abort(401, description=str(e.message))
 
@@ -528,6 +543,7 @@ def require_admin(f: F) -> F:
         401 Unauthorized: If no valid token is provided.
         403 Forbidden: If user is not an admin.
     """
+
     @wraps(f)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Check if user is authenticated
@@ -568,6 +584,7 @@ def optional_auth(f: F) -> F:
                 return f"Hello, user {g.user_id}!"
             return "Hello, anonymous!"
     """
+
     @wraps(f)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Set defaults
@@ -581,7 +598,8 @@ def optional_auth(f: F) -> F:
         if token:
             try:
                 payload = jwt_manager.verify_token(
-                    token, expected_type=JWTManager.TOKEN_TYPE_ACCESS)
+                    token, expected_type=JWTManager.TOKEN_TYPE_ACCESS
+                )
 
                 g.user_id = payload.get("sub")
                 g.token_payload = payload
@@ -595,7 +613,11 @@ def optional_auth(f: F) -> F:
                     },
                 )
 
-            except (TokenExpiredError, TokenInvalidError, AuthenticationError) as e:
+            except (
+                TokenExpiredError,
+                TokenInvalidError,
+                AuthenticationError,
+            ) as e:
                 # Log but don't fail - authentication is optional
                 logger.debug(f"Optional auth: token invalid - {e}")
 
@@ -628,7 +650,8 @@ def create_token_response(
     jwt_manager = get_jwt_manager()
 
     access_token = jwt_manager.generate_token(
-        user_id, additional_claims=additional_claims)
+        user_id, additional_claims=additional_claims
+    )
 
     response = {
         "access_token": access_token,
@@ -638,7 +661,8 @@ def create_token_response(
 
     if include_refresh:
         refresh_token = jwt_manager.generate_refresh_token(
-            user_id, additional_claims=additional_claims)
+            user_id, additional_claims=additional_claims
+        )
         response["refresh_token"] = refresh_token
         response["refresh_expires_in"] = jwt_manager.refresh_token_expiry
 

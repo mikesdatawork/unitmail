@@ -65,12 +65,14 @@ def generate_sample_messages(force_regenerate: bool = False) -> int:
     drafts_id = next((f["id"] for f in folders if f["name"] == "Drafts"), None)
     trash_id = next((f["id"] for f in folders if f["name"] == "Trash"), None)
     spam_id = next((f["id"] for f in folders if f["name"] == "Spam"), None)
-    archive_id = next((f["id"]
-                      for f in folders if f["name"] == "Archive"), None)
+    archive_id = next(
+        (f["id"] for f in folders if f["name"] == "Archive"), None
+    )
 
     if not inbox_id:
         raise RuntimeError(
-            "Inbox folder not found - ensure storage is initialized")
+            "Inbox folder not found - ensure storage is initialized"
+        )
 
     messages_created = 0
     base_time = datetime.now(timezone.utc)
@@ -96,7 +98,13 @@ Please let me know your availability for next week.
 Best,
 Alice""",
             "hours_ago": 48,
-            "attachments": [{"filename": "Q1_roadmap.pdf", "size": 245000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "Q1_roadmap.pdf",
+                    "size": 245000,
+                    "content_type": "application/pdf",
+                }
+            ],
             "is_read": True,
         },
         {
@@ -140,7 +148,13 @@ I've booked Conference Room A. I'll send calendar invites shortly.
 
 Alice""",
             "hours_ago": 42,
-            "attachments": [{"filename": "meeting_agenda.docx", "size": 45000, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}],
+            "attachments": [
+                {
+                    "filename": "meeting_agenda.docx",
+                    "size": 45000,
+                    "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                }
+            ],
             "is_read": True,
         },
         {
@@ -158,19 +172,25 @@ Bob""",
     ]
 
     for msg_data in thread1_messages:
-        storage.create_message({
-            "folder_id": inbox_id,
-            "from_address": msg_data["from"]["email"],
-            "to_addresses": [ME["email"]],
-            "subject": msg_data["subject"],
-            "body_text": msg_data["body_text"],
-            "is_read": msg_data.get("is_read", False),
-            "is_starred": msg_data.get("is_starred", False),
-            "attachments": msg_data.get("attachments", []),
-            "thread_id": thread1_id,
-            "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-            "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
-        })
+        storage.create_message(
+            {
+                "folder_id": inbox_id,
+                "from_address": msg_data["from"]["email"],
+                "to_addresses": [ME["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": msg_data.get("is_read", False),
+                "is_starred": msg_data.get("is_starred", False),
+                "attachments": msg_data.get("attachments", []),
+                "thread_id": thread1_id,
+                "received_at": (
+                    base_time - timedelta(hours=msg_data["hours_ago"])
+                ).isoformat(),
+                "headers": {
+                    "From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"
+                },
+            }
+        )
         messages_created += 1
 
     # Thread 2: Bug Report (4 messages - urgent)
@@ -236,25 +256,39 @@ Fix is now live in production. Please test and confirm.
 Frank""",
             "hours_ago": 8,
             "is_read": False,
-            "attachments": [{"filename": "fix_details.txt", "size": 2400, "content_type": "text/plain"}],
+            "attachments": [
+                {
+                    "filename": "fix_details.txt",
+                    "size": 2400,
+                    "content_type": "text/plain",
+                }
+            ],
         },
     ]
 
     for msg_data in thread2_messages:
-        storage.create_message({
-            "folder_id": inbox_id,
-            "from_address": msg_data["from"]["email"],
-            "to_addresses": [ME["email"]],
-            "subject": msg_data["subject"],
-            "body_text": msg_data["body_text"],
-            "is_read": msg_data.get("is_read", False),
-            "is_starred": msg_data.get("is_starred", False),
-            "priority": msg_data.get("priority", MessagePriority.NORMAL.value),
-            "attachments": msg_data.get("attachments", []),
-            "thread_id": thread2_id,
-            "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-            "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
-        })
+        storage.create_message(
+            {
+                "folder_id": inbox_id,
+                "from_address": msg_data["from"]["email"],
+                "to_addresses": [ME["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": msg_data.get("is_read", False),
+                "is_starred": msg_data.get("is_starred", False),
+                "priority": msg_data.get(
+                    "priority", MessagePriority.NORMAL.value
+                ),
+                "attachments": msg_data.get("attachments", []),
+                "thread_id": thread2_id,
+                "received_at": (
+                    base_time - timedelta(hours=msg_data["hours_ago"])
+                ).isoformat(),
+                "headers": {
+                    "From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"
+                },
+            }
+        )
         messages_created += 1
 
     # Individual inbox messages
@@ -278,10 +312,16 @@ David - Finance""",
             "is_read": False,
             "priority": MessagePriority.HIGH.value,
             "attachments": [
-                {"filename": "budget_proposal_q1.xlsx", "size": 125000,
-                    "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-                {"filename": "infrastructure_plan.pdf",
-                    "size": 890000, "content_type": "application/pdf"},
+                {
+                    "filename": "budget_proposal_q1.xlsx",
+                    "size": 125000,
+                    "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                },
+                {
+                    "filename": "infrastructure_plan.pdf",
+                    "size": 890000,
+                    "content_type": "application/pdf",
+                },
             ],
         },
         {
@@ -302,7 +342,13 @@ Best regards,
 Grace - HR""",
             "hours_ago": 4,
             "is_read": True,
-            "attachments": [{"filename": "PTO_Policy_2026.pdf", "size": 340000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "PTO_Policy_2026.pdf",
+                    "size": 340000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
         {
             "from": CONTACTS[8],
@@ -322,10 +368,16 @@ Iris - Research""",
             "is_read": False,
             "is_starred": True,
             "attachments": [
-                {"filename": "ml_email_classification.pdf",
-                    "size": 2450000, "content_type": "application/pdf"},
-                {"filename": "summary_notes.md", "size": 8500,
-                    "content_type": "text/markdown"},
+                {
+                    "filename": "ml_email_classification.pdf",
+                    "size": 2450000,
+                    "content_type": "application/pdf",
+                },
+                {
+                    "filename": "summary_notes.md",
+                    "size": 8500,
+                    "content_type": "text/markdown",
+                },
             ],
         },
         {
@@ -348,7 +400,13 @@ Full breakdown attached.
 Henry - Sales""",
             "hours_ago": 8,
             "is_read": True,
-            "attachments": [{"filename": "Q1_Forecast_2026.xlsx", "size": 78000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}],
+            "attachments": [
+                {
+                    "filename": "Q1_Forecast_2026.xlsx",
+                    "size": 78000,
+                    "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                }
+            ],
         },
         {
             "from": CONTACTS[10],
@@ -368,7 +426,13 @@ Karen - Legal""",
             "hours_ago": 10,
             "is_read": False,
             "priority": MessagePriority.HIGH.value,
-            "attachments": [{"filename": "ToS_Review_Comments.docx", "size": 156000, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}],
+            "attachments": [
+                {
+                    "filename": "ToS_Review_Comments.docx",
+                    "size": 156000,
+                    "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                }
+            ],
         },
         {
             "from": CONTACTS[12],
@@ -408,7 +472,13 @@ Full report attached with detailed breakdowns by region and feature.
 Nathan - Analytics""",
             "hours_ago": 18,
             "is_read": True,
-            "attachments": [{"filename": "Engagement_Report_Dec2025.pdf", "size": 1250000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "Engagement_Report_Dec2025.pdf",
+                    "size": 1250000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
         {
             "from": CONTACTS[14],
@@ -428,10 +498,16 @@ Olivia - Creative""",
             "hours_ago": 22,
             "is_read": True,
             "attachments": [
-                {"filename": "Brand_Guidelines_v3.pdf",
-                    "size": 5400000, "content_type": "application/pdf"},
-                {"filename": "Logo_Pack.zip", "size": 12500000,
-                    "content_type": "application/zip"},
+                {
+                    "filename": "Brand_Guidelines_v3.pdf",
+                    "size": 5400000,
+                    "content_type": "application/pdf",
+                },
+                {
+                    "filename": "Logo_Pack.zip",
+                    "size": 12500000,
+                    "content_type": "application/zip",
+                },
             ],
         },
         {
@@ -510,7 +586,13 @@ Leo - Product""",
             "hours_ago": 70,
             "is_read": True,
             "is_starred": True,
-            "attachments": [{"filename": "Feature_Specs.pdf", "size": 890000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "Feature_Specs.pdf",
+                    "size": 890000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
         {
             "from": CONTACTS[6],
@@ -529,7 +611,13 @@ Deadline: January 25th
 Grace - HR""",
             "hours_ago": 15,
             "is_read": False,
-            "attachments": [{"filename": "offsite_proposals.pdf", "size": 670000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "offsite_proposals.pdf",
+                    "size": 670000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
         {
             "from": CONTACTS[4],
@@ -552,19 +640,27 @@ Eve - Marketing""",
     ]
 
     for msg_data in individual_messages:
-        storage.create_message({
-            "folder_id": inbox_id,
-            "from_address": msg_data["from"]["email"],
-            "to_addresses": [ME["email"]],
-            "subject": msg_data["subject"],
-            "body_text": msg_data["body_text"],
-            "is_read": msg_data.get("is_read", False),
-            "is_starred": msg_data.get("is_starred", False),
-            "priority": msg_data.get("priority", MessagePriority.NORMAL.value),
-            "attachments": msg_data.get("attachments", []),
-            "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-            "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
-        })
+        storage.create_message(
+            {
+                "folder_id": inbox_id,
+                "from_address": msg_data["from"]["email"],
+                "to_addresses": [ME["email"]],
+                "subject": msg_data["subject"],
+                "body_text": msg_data["body_text"],
+                "is_read": msg_data.get("is_read", False),
+                "is_starred": msg_data.get("is_starred", False),
+                "priority": msg_data.get(
+                    "priority", MessagePriority.NORMAL.value
+                ),
+                "attachments": msg_data.get("attachments", []),
+                "received_at": (
+                    base_time - timedelta(hours=msg_data["hours_ago"])
+                ).isoformat(),
+                "headers": {
+                    "From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"
+                },
+            }
+        )
         messages_created += 1
 
     # Sent messages (5 messages)
@@ -643,18 +739,26 @@ Thanks""",
 
     if sent_id:
         for msg_data in sent_messages:
-            storage.create_message({
-                "folder_id": sent_id,
-                "from_address": ME["email"],
-                "to_addresses": [msg_data["to"]["email"]],
-                "subject": msg_data["subject"],
-                "body_text": msg_data["body_text"],
-                "is_read": True,
-                "status": MessageStatus.SENT.value,
-                "sent_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-                "headers": {"To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"},
-            })
+            storage.create_message(
+                {
+                    "folder_id": sent_id,
+                    "from_address": ME["email"],
+                    "to_addresses": [msg_data["to"]["email"]],
+                    "subject": msg_data["subject"],
+                    "body_text": msg_data["body_text"],
+                    "is_read": True,
+                    "status": MessageStatus.SENT.value,
+                    "sent_at": (
+                        base_time - timedelta(hours=msg_data["hours_ago"])
+                    ).isoformat(),
+                    "received_at": (
+                        base_time - timedelta(hours=msg_data["hours_ago"])
+                    ).isoformat(),
+                    "headers": {
+                        "To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"
+                    },
+                }
+            )
             messages_created += 1
 
     # Draft messages (3 messages)
@@ -708,23 +812,27 @@ Points to cover:
 
     if drafts_id:
         for msg_data in draft_messages:
-            storage.create_message({
-                "folder_id": drafts_id,
-                "from_address": ME["email"],
-                "to_addresses": [msg_data["to"]["email"]],
-                "subject": msg_data["subject"],
-                "body_text": msg_data["body_text"],
-                "is_read": True,
-                "status": MessageStatus.DRAFT.value,
-                "received_at": base_time.isoformat(),
-                "headers": {"To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"},
-            })
+            storage.create_message(
+                {
+                    "folder_id": drafts_id,
+                    "from_address": ME["email"],
+                    "to_addresses": [msg_data["to"]["email"]],
+                    "subject": msg_data["subject"],
+                    "body_text": msg_data["body_text"],
+                    "is_read": True,
+                    "status": MessageStatus.DRAFT.value,
+                    "received_at": base_time.isoformat(),
+                    "headers": {
+                        "To": f"{msg_data['to']['name']} <{msg_data['to']['email']}>"
+                    },
+                }
+            )
             messages_created += 1
 
     # Trash messages (4 messages - deleted emails)
     trash_messages = [
         {
-            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "from": CONTACTS[random.randint(0, len(CONTACTS) - 1)],
             "subject": "Old Meeting Notes - Can Delete",
             "body_text": """Team,
 
@@ -737,7 +845,7 @@ Thanks""",
             "is_read": True,
         },
         {
-            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "from": CONTACTS[random.randint(0, len(CONTACTS) - 1)],
             "subject": "RE: Outdated Info",
             "body_text": """This information is no longer relevant. The project was cancelled.
 
@@ -746,7 +854,7 @@ Archiving for reference.""",
             "is_read": True,
         },
         {
-            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "from": CONTACTS[random.randint(0, len(CONTACTS) - 1)],
             "subject": "Test Email - Please Ignore",
             "body_text": """This is a test email to verify the system is working.
 
@@ -755,7 +863,7 @@ Please delete.""",
             "is_read": True,
         },
         {
-            "from": CONTACTS[random.randint(0, len(CONTACTS)-1)],
+            "from": CONTACTS[random.randint(0, len(CONTACTS) - 1)],
             "subject": "Duplicate: Q4 Report",
             "body_text": """Accidentally sent this twice. Please use the other copy.
 
@@ -767,22 +875,31 @@ Apologies for the confusion.""",
 
     if trash_id:
         for msg_data in trash_messages:
-            storage.create_message({
-                "folder_id": trash_id,
-                "from_address": msg_data["from"]["email"],
-                "to_addresses": [ME["email"]],
-                "subject": msg_data["subject"],
-                "body_text": msg_data["body_text"],
-                "is_read": msg_data.get("is_read", True),
-                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-                "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
-            })
+            storage.create_message(
+                {
+                    "folder_id": trash_id,
+                    "from_address": msg_data["from"]["email"],
+                    "to_addresses": [ME["email"]],
+                    "subject": msg_data["subject"],
+                    "body_text": msg_data["body_text"],
+                    "is_read": msg_data.get("is_read", True),
+                    "received_at": (
+                        base_time - timedelta(hours=msg_data["hours_ago"])
+                    ).isoformat(),
+                    "headers": {
+                        "From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"
+                    },
+                }
+            )
             messages_created += 1
 
     # Spam messages (5 messages - junk mail)
     spam_messages = [
         {
-            "from": {"name": "Nigerian Prince", "email": "prince@totallylegit.ng"},
+            "from": {
+                "name": "Nigerian Prince",
+                "email": "prince@totallylegit.ng",
+            },
             "subject": "URGENT: $10 Million Inheritance Awaits!!!",
             "body_text": """Dear Beloved Friend,
 
@@ -796,7 +913,10 @@ Prince Abdullah""",
             "is_read": False,
         },
         {
-            "from": {"name": "Pharmacy Online", "email": "deals@ch3ap-m3ds.xyz"},
+            "from": {
+                "name": "Pharmacy Online",
+                "email": "deals@ch3ap-m3ds.xyz",
+            },
             "subject": "85% OFF All Medications - LIMITED TIME!!!",
             "body_text": """BUY NOW!!! CHEAP MEDICATIONS!!!
 
@@ -809,7 +929,10 @@ Click here: [SUSPICIOUS LINK REMOVED]""",
             "is_read": False,
         },
         {
-            "from": {"name": "Lottery Winner", "email": "winner@lotto-prize.ru"},
+            "from": {
+                "name": "Lottery Winner",
+                "email": "winner@lotto-prize.ru",
+            },
             "subject": "YOU WON $5,000,000!!!",
             "body_text": """CONGRATULATIONS!!!
 
@@ -823,7 +946,10 @@ ACT NOW!!!""",
             "is_read": False,
         },
         {
-            "from": {"name": "Tech Support", "email": "support@micr0s0ft-help.com"},
+            "from": {
+                "name": "Tech Support",
+                "email": "support@micr0s0ft-help.com",
+            },
             "subject": "ALERT: Your computer has a virus!!!",
             "body_text": """URGENT SECURITY ALERT!!!
 
@@ -852,16 +978,22 @@ Unsubscribe: [MORE SUSPICIOUS LINKS]""",
 
     if spam_id:
         for msg_data in spam_messages:
-            storage.create_message({
-                "folder_id": spam_id,
-                "from_address": msg_data["from"]["email"],
-                "to_addresses": [ME["email"]],
-                "subject": msg_data["subject"],
-                "body_text": msg_data["body_text"],
-                "is_read": msg_data.get("is_read", False),
-                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-                "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
-            })
+            storage.create_message(
+                {
+                    "folder_id": spam_id,
+                    "from_address": msg_data["from"]["email"],
+                    "to_addresses": [ME["email"]],
+                    "subject": msg_data["subject"],
+                    "body_text": msg_data["body_text"],
+                    "is_read": msg_data.get("is_read", False),
+                    "received_at": (
+                        base_time - timedelta(hours=msg_data["hours_ago"])
+                    ).isoformat(),
+                    "headers": {
+                        "From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"
+                    },
+                }
+            )
             messages_created += 1
 
     # Archive messages (6 messages - old but kept for reference)
@@ -883,7 +1015,13 @@ Great work everyone!
 Alice""",
             "hours_ago": 720,  # 30 days ago
             "is_read": True,
-            "attachments": [{"filename": "Project_Alpha_Final_Report.pdf", "size": 2500000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "Project_Alpha_Final_Report.pdf",
+                    "size": 2500000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
         {
             "from": CONTACTS[3],
@@ -902,7 +1040,13 @@ Detailed breakdown in the attachment.
 David - Finance""",
             "hours_ago": 600,  # 25 days ago
             "is_read": True,
-            "attachments": [{"filename": "2025_Financial_Summary.xlsx", "size": 890000, "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}],
+            "attachments": [
+                {
+                    "filename": "2025_Financial_Summary.xlsx",
+                    "size": 890000,
+                    "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                }
+            ],
         },
         {
             "from": CONTACTS[6],
@@ -920,7 +1064,13 @@ Please review and acknowledge.
 Grace - HR""",
             "hours_ago": 480,  # 20 days ago
             "is_read": True,
-            "attachments": [{"filename": "Employee_Handbook_2026.pdf", "size": 3400000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "Employee_Handbook_2026.pdf",
+                    "size": 3400000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
         {
             "from": CONTACTS[10],
@@ -937,7 +1087,13 @@ Signed copies attached for your records.
 Karen - Legal""",
             "hours_ago": 360,  # 15 days ago
             "is_read": True,
-            "attachments": [{"filename": "TechGiant_Enterprise_Agreement_Signed.pdf", "size": 450000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "TechGiant_Enterprise_Agreement_Signed.pdf",
+                    "size": 450000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
         {
             "from": CONTACTS[12],
@@ -980,24 +1136,36 @@ Leo - Product""",
             "hours_ago": 168,  # 7 days ago
             "is_read": True,
             "is_starred": True,
-            "attachments": [{"filename": "Product_Roadmap_2026.pdf", "size": 1200000, "content_type": "application/pdf"}],
+            "attachments": [
+                {
+                    "filename": "Product_Roadmap_2026.pdf",
+                    "size": 1200000,
+                    "content_type": "application/pdf",
+                }
+            ],
         },
     ]
 
     if archive_id:
         for msg_data in archive_messages:
-            storage.create_message({
-                "folder_id": archive_id,
-                "from_address": msg_data["from"]["email"],
-                "to_addresses": [ME["email"]],
-                "subject": msg_data["subject"],
-                "body_text": msg_data["body_text"],
-                "is_read": msg_data.get("is_read", True),
-                "is_starred": msg_data.get("is_starred", False),
-                "attachments": msg_data.get("attachments", []),
-                "received_at": (base_time - timedelta(hours=msg_data["hours_ago"])).isoformat(),
-                "headers": {"From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"},
-            })
+            storage.create_message(
+                {
+                    "folder_id": archive_id,
+                    "from_address": msg_data["from"]["email"],
+                    "to_addresses": [ME["email"]],
+                    "subject": msg_data["subject"],
+                    "body_text": msg_data["body_text"],
+                    "is_read": msg_data.get("is_read", True),
+                    "is_starred": msg_data.get("is_starred", False),
+                    "attachments": msg_data.get("attachments", []),
+                    "received_at": (
+                        base_time - timedelta(hours=msg_data["hours_ago"])
+                    ).isoformat(),
+                    "headers": {
+                        "From": f"{msg_data['from']['name']} <{msg_data['from']['email']}>"
+                    },
+                }
+            )
             messages_created += 1
 
     # Update folder counts

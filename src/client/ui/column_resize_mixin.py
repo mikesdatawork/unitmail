@@ -56,9 +56,11 @@ class ColumnResizeMixin:
         # Add drag gesture for resizing
         drag_gesture = Gtk.GestureDrag()
         drag_gesture.connect(
-            "drag-begin", self._on_resize_drag_begin, column_name)
+            "drag-begin", self._on_resize_drag_begin, column_name
+        )
         drag_gesture.connect(
-            "drag-update", self._on_resize_drag_update, column_name)
+            "drag-update", self._on_resize_drag_update, column_name
+        )
         drag_gesture.connect("drag-end", self._on_resize_drag_end, column_name)
         handle.add_controller(drag_gesture)
 
@@ -108,7 +110,9 @@ class ColumnResizeMixin:
             self._resize_start_width = self._column_width_from
 
         logger.debug(
-            f"Started resizing column: {column_name}, start_width: {self._resize_start_width}")
+            f"Started resizing column: {column_name}, "
+            f"start_width: {self._resize_start_width}"
+        )
 
     def _on_resize_drag_update(
         self,
@@ -144,7 +148,7 @@ class ColumnResizeMixin:
 
         # Force message list to refresh to reflect new column widths
         # This will trigger rebinding of all visible rows
-        if hasattr(self, '_message_store') and self._message_store:
+        if hasattr(self, "_message_store") and self._message_store:
             n_items = self._message_store.get_n_items()
             if n_items > 0:
                 self._message_store.items_changed(0, n_items, n_items)
@@ -184,6 +188,7 @@ class ColumnResizeMixin:
         """Save current column widths to user settings."""
         try:
             from client.services.settings_service import get_settings_service
+
             settings = get_settings_service()
             settings.update_appearance(
                 column_width_received=self._column_width_received,
@@ -199,10 +204,15 @@ class ColumnResizeMixin:
         """Load column widths from user settings."""
         try:
             from client.services.settings_service import get_settings_service
+
             settings = get_settings_service()
-            self._column_width_received = settings.appearance.column_width_received
+            self._column_width_received = (
+                settings.appearance.column_width_received
+            )
             self._column_width_from = settings.appearance.column_width_from
-            self._column_width_subject = settings.appearance.column_width_subject
+            self._column_width_subject = (
+                settings.appearance.column_width_subject
+            )
             logger.debug(
                 f"Loaded column widths: received={
                     self._column_width_received}, "
@@ -212,7 +222,8 @@ class ColumnResizeMixin:
             )
         except Exception as e:
             logger.warning(
-                f"Failed to load column widths, using defaults: {e}")
+                f"Failed to load column widths, using defaults: {e}"
+            )
             self._column_width_received = 120
             self._column_width_from = 250
             self._column_width_subject = -1

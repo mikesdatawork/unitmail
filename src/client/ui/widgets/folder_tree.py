@@ -85,7 +85,8 @@ class FolderData:
     def icon_name(self) -> str:
         """Get the icon name for this folder type."""
         return FOLDER_ICONS.get(
-            self.folder_type, FOLDER_ICONS[FolderType.CUSTOM])
+            self.folder_type, FOLDER_ICONS[FolderType.CUSTOM]
+        )
 
     @property
     def is_system_folder(self) -> bool:
@@ -223,11 +224,23 @@ class FolderTree(Gtk.Box):
         # Emitted when a folder is selected
         "folder-selected": (GObject.SignalFlags.RUN_FIRST, None, (str, str)),
         # Emitted when messages are dropped on a folder
-        "messages-dropped": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "messages-dropped": (
+            GObject.SignalFlags.RUN_FIRST,
+            None,
+            (str, object),
+        ),
         # Emitted when a folder's expanded state changes
-        "folder-expanded-changed": (GObject.SignalFlags.RUN_FIRST, None, (str, bool)),
+        "folder-expanded-changed": (
+            GObject.SignalFlags.RUN_FIRST,
+            None,
+            (str, bool),
+        ),
         # Emitted when context menu is requested
-        "context-menu-requested": (GObject.SignalFlags.RUN_FIRST, None, (str, float, float)),
+        "context-menu-requested": (
+            GObject.SignalFlags.RUN_FIRST,
+            None,
+            (str, float, float),
+        ),
     }
 
     def __init__(self) -> None:
@@ -267,7 +280,8 @@ class FolderTree(Gtk.Box):
         # Single selection model
         self._selection_model = Gtk.SingleSelection(model=self._folder_store)
         self._selection_model.connect(
-            "selection-changed", self._on_selection_changed)
+            "selection-changed", self._on_selection_changed
+        )
 
         # Create list view
         self._list_view = Gtk.ListView(
@@ -431,12 +445,14 @@ class FolderTree(Gtk.Box):
         selected = selection.get_selected_item()
         if selected:
             self._selected_folder_id = selected.folder_id
-            self.emit("folder-selected", selected.folder_id,
-                      selected.folder_type)
+            self.emit(
+                "folder-selected", selected.folder_id, selected.folder_type
+            )
             logger.info(f"Selected folder: {selected.name}")
 
-    def _on_expander_clicked(self, button: Gtk.Button,
-                             item: FolderTreeItem) -> None:
+    def _on_expander_clicked(
+        self, button: Gtk.Button, item: FolderTreeItem
+    ) -> None:
         """Handle expander button click."""
         item.expanded = not item.expanded
         self.emit("folder-expanded-changed", item.folder_id, item.expanded)
@@ -503,8 +519,9 @@ class FolderTree(Gtk.Box):
         if self._selected_folder_id:
             # Parse message IDs from dropped data
             message_ids = str(value).split(",")
-            self.emit("messages-dropped",
-                      self._selected_folder_id, message_ids)
+            self.emit(
+                "messages-dropped", self._selected_folder_id, message_ids
+            )
             logger.info(
                 f"Dropped {
                     len(message_ids)} messages to folder {
@@ -599,10 +616,12 @@ class FolderTree(Gtk.Box):
             parent = self._find_folder_by_id(folder.parent_id)
             if parent:
                 parent.children = [
-                    c for c in parent.children if c.folder_id != folder_id]
+                    c for c in parent.children if c.folder_id != folder_id
+                ]
         else:
             self._folders = [
-                f for f in self._folders if f.folder_id != folder_id]
+                f for f in self._folders if f.folder_id != folder_id
+            ]
 
         self._rebuild_flat_list()
         logger.info(f"Removed folder: {folder.name}")
@@ -648,7 +667,8 @@ class FolderTree(Gtk.Box):
         """
 
         def search_recursive(
-                folders: list[FolderData]) -> Optional[FolderData]:
+            folders: list[FolderData],
+        ) -> Optional[FolderData]:
             for folder in folders:
                 if folder.folder_id == folder_id:
                     return folder

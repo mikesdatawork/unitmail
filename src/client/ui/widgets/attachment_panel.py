@@ -3,7 +3,8 @@ Attachment panel widget for email composer.
 """
 
 import gi
-gi.require_version('Gtk', '4.0')
+
+gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GObject, Gio, Gdk, GLib
 import os
 from typing import List, Optional
@@ -13,6 +14,7 @@ from dataclasses import dataclass
 @dataclass
 class AttachmentInfo:
     """Information about an attached file."""
+
     path: str
     name: str
     size: int
@@ -25,14 +27,14 @@ class AttachmentRow(Gtk.Box):
     """
 
     __gsignals__ = {
-        'remove-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "remove-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     def __init__(self, attachment: AttachmentInfo):
         super().__init__(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=8,
-            css_classes=['attachment-row']
+            css_classes=["attachment-row"],
         )
 
         self.attachment = attachment
@@ -76,7 +78,8 @@ class AttachmentRow(Gtk.Box):
     def _apply_styles(self):
         """Apply CSS styles."""
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
+        css_provider.load_from_data(
+            b"""
             .attachment-row {
                 padding: 8px 12px;
                 background-color: alpha(@view_bg_color, 0.5);
@@ -86,35 +89,40 @@ class AttachmentRow(Gtk.Box):
             .attachment-row:hover {
                 background-color: alpha(@view_bg_color, 0.8);
             }
-        """)
+        """
+        )
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
     def _get_icon_name(self, mime_type: str) -> str:
         """Get appropriate icon name for mime type."""
-        if mime_type.startswith('image/'):
-            return 'image-x-generic-symbolic'
-        elif mime_type.startswith('video/'):
-            return 'video-x-generic-symbolic'
-        elif mime_type.startswith('audio/'):
-            return 'audio-x-generic-symbolic'
-        elif mime_type.startswith('text/'):
-            return 'text-x-generic-symbolic'
-        elif 'pdf' in mime_type:
-            return 'x-office-document-symbolic'
-        elif 'zip' in mime_type or 'archive' in mime_type or 'compressed' in mime_type:
-            return 'package-x-generic-symbolic'
-        elif 'spreadsheet' in mime_type or 'excel' in mime_type:
-            return 'x-office-spreadsheet-symbolic'
-        elif 'presentation' in mime_type or 'powerpoint' in mime_type:
-            return 'x-office-presentation-symbolic'
-        elif 'document' in mime_type or 'word' in mime_type:
-            return 'x-office-document-symbolic'
+        if mime_type.startswith("image/"):
+            return "image-x-generic-symbolic"
+        elif mime_type.startswith("video/"):
+            return "video-x-generic-symbolic"
+        elif mime_type.startswith("audio/"):
+            return "audio-x-generic-symbolic"
+        elif mime_type.startswith("text/"):
+            return "text-x-generic-symbolic"
+        elif "pdf" in mime_type:
+            return "x-office-document-symbolic"
+        elif (
+            "zip" in mime_type
+            or "archive" in mime_type
+            or "compressed" in mime_type
+        ):
+            return "package-x-generic-symbolic"
+        elif "spreadsheet" in mime_type or "excel" in mime_type:
+            return "x-office-spreadsheet-symbolic"
+        elif "presentation" in mime_type or "powerpoint" in mime_type:
+            return "x-office-presentation-symbolic"
+        elif "document" in mime_type or "word" in mime_type:
+            return "x-office-document-symbolic"
         else:
-            return 'text-x-generic-symbolic'
+            return "text-x-generic-symbolic"
 
     def _format_size(self, size: int) -> str:
         """Format file size for display."""
@@ -129,7 +137,7 @@ class AttachmentRow(Gtk.Box):
 
     def _on_remove_clicked(self, button):
         """Handle remove button click."""
-        self.emit('remove-requested')
+        self.emit("remove-requested")
 
 
 class AttachmentPanel(Gtk.Box):
@@ -145,16 +153,16 @@ class AttachmentPanel(Gtk.Box):
     """
 
     __gsignals__ = {
-        'attachments-changed': (GObject.SignalFlags.RUN_FIRST, None, ()),
-        'size-limit-exceeded': (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "attachments-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "size-limit-exceeded": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
     }
 
     # Default size limit: 25 MB
     DEFAULT_SIZE_LIMIT = 25 * 1024 * 1024
 
-    def __init__(self,
-                 size_limit: int = DEFAULT_SIZE_LIMIT,
-                 show_header: bool = True):
+    def __init__(
+        self, size_limit: int = DEFAULT_SIZE_LIMIT, show_header: bool = True
+    ):
         """
         Initialize the attachment panel.
 
@@ -165,7 +173,7 @@ class AttachmentPanel(Gtk.Box):
         super().__init__(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=8,
-            css_classes=['attachment-panel']
+            css_classes=["attachment-panel"],
         )
 
         self._attachments: List[AttachmentInfo] = []
@@ -179,7 +187,8 @@ class AttachmentPanel(Gtk.Box):
 
         # Attachments list
         self.list_box = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            orientation=Gtk.Orientation.VERTICAL, spacing=4
+        )
         self.append(self.list_box)
 
         # Empty state label
@@ -204,7 +213,8 @@ class AttachmentPanel(Gtk.Box):
     def _apply_styles(self):
         """Apply CSS styles."""
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
+        css_provider.load_from_data(
+            b"""
             .attachment-panel {
                 padding: 8px;
                 background-color: @view_bg_color;
@@ -216,11 +226,12 @@ class AttachmentPanel(Gtk.Box):
                 border-width: 2px;
                 background-color: alpha(@accent_bg_color, 0.1);
             }
-        """)
+        """
+        )
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
     def _create_header(self):
@@ -287,9 +298,7 @@ class AttachmentPanel(Gtk.Box):
 
         # Allow multiple files
         dialog.open_multiple(
-            self._parent_window,
-            None,
-            self._on_file_chooser_response
+            self._parent_window, None, self._on_file_chooser_response
         )
 
     def _on_file_chooser_response(self, dialog, result):
@@ -346,8 +355,11 @@ class AttachmentPanel(Gtk.Box):
         # Check size limit
         total_size = sum(a.size for a in self._attachments) + size
         if total_size > self._size_limit:
-            self.emit('size-limit-exceeded',
-                      f"Total attachment size would exceed limit of {self._format_size(self._size_limit)}")
+            limit = self._format_size(self._size_limit)
+            self.emit(
+                "size-limit-exceeded",
+                f"Total attachment size would exceed limit of {limit}",
+            )
             return False
 
         # Get mime type
@@ -356,23 +368,23 @@ class AttachmentPanel(Gtk.Box):
             info = file.query_info(
                 Gio.FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
                 Gio.FileQueryInfoFlags.NONE,
-                None
+                None,
             )
-            mime_type = info.get_content_type() or 'application/octet-stream'
+            mime_type = info.get_content_type() or "application/octet-stream"
         except GLib.Error:
-            mime_type = 'application/octet-stream'
+            mime_type = "application/octet-stream"
 
         # Create attachment info
         attachment = AttachmentInfo(
             path=path,
             name=os.path.basename(path),
             size=size,
-            mime_type=mime_type
+            mime_type=mime_type,
         )
 
         # Create row
         row = AttachmentRow(attachment)
-        row.connect('remove-requested', self._on_row_remove_requested)
+        row.connect("remove-requested", self._on_row_remove_requested)
 
         # Hide empty label
         self.empty_label.set_visible(False)
@@ -385,7 +397,7 @@ class AttachmentPanel(Gtk.Box):
         # Update size label
         self._update_size_label()
 
-        self.emit('attachments-changed')
+        self.emit("attachments-changed")
         return True
 
     def _on_row_remove_requested(self, row):
@@ -414,14 +426,15 @@ class AttachmentPanel(Gtk.Box):
         else:
             self._update_size_label()
 
-        self.emit('attachments-changed')
+        self.emit("attachments-changed")
 
     def _update_size_label(self):
         """Update the total size label."""
         total_size = sum(a.size for a in self._attachments)
         limit_text = f" / {self._format_size(self._size_limit)}"
         self.size_label.set_text(
-            f"Total: {self._format_size(total_size)}{limit_text}")
+            f"Total: {self._format_size(total_size)}{limit_text}"
+        )
         self.size_label.set_visible(True)
 
     def _format_size(self, size: int) -> str:

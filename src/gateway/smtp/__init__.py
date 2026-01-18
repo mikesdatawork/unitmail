@@ -22,7 +22,12 @@ from .queue import (
     QueueStats,
     create_queue_manager,
 )
-from .receiver import SMTPAuthenticator, SMTPHandler, SMTPReceiver, run_smtp_receiver
+from .receiver import (
+    SMTPAuthenticator,
+    SMTPHandler,
+    SMTPReceiver,
+    run_smtp_receiver,
+)
 from .sender import (
     BatchDeliveryResult,
     DeliveryResult,

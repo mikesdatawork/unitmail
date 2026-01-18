@@ -99,9 +99,11 @@ class DNSHealthReport:
     spf: DNSCheckResult
     dkim: dict[str, DNSCheckResult] = field(default_factory=dict)
     dmarc: DNSCheckResult = field(
-        default_factory=lambda: DNSCheckResult("DMARC", RecordStatus.MISSING))
+        default_factory=lambda: DNSCheckResult("DMARC", RecordStatus.MISSING)
+    )
     mx: DNSCheckResult = field(
-        default_factory=lambda: DNSCheckResult("MX", RecordStatus.MISSING))
+        default_factory=lambda: DNSCheckResult("MX", RecordStatus.MISSING)
+    )
     ptr: dict[str, DNSCheckResult] = field(default_factory=dict)
     recommendations: list[str] = field(default_factory=list)
 
@@ -202,8 +204,11 @@ class DNSChecker:
                 if rdtype == "TXT":
                     # Concatenate TXT record strings
                     value = "".join(
-                        s.decode("utf-8", errors="replace")
-                        if isinstance(s, bytes) else s
+                        (
+                            s.decode("utf-8", errors="replace")
+                            if isinstance(s, bytes)
+                            else s
+                        )
                         for s in rdata.strings
                     )
                     results.append(value)
@@ -237,10 +242,7 @@ class DNSChecker:
             txt_records = self._query(domain, "TXT")
 
             # Find SPF record
-            spf_records = [
-                r for r in txt_records
-                if r.startswith("v=spf1")
-            ]
+            spf_records = [r for r in txt_records if r.startswith("v=spf1")]
 
             if not spf_records:
                 return DNSCheckResult(
@@ -270,11 +272,15 @@ class DNSChecker:
                 issues.append("Uses ?all which is neutral (not recommended)")
             elif parsed.all_qualifier == "~":
                 issues.append(
-                    "Uses ~all (softfail) - consider -all for stricter policy")
+                    "Uses ~all (softfail) - consider -all for stricter policy"
+                )
 
             # Check for too many DNS lookups (limit is 10)
-            lookups = len(parsed.includes) + \
-                (1 if parsed.mx else 0) + (1 if parsed.a else 0)
+            lookups = (
+                len(parsed.includes)
+                + (1 if parsed.mx else 0)
+                + (1 if parsed.a else 0)
+            )
             if lookups > 10:
                 issues.append(f"Too many DNS lookups ({lookups}/10 max)")
 
@@ -435,8 +441,7 @@ class DNSChecker:
 
             # Find DMARC record
             dmarc_records = [
-                r for r in txt_records
-                if r.startswith("v=DMARC1")
+                r for r in txt_records if r.startswith("v=DMARC1")
             ]
 
             if not dmarc_records:
@@ -455,7 +460,8 @@ class DNSChecker:
 
             if parsed.policy == "none":
                 issues.append(
-                    "Policy is 'none' (monitoring only) - consider 'quarantine' or 'reject'")
+                    "Policy is 'none' - consider 'quarantine' or 'reject'"
+                )
 
             if not parsed.rua:
                 issues.append("No aggregate report address (rua) configured")
@@ -575,11 +581,13 @@ class DNSChecker:
                     except DNSLookupError:
                         pass
 
-                    mx_list.append(MXRecord(
-                        hostname=hostname,
-                        priority=priority,
-                        ip_addresses=ip_addresses,
-                    ))
+                    mx_list.append(
+                        MXRecord(
+                            hostname=hostname,
+                            priority=priority,
+                            ip_addresses=ip_addresses,
+                        )
+                    )
 
             # Sort by priority
             mx_list.sort(key=lambda x: x.priority)
@@ -599,10 +607,12 @@ class DNSChecker:
                         ip_obj = ipaddress.ip_address(ip)
                         if ip_obj.is_private:
                             issues.append(
-                                f"MX '{mx.hostname}' resolves to private IP {ip}")
+                                f"MX '{mx.hostname}' resolves to private IP {ip}"
+                            )
                         if ip_obj.is_loopback:
                             issues.append(
-                                f"MX '{mx.hostname}' resolves to loopback {ip}")
+                                f"MX '{mx.hostname}' resolves to loopback {ip}"
+                            )
                     except ValueError:
                         pass
 
@@ -679,7 +689,7 @@ class DNSChecker:
                         record_type="PTR",
                         status=RecordStatus.WARNING,
                         value=ptr_hostname,
-                        message=f"Forward DNS for {ptr_hostname} does not include {ip_address}",
+                        message=f"Forward DNS for {ptr_hostname} excludes {ip_address}",
                         details={"forward_ips": forward_ips},
                     )
 
@@ -809,12 +819,12 @@ class DNSChecker:
         # SPF recommendations
         if report.spf.status == RecordStatus.MISSING:
             recommendations.append(
-                f"Add an SPF record: {report.domain} IN TXT \"v=spf1 mx -all\""
+                f'Add an SPF record: {report.domain} IN TXT "v=spf1 mx -all"'
             )
         elif report.spf.status == RecordStatus.WARNING:
             if "~all" in report.spf.message:
                 recommendations.append(
-                    "Consider using '-all' instead of '~all' for stricter SPF enforcement"
+                    "Consider '-all' instead of '~all' for stricter SPF"
                 )
 
         # DKIM recommendations
@@ -833,7 +843,7 @@ class DNSChecker:
         if report.dmarc.status == RecordStatus.MISSING:
             recommendations.append(
                 f"Add a DMARC record: _dmarc.{report.domain} IN TXT "
-                "\"v=DMARC1; p=quarantine; rua=mailto:dmarc@{report.domain}\""
+                '"v=DMARC1; p=quarantine; rua=mailto:dmarc@{report.domain}"'
             )
         elif "none" in report.dmarc.message.lower():
             recommendations.append(

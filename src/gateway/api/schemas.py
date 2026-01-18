@@ -167,17 +167,23 @@ class UserResponse(BaseSchema, TimestampMixin):
     email: EmailStr = Field(..., description="User's email address")
     username: str = Field(..., description="User's username")
     display_name: Optional[str] = Field(
-        None, description="User's display name")
+        None, description="User's display name"
+    )
     is_active: bool = Field(
-        default=True, description="Whether the user is active")
+        default=True, description="Whether the user is active"
+    )
     is_verified: bool = Field(
-        default=False, description="Whether email is verified")
+        default=False, description="Whether email is verified"
+    )
     is_admin: bool = Field(
-        default=False, description="Whether user has admin privileges")
+        default=False, description="Whether user has admin privileges"
+    )
     last_login: Optional[datetime] = Field(
-        None, description="Last login timestamp")
+        None, description="Last login timestamp"
+    )
     settings: dict[str, Any] = Field(
-        default_factory=dict, description="User settings")
+        default_factory=dict, description="User settings"
+    )
 
 
 class UserCreateRequest(BaseSchema):
@@ -211,10 +217,12 @@ class UserCreateRequest(BaseSchema):
             raise ValueError("Password must be at least 8 characters")
         if not any(c.isupper() for c in v):
             raise ValueError(
-                "Password must contain at least one uppercase letter")
+                "Password must contain at least one uppercase letter"
+            )
         if not any(c.islower() for c in v):
             raise ValueError(
-                "Password must contain at least one lowercase letter")
+                "Password must contain at least one lowercase letter"
+            )
         if not any(c.isdigit() for c in v):
             raise ValueError("Password must contain at least one digit")
         return v
@@ -256,10 +264,12 @@ class PasswordChangeRequest(BaseSchema):
             raise ValueError("Password must be at least 8 characters")
         if not any(c.isupper() for c in v):
             raise ValueError(
-                "Password must contain at least one uppercase letter")
+                "Password must contain at least one uppercase letter"
+            )
         if not any(c.islower() for c in v):
             raise ValueError(
-                "Password must contain at least one lowercase letter")
+                "Password must contain at least one lowercase letter"
+            )
         if not any(c.isdigit() for c in v):
             raise ValueError("Password must contain at least one digit")
         return v
@@ -269,7 +279,8 @@ class PasswordChangeRequest(BaseSchema):
         """Ensure new password is different from current."""
         if self.current_password == self.new_password:
             raise ValueError(
-                "New password must be different from current password")
+                "New password must be different from current password"
+            )
         return self
 
 
@@ -304,10 +315,12 @@ class MessageListRequest(BaseSchema):
 
     folder_id: Optional[UUID] = Field(None, description="Filter by folder ID")
     status: Optional[MessageStatus] = Field(
-        None, description="Filter by status")
+        None, description="Filter by status"
+    )
     is_read: Optional[bool] = Field(None, description="Filter by read status")
     is_starred: Optional[bool] = Field(
-        None, description="Filter by starred status")
+        None, description="Filter by starred status"
+    )
     search: Optional[str] = Field(
         None,
         max_length=200,
@@ -368,9 +381,11 @@ class MessageResponse(BaseSchema, TimestampMixin):
     )
     is_read: bool = Field(default=False, description="Whether message is read")
     is_starred: bool = Field(
-        default=False, description="Whether message is starred")
+        default=False, description="Whether message is starred"
+    )
     is_encrypted: bool = Field(
-        default=False, description="Whether message is encrypted")
+        default=False, description="Whether message is encrypted"
+    )
     attachments: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Attachment metadata",
@@ -412,7 +427,8 @@ class MessageCreateRequest(BaseSchema):
         """Ensure at least one body type is provided."""
         if not self.body_text and not self.body_html:
             raise ValueError(
-                "At least one of body_text or body_html is required")
+                "At least one of body_text or body_html is required"
+            )
         return self
 
 
@@ -487,7 +503,8 @@ class ContactResponse(BaseSchema, TimestampMixin):
     organization: Optional[str] = Field(None, description="Organization name")
     notes: Optional[str] = Field(None, description="Additional notes")
     is_favorite: bool = Field(
-        default=False, description="Whether contact is a favorite")
+        default=False, description="Whether contact is a favorite"
+    )
     tags: list[str] = Field(default_factory=list, description="Contact tags")
 
 
@@ -500,9 +517,11 @@ class ContactListRequest(BaseSchema):
         description="Search term for name/email",
     )
     is_favorite: Optional[bool] = Field(
-        None, description="Filter by favorite status")
+        None, description="Filter by favorite status"
+    )
     tag: Optional[str] = Field(
-        None, max_length=50, description="Filter by tag")
+        None, max_length=50, description="Filter by tag"
+    )
     limit: int = Field(
         default=100,
         ge=1,
@@ -565,10 +584,11 @@ class FolderRequest(BaseSchema):
     @classmethod
     def validate_folder_name(cls, v: str) -> str:
         """Validate folder name doesn't contain forbidden characters."""
-        forbidden = ['/', '\\', '<', '>', ':', '"', '|', '?', '*']
+        forbidden = ["/", "\\", "<", ">", ":", '"', "|", "?", "*"]
         if any(c in v for c in forbidden):
             raise ValueError(
-                f"Folder name cannot contain: {' '.join(forbidden)}")
+                f"Folder name cannot contain: {' '.join(forbidden)}"
+            )
         return v.strip()
 
 
@@ -583,10 +603,12 @@ class FolderResponse(BaseSchema, TimestampMixin):
     icon: Optional[str] = Field(None, description="Folder icon")
     sort_order: int = Field(default=0, description="Sort order")
     is_system: bool = Field(
-        default=False, description="Whether this is a system folder")
+        default=False, description="Whether this is a system folder"
+    )
     message_count: int = Field(default=0, description="Number of messages")
     unread_count: int = Field(
-        default=0, description="Number of unread messages")
+        default=0, description="Number of unread messages"
+    )
 
 
 class FolderUpdateRequest(BaseSchema):
@@ -604,10 +626,11 @@ class FolderUpdateRequest(BaseSchema):
         """Validate folder name if provided."""
         if v is None:
             return v
-        forbidden = ['/', '\\', '<', '>', ':', '"', '|', '?', '*']
+        forbidden = ["/", "\\", "<", ">", ":", '"', "|", "?", "*"]
         if any(c in v for c in forbidden):
             raise ValueError(
-                f"Folder name cannot contain: {' '.join(forbidden)}")
+                f"Folder name cannot contain: {' '.join(forbidden)}"
+            )
         return v.strip()
 
 
@@ -620,7 +643,8 @@ class ErrorDetail(BaseSchema):
     """Schema for error detail information."""
 
     field: Optional[str] = Field(
-        None, description="Field that caused the error")
+        None, description="Field that caused the error"
+    )
     message: str = Field(..., description="Error message")
     code: Optional[str] = Field(None, description="Error code")
 
@@ -733,7 +757,8 @@ class SuccessResponse(BaseSchema):
     """Schema for generic success response."""
 
     success: bool = Field(
-        default=True, description="Whether the operation succeeded")
+        default=True, description="Whether the operation succeeded"
+    )
     message: Optional[str] = Field(None, description="Success message")
     data: Optional[dict[str, Any]] = Field(None, description="Additional data")
 
@@ -742,8 +767,9 @@ class HealthResponse(BaseSchema):
     """Schema for health check response."""
 
     status: str = Field(..., description="Health status")
-    service: str = Field(default="unitmail-gateway",
-                         description="Service name")
+    service: str = Field(
+        default="unitmail-gateway", description="Service name"
+    )
     version: str = Field(default="1.0.0", description="Service version")
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(),

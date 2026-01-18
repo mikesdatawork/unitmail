@@ -37,7 +37,8 @@ def serialize_queue_item(item: dict) -> dict[str, Any]:
         "priority": item["priority"],
         "attempts": item["attempts"],
         "max_attempts": item["max_attempts"],
-        "last_attempt_at": item.get("last_attempt_at") or item.get("last_attempt"),
+        "last_attempt_at": item.get("last_attempt_at")
+        or item.get("last_attempt"),
         "next_attempt_at": item.get("next_attempt_at"),
         "error_message": item.get("error_message"),
         "metadata": item.get("metadata", {}),
@@ -71,7 +72,7 @@ def create_queue_blueprint() -> Blueprint:
         Query Parameters:
             - page: Page number (default: 1)
             - per_page: Items per page (default: 50, max: 100)
-            - status: Filter by status (pending, processing, completed, failed, retrying)
+            - status: Filter by status (pending, processing, etc.)
 
         Returns:
             Paginated list of queue items.
@@ -82,46 +83,76 @@ def create_queue_blueprint() -> Blueprint:
             per_page = min(100, max(1, int(request.args.get("per_page", 50))))
             status = request.args.get("status")
 
-            _offset = (page - 1) * per_page  # noqa: F841 - TODO: implement offset pagination
+            _offset = (  # noqa: F841 - TODO: implement offset pagination
+                page - 1
+            ) * per_page
 
             storage = get_storage()
 
             # Build items based on status filter
             if status:
-                valid_statuses = ["pending", "processing",
-                                  "completed", "failed", "retrying"]
+                valid_statuses = [
+                    "pending",
+                    "processing",
+                    "completed",
+                    "failed",
+                    "retrying",
+                ]
                 if status.lower() not in valid_statuses:
-                    return jsonify({
-                        "error": "Invalid parameter",
-                        "message": f"status must be one of: {', '.join(valid_statuses)}",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid parameter",
+                                "message": f"Invalid status: {status}",
+                            }
+                        ),
+                        400,
+                    )
                 items = storage.get_queue_items_by_status(
-                    status.lower(), limit=per_page)
+                    status.lower(), limit=per_page
+                )
             else:
                 items = storage.get_pending_queue_items(limit=per_page)
 
             # Get total count
             total = storage.count_queue_items(
-                status.lower() if status else None)
+                status.lower() if status else None
+            )
 
-            return jsonify({
-                "items": [serialize_queue_item(item) for item in items],
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total": total,
-                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
-                    "has_next": page * per_page < total,
-                    "has_prev": page > 1,
-                },
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "items": [
+                            serialize_queue_item(item) for item in items
+                        ],
+                        "pagination": {
+                            "page": page,
+                            "per_page": per_page,
+                            "total": total,
+                            "total_pages": (
+                                (total + per_page - 1) // per_page
+                                if total > 0
+                                else 1
+                            ),
+                            "has_next": page * per_page < total,
+                            "has_prev": page > 1,
+                        },
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"List queue items error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching queue items",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching queue items",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/stats", methods=["GET"])
     @require_auth
@@ -145,45 +176,60 @@ def create_queue_blueprint() -> Blueprint:
             retrying_count = stats.get("retrying", 0)
 
             total_count = (
-                pending_count + processing_count + completed_count +
-                failed_count + retrying_count
+                pending_count
+                + processing_count
+                + completed_count
+                + failed_count
+                + retrying_count
             )
 
             # Get recent failed items for quick view
             failed_items = storage.get_queue_items_by_status("failed", limit=5)
 
-            return jsonify({
-                "statistics": {
-                    "total": total_count,
-                    "pending": pending_count,
-                    "processing": processing_count,
-                    "completed": completed_count,
-                    "failed": failed_count,
-                    "retrying": retrying_count,
-                    "success_rate": (
-                        round(completed_count / total_count * 100, 2)
-                        if total_count > 0 else 100.0
-                    ),
-                },
-                "recent_failures": [
+            return (
+                jsonify(
                     {
-                        "id": item["id"],
-                        "recipient": item.get("recipient"),
-                        "error_message": item.get("error_message"),
-                        "attempts": item["attempts"],
-                        "last_attempt_at": item.get("last_attempt_at") or item.get("last_attempt"),
+                        "statistics": {
+                            "total": total_count,
+                            "pending": pending_count,
+                            "processing": processing_count,
+                            "completed": completed_count,
+                            "failed": failed_count,
+                            "retrying": retrying_count,
+                            "success_rate": (
+                                round(completed_count / total_count * 100, 2)
+                                if total_count > 0
+                                else 100.0
+                            ),
+                        },
+                        "recent_failures": [
+                            {
+                                "id": item["id"],
+                                "recipient": item.get("recipient"),
+                                "error_message": item.get("error_message"),
+                                "attempts": item["attempts"],
+                                "last_attempt_at": item.get("last_attempt_at")
+                                or item.get("last_attempt"),
+                            }
+                            for item in failed_items
+                        ],
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
-                    for item in failed_items
-                ],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }), 200
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Get queue stats error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching queue statistics",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching queue statistics",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<item_id>", methods=["GET"])
     @require_auth
@@ -202,19 +248,29 @@ def create_queue_blueprint() -> Blueprint:
             item = storage.get_queue_item(item_id)
 
             if not item:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Queue item not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Queue item not found",
+                        }
+                    ),
+                    404,
+                )
 
             return jsonify(serialize_queue_item(item)), 200
 
         except Exception as e:
             logger.error(f"Get queue item error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching the queue item",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching the queue item",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<item_id>/retry", methods=["POST"])
     @require_auth
@@ -239,18 +295,28 @@ def create_queue_blueprint() -> Blueprint:
             item = storage.get_queue_item(item_id)
 
             if not item:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Queue item not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Queue item not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check if item can be retried
             status = item["status"]
             if status not in ["failed", "retrying"]:
-                return jsonify({
-                    "error": "Cannot retry",
-                    "message": f"Queue item with status '{status}' cannot be retried",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Cannot retry",
+                            "message": f"Item with status '{status}' cannot be retried",
+                        }
+                    ),
+                    400,
+                )
 
             # Parse request body
             data = request.get_json(silent=True) or {}
@@ -261,11 +327,16 @@ def create_queue_blueprint() -> Blueprint:
                 item = storage.retry_queue_item(item_id)
             else:
                 # Just reset status
-                item = storage.update_queue_item(item_id, {
-                    "status": "pending",
-                    "error_message": None,
-                    "next_attempt_at": datetime.now(timezone.utc).isoformat(),
-                })
+                item = storage.update_queue_item(
+                    item_id,
+                    {
+                        "status": "pending",
+                        "error_message": None,
+                        "next_attempt_at": datetime.now(
+                            timezone.utc
+                        ).isoformat(),
+                    },
+                )
 
             logger.info(
                 "Queue item reset for retry",
@@ -276,17 +347,27 @@ def create_queue_blueprint() -> Blueprint:
                 },
             )
 
-            return jsonify({
-                "message": "Queue item reset for retry",
-                "item": serialize_queue_item(item),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Queue item reset for retry",
+                        "item": serialize_queue_item(item),
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Retry queue item error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while retrying the queue item",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while retrying the queue item",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<item_id>", methods=["DELETE"])
     @require_auth
@@ -312,19 +393,29 @@ def create_queue_blueprint() -> Blueprint:
             item = storage.get_queue_item(item_id)
 
             if not item:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Queue item not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Queue item not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check if item is processing
             status = item["status"]
             if status == "processing" and not force:
-                return jsonify({
-                    "error": "Cannot delete",
-                    "message": "Queue item is currently being processed. "
-                               "Use 'force=true' to delete anyway.",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Cannot delete",
+                            "message": "Queue item is currently being processed. "
+                            "Use 'force=true' to delete anyway.",
+                        }
+                    ),
+                    400,
+                )
 
             # Delete the item
             storage.delete_queue_item(item_id)
@@ -337,16 +428,26 @@ def create_queue_blueprint() -> Blueprint:
                 },
             )
 
-            return jsonify({
-                "message": "Queue item deleted successfully",
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Queue item deleted successfully",
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Delete queue item error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while deleting the queue item",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while deleting the queue item",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/batch/retry", methods=["POST"])
     @require_auth
@@ -364,10 +465,15 @@ def create_queue_blueprint() -> Blueprint:
             Number of items reset for retry.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         data = request.get_json()
         item_ids = data.get("item_ids", [])
@@ -381,7 +487,8 @@ def create_queue_blueprint() -> Blueprint:
             if all_failed:
                 # Get all failed items
                 failed_items = storage.get_queue_items_by_status(
-                    "failed", limit=1000)
+                    "failed", limit=1000
+                )
                 item_ids = [item["id"] for item in failed_items]
 
             # Reset each item
@@ -398,11 +505,16 @@ def create_queue_blueprint() -> Blueprint:
                     if reset_attempts:
                         storage.retry_queue_item(item_id)
                     else:
-                        storage.update_queue_item(item_id, {
-                            "status": "pending",
-                            "error_message": None,
-                            "next_attempt_at": datetime.now(timezone.utc).isoformat(),
-                        })
+                        storage.update_queue_item(
+                            item_id,
+                            {
+                                "status": "pending",
+                                "error_message": None,
+                                "next_attempt_at": datetime.now(
+                                    timezone.utc
+                                ).isoformat(),
+                            },
+                        )
                     retried_count += 1
 
                 except Exception:
@@ -416,17 +528,27 @@ def create_queue_blueprint() -> Blueprint:
                 },
             )
 
-            return jsonify({
-                "message": f"Reset {retried_count} items for retry",
-                "retried_count": retried_count,
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": f"Reset {retried_count} items for retry",
+                        "retried_count": retried_count,
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Batch retry error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred during batch retry",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred during batch retry",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/batch/delete", methods=["POST"])
     @require_auth
@@ -443,10 +565,15 @@ def create_queue_blueprint() -> Blueprint:
             Number of items deleted.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         data = request.get_json()
         item_ids = data.get("item_ids", [])
@@ -458,17 +585,28 @@ def create_queue_blueprint() -> Blueprint:
 
             if status_filter:
                 # Validate status
-                valid_statuses = ["pending", "processing",
-                                  "completed", "failed", "retrying"]
+                valid_statuses = [
+                    "pending",
+                    "processing",
+                    "completed",
+                    "failed",
+                    "retrying",
+                ]
                 if status_filter.lower() not in valid_statuses:
-                    return jsonify({
-                        "error": "Invalid parameter",
-                        "message": f"status must be one of: {', '.join(valid_statuses)}",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid parameter",
+                                "message": f"Invalid status: {status_filter}",
+                            }
+                        ),
+                        400,
+                    )
 
                 # Get all items with this status
                 items = storage.get_queue_items_by_status(
-                    status_filter.lower(), limit=1000)
+                    status_filter.lower(), limit=1000
+                )
                 item_ids = [item["id"] for item in items]
 
             # Delete each item
@@ -487,17 +625,27 @@ def create_queue_blueprint() -> Blueprint:
                 },
             )
 
-            return jsonify({
-                "message": f"Deleted {deleted_count} items",
-                "deleted_count": deleted_count,
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": f"Deleted {deleted_count} items",
+                        "deleted_count": deleted_count,
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Batch delete error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred during batch delete",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred during batch delete",
+                    }
+                ),
+                500,
+            )
 
     return bp
 

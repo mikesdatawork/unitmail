@@ -46,9 +46,7 @@ def get_schema_version() -> int:
     """
     db = get_db()
     try:
-        result = db.fetchone(
-            "SELECT MAX(version) FROM schema_version"
-        )
+        result = db.fetchone("SELECT MAX(version) FROM schema_version")
         return result[0] if result and result[0] else 0
     except Exception:
         return 0
@@ -87,7 +85,8 @@ def run_migrations(target_version: Optional[int] = None) -> bool:
 
     if current_version >= target_version:
         logger.info(
-            f"Database schema is up to date (version {current_version})")
+            f"Database schema is up to date (version {current_version})"
+        )
         return True
 
     logger.info(
@@ -104,7 +103,8 @@ def run_migrations(target_version: Optional[int] = None) -> bool:
         #     _migrate_v1_to_v2()
 
         logger.info(
-            f"Migrations completed successfully (now at version {target_version})")
+            f"Migrations completed successfully (now at version {target_version})"
+        )
         return True
 
     except Exception as e:
@@ -207,10 +207,14 @@ def _migrate_json_data() -> None:
                             folder_id_map.get(folder.get("parent_id")),
                             folder.get("message_count", 0),
                             folder.get("unread_count", 0),
-                            folder.get("created_at", datetime.now(
-                                timezone.utc).isoformat()),
-                            folder.get("updated_at", datetime.now(
-                                timezone.utc).isoformat()),
+                            folder.get(
+                                "created_at",
+                                datetime.now(timezone.utc).isoformat(),
+                            ),
+                            folder.get(
+                                "updated_at",
+                                datetime.now(timezone.utc).isoformat(),
+                            ),
                         ),
                     )
 
@@ -285,14 +289,20 @@ def _migrate_json_data() -> None:
                             msg.get("in_reply_to"),
                             json.dumps(msg.get("references", [])),
                             folder_id_map.get(msg.get("original_folder_id")),
-                            msg.get("received_at", datetime.now(
-                                timezone.utc).isoformat()),
+                            msg.get(
+                                "received_at",
+                                datetime.now(timezone.utc).isoformat(),
+                            ),
                             msg.get("sent_at"),
                             msg.get("deleted_at"),
-                            msg.get("created_at", datetime.now(
-                                timezone.utc).isoformat()),
-                            msg.get("updated_at", datetime.now(
-                                timezone.utc).isoformat()),
+                            msg.get(
+                                "created_at",
+                                datetime.now(timezone.utc).isoformat(),
+                            ),
+                            msg.get(
+                                "updated_at",
+                                datetime.now(timezone.utc).isoformat(),
+                            ),
                         ),
                     )
 
@@ -309,8 +319,9 @@ def _migrate_json_data() -> None:
                                 str(uuid4()),
                                 message_id,
                                 att.get("filename", "attachment"),
-                                att.get("content_type",
-                                        "application/octet-stream"),
+                                att.get(
+                                    "content_type", "application/octet-stream"
+                                ),
                                 att.get("size", 0),
                                 att.get("content_id"),
                                 1 if att.get("is_inline") else 0,
@@ -329,7 +340,8 @@ def _migrate_json_data() -> None:
 
 
 def _create_default_folders(
-        user_id: str, folder_id_map: dict[str, str]) -> None:
+    user_id: str, folder_id_map: dict[str, str]
+) -> None:
     """Create default system folders."""
     db = get_db()
 
@@ -413,10 +425,12 @@ def _backup_json_files(data_dir: Path) -> None:
     for filename in json_files:
         src = data_dir / filename
         if src.exists():
-            dst = backup_dir / \
-                f"{filename}.{
+            dst = (
+                backup_dir
+                / f"{filename}.{
                     datetime.now(
                         timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+            )
             try:
                 shutil.move(str(src), str(dst))
                 logger.info(f"Backed up {filename} to {dst}")

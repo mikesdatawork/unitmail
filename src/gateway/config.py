@@ -137,8 +137,9 @@ class GatewaySettings(BaseSettings):
     def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
         """Parse CORS origins from comma-separated string or list."""
         if isinstance(v, str):
-            return [origin.strip()
-                    for origin in v.split(",") if origin.strip()]
+            return [
+                origin.strip() for origin in v.split(",") if origin.strip()
+            ]
         return v
 
     @field_validator("rate_limit_storage")
@@ -148,7 +149,8 @@ class GatewaySettings(BaseSettings):
         valid_backends = ["memory", "redis"]
         if v.lower() not in valid_backends:
             raise ValueError(
-                f"Rate limit storage must be one of: {', '.join(valid_backends)}")
+                f"Rate limit storage must be one of: {', '.join(valid_backends)}"
+            )
         return v.lower()
 
     @field_validator("session_cookie_samesite")
@@ -158,7 +160,8 @@ class GatewaySettings(BaseSettings):
         valid_values = ["Strict", "Lax", "None"]
         if v not in valid_values:
             raise ValueError(
-                f"SameSite must be one of: {', '.join(valid_values)}")
+                f"SameSite must be one of: {', '.join(valid_values)}"
+            )
         return v
 
 

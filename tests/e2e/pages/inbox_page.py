@@ -268,8 +268,9 @@ class InboxPage(BasePage):
 
     async def select_email(self, index: int = 0) -> None:
         """Select an email by its checkbox."""
-        checkbox = self.email_items.nth(
-            index).locator("input[type='checkbox']")
+        checkbox = self.email_items.nth(index).locator(
+            "input[type='checkbox']"
+        )
         await checkbox.check()
 
     async def select_emails(self, indices: List[int]) -> None:
@@ -361,15 +362,21 @@ class InboxPage(BasePage):
     # Helper methods
     async def get_email_subject(self, index: int = 0) -> str:
         """Get the subject of an email by index."""
-        return await self.email_items.nth(index).locator(
-            "[data-testid='email-subject'], .email-subject, .subject"
-        ).text_content()
+        return (
+            await self.email_items.nth(index)
+            .locator("[data-testid='email-subject'], .email-subject, .subject")
+            .text_content()
+        )
 
     async def get_email_sender(self, index: int = 0) -> str:
         """Get the sender of an email by index."""
-        return await self.email_items.nth(index).locator(
-            "[data-testid='email-sender'], .email-sender, .sender, .from"
-        ).text_content()
+        return (
+            await self.email_items.nth(index)
+            .locator(
+                "[data-testid='email-sender'], .email-sender, .sender, .from"
+            )
+            .text_content()
+        )
 
     async def is_email_unread(self, index: int = 0) -> bool:
         """Check if an email is unread."""

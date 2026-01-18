@@ -6,7 +6,11 @@ handling API requests, authentication, and real-time updates.
 """
 
 from .app import create_app
-from .config import GatewaySettings, get_gateway_settings, reload_gateway_settings
+from .config import (
+    GatewaySettings,
+    get_gateway_settings,
+    reload_gateway_settings,
+)
 
 __all__ = [
     "create_app",

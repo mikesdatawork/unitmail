@@ -28,24 +28,28 @@ logger = logging.getLogger(__name__)
 class CreateFolderRequest(BaseModel):
     """Request model for creating a folder."""
 
-    name: str = Field(..., min_length=1, max_length=100,
-                      description="Folder name")
+    name: str = Field(
+        ..., min_length=1, max_length=100, description="Folder name"
+    )
     parent_id: Optional[str] = Field(
-        None, description="Parent folder ID for nesting")
+        None, description="Parent folder ID for nesting"
+    )
     color: Optional[str] = Field(
         None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Folder color (hex)"
     )
     icon: Optional[str] = Field(
-        None, max_length=50, description="Folder icon name")
+        None, max_length=50, description="Folder icon name"
+    )
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         """Validate folder name."""
-        forbidden = ['/', '\\', '<', '>', ':', '"', '|', '?', '*']
+        forbidden = ["/", "\\", "<", ">", ":", '"', "|", "?", "*"]
         if any(c in v for c in forbidden):
             raise ValueError(
-                f"Folder name cannot contain: {' '.join(forbidden)}")
+                f"Folder name cannot contain: {' '.join(forbidden)}"
+            )
         return v.strip()
 
 
@@ -60,7 +64,8 @@ class UpdateFolderRequest(BaseModel):
         None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Folder color (hex)"
     )
     icon: Optional[str] = Field(
-        None, max_length=50, description="Folder icon name")
+        None, max_length=50, description="Folder icon name"
+    )
     sort_order: Optional[int] = Field(None, ge=0, description="Sort order")
 
     @field_validator("name")
@@ -69,10 +74,11 @@ class UpdateFolderRequest(BaseModel):
         """Validate folder name."""
         if v is None:
             return v
-        forbidden = ['/', '\\', '<', '>', ':', '"', '|', '?', '*']
+        forbidden = ["/", "\\", "<", ">", ":", '"', "|", "?", "*"]
         if any(c in v for c in forbidden):
             raise ValueError(
-                f"Folder name cannot contain: {' '.join(forbidden)}")
+                f"Folder name cannot contain: {' '.join(forbidden)}"
+            )
         return v.strip()
 
 
@@ -130,8 +136,9 @@ def create_folders_blueprint() -> Blueprint:
             List of folders with message counts.
         """
         try:
-            include_system = request.args.get(
-                "include_system", "true").lower() == "true"
+            include_system = (
+                request.args.get("include_system", "true").lower() == "true"
+            )
             parent_id = request.args.get("parent_id")
 
             storage = get_storage()
@@ -150,31 +157,43 @@ def create_folders_blueprint() -> Blueprint:
             if parent_id is not None:
                 if parent_id == "" or parent_id.lower() == "null":
                     # Root level folders
-                    folders = [f for f in folders if f.get(
-                        "parent_id") is None]
+                    folders = [
+                        f for f in folders if f.get("parent_id") is None
+                    ]
                 else:
-                    folders = [f for f in folders if f.get(
-                        "parent_id") == parent_id]
+                    folders = [
+                        f for f in folders if f.get("parent_id") == parent_id
+                    ]
 
             # Calculate totals
             total_messages = sum(f.get("message_count", 0) for f in folders)
             total_unread = sum(f.get("unread_count", 0) for f in folders)
 
-            return jsonify({
-                "folders": [serialize_folder(f) for f in folders],
-                "summary": {
-                    "total_folders": len(folders),
-                    "total_messages": total_messages,
-                    "total_unread": total_unread,
-                },
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "folders": [serialize_folder(f) for f in folders],
+                        "summary": {
+                            "total_folders": len(folders),
+                            "total_messages": total_messages,
+                            "total_unread": total_unread,
+                        },
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"List folders error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching folders",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching folders",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<folder_id>", methods=["GET"])
     @require_auth
@@ -193,27 +212,42 @@ def create_folders_blueprint() -> Blueprint:
             folder = storage.get_folder_by_id(folder_id)
 
             if not folder:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Folder not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Folder not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             user_id = getattr(g, "user_id", None)
             if folder.get("user_id") and folder.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Folder not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Folder not found",
+                        }
+                    ),
+                    404,
+                )
 
             return jsonify(serialize_folder(folder)), 200
 
         except Exception as e:
             logger.error(f"Get folder error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching the folder",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching the folder",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("", methods=["POST"])
     @bp.route("/", methods=["POST"])
@@ -233,19 +267,29 @@ def create_folders_blueprint() -> Blueprint:
             Created folder details.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         try:
             data = CreateFolderRequest(**request.get_json())
         except ValidationError as e:
-            return jsonify({
-                "error": "Validation error",
-                "message": "Invalid request data",
-                "details": e.errors(),
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "Invalid request data",
+                        "details": e.errors(),
+                    }
+                ),
+                400,
+            )
 
         try:
             storage = get_storage()
@@ -255,16 +299,26 @@ def create_folders_blueprint() -> Blueprint:
             if data.parent_id:
                 parent = storage.get_folder_by_id(data.parent_id)
                 if not parent:
-                    return jsonify({
-                        "error": "Invalid parent",
-                        "message": "Parent folder not found",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid parent",
+                                "message": "Parent folder not found",
+                            }
+                        ),
+                        400,
+                    )
                 # Check ownership of parent
                 if parent.get("user_id") and parent.get("user_id") != user_id:
-                    return jsonify({
-                        "error": "Invalid parent",
-                        "message": "Parent folder not found",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid parent",
+                                "message": "Parent folder not found",
+                            }
+                        ),
+                        400,
+                    )
 
             # Check for duplicate folder name at same level
             if user_id:
@@ -273,21 +327,33 @@ def create_folders_blueprint() -> Blueprint:
                 existing_folders = storage.get_folders()
 
             for f in existing_folders:
-                if (f["name"].lower() == data.name.lower() and
-                        f.get("parent_id") == data.parent_id):
-                    return jsonify({
-                        "error": "Duplicate folder",
-                        "message": f"A folder named '{data.name}' already exists",
-                    }), 409
+                if (
+                    f["name"].lower() == data.name.lower()
+                    and f.get("parent_id") == data.parent_id
+                ):
+                    return (
+                        jsonify(
+                            {
+                                "error": "Duplicate folder",
+                                "message": f"Folder '{data.name}' already exists",
+                            }
+                        ),
+                        409,
+                    )
 
             # Create folder
             try:
                 folder = storage.create_folder(data.name, data.parent_id)
             except ValueError as e:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": str(e),
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": str(e),
+                        }
+                    ),
+                    400,
+                )
 
             # Update additional properties if provided
             if data.color or data.icon:
@@ -311,10 +377,15 @@ def create_folders_blueprint() -> Blueprint:
 
         except Exception as e:
             logger.error(f"Create folder error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while creating the folder",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while creating the folder",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<folder_id>", methods=["PUT"])
     @require_auth
@@ -337,19 +408,29 @@ def create_folders_blueprint() -> Blueprint:
         """
         try:
             if not request.is_json:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": "Request must be JSON",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": "Request must be JSON",
+                        }
+                    ),
+                    400,
+                )
 
             try:
                 data = UpdateFolderRequest(**request.get_json())
             except ValidationError as e:
-                return jsonify({
-                    "error": "Validation error",
-                    "message": "Invalid request data",
-                    "details": e.errors(),
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Validation error",
+                            "message": "Invalid request data",
+                            "details": e.errors(),
+                        }
+                    ),
+                    400,
+                )
 
             storage = get_storage()
             user_id = getattr(g, "user_id", None)
@@ -358,25 +439,43 @@ def create_folders_blueprint() -> Blueprint:
             folder = storage.get_folder_by_id(folder_id)
 
             if not folder:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Folder not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Folder not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if folder.get("user_id") and folder.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Folder not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Folder not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check if it's a system folder (cannot rename system folders)
-            if folder.get(
-                    "is_system") and data.name and data.name != folder["name"]:
-                return jsonify({
-                    "error": "Cannot modify",
-                    "message": "System folders cannot be renamed",
-                }), 403
+            if (
+                folder.get("is_system")
+                and data.name
+                and data.name != folder["name"]
+            ):
+                return (
+                    jsonify(
+                        {
+                            "error": "Cannot modify",
+                            "message": "System folders cannot be renamed",
+                        }
+                    ),
+                    403,
+                )
 
             # Build update data
             update_data = {}
@@ -388,40 +487,65 @@ def create_folders_blueprint() -> Blueprint:
                 else:
                     existing_folders = storage.get_folders()
 
-                target_parent = data.parent_id if data.parent_id is not None else folder.get(
-                    "parent_id")
+                target_parent = (
+                    data.parent_id
+                    if data.parent_id is not None
+                    else folder.get("parent_id")
+                )
                 for f in existing_folders:
-                    if (f["id"] != folder["id"] and
-                        f["name"].lower() == data.name.lower() and
-                            f.get("parent_id") == target_parent):
-                        return jsonify({
-                            "error": "Duplicate folder",
-                            "message": f"A folder named '{data.name}' already exists",
-                        }), 409
+                    if (
+                        f["id"] != folder["id"]
+                        and f["name"].lower() == data.name.lower()
+                        and f.get("parent_id") == target_parent
+                    ):
+                        return (
+                            jsonify(
+                                {
+                                    "error": "Duplicate folder",
+                                    "message": f"Folder '{data.name}' already exists",
+                                }
+                            ),
+                            409,
+                        )
                 update_data["name"] = data.name
 
             if data.parent_id is not None:
                 # Cannot set folder as its own parent
                 if data.parent_id == folder_id:
-                    return jsonify({
-                        "error": "Invalid parent",
-                        "message": "Folder cannot be its own parent",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid parent",
+                                "message": "Folder cannot be its own parent",
+                            }
+                        ),
+                        400,
+                    )
 
                 # Verify parent exists
                 parent = storage.get_folder_by_id(data.parent_id)
                 if not parent:
-                    return jsonify({
-                        "error": "Invalid parent",
-                        "message": "Parent folder not found",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid parent",
+                                "message": "Parent folder not found",
+                            }
+                        ),
+                        400,
+                    )
 
                 # Check ownership of parent
                 if parent.get("user_id") and parent.get("user_id") != user_id:
-                    return jsonify({
-                        "error": "Invalid parent",
-                        "message": "Parent folder not found",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid parent",
+                                "message": "Parent folder not found",
+                            }
+                        ),
+                        400,
+                    )
 
                 update_data["parent_id"] = data.parent_id
 
@@ -435,19 +559,29 @@ def create_folders_blueprint() -> Blueprint:
                 update_data["sort_order"] = data.sort_order
 
             if not update_data:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": "No valid fields to update",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": "No valid fields to update",
+                        }
+                    ),
+                    400,
+                )
 
             # Update folder
             folder = storage.update_folder(folder_id, update_data)
 
             if not folder:
-                return jsonify({
-                    "error": "Cannot modify",
-                    "message": "Folder could not be updated",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Cannot modify",
+                            "message": "Folder could not be updated",
+                        }
+                    ),
+                    400,
+                )
 
             logger.info(
                 "Folder updated",
@@ -461,10 +595,15 @@ def create_folders_blueprint() -> Blueprint:
 
         except Exception as e:
             logger.error(f"Update folder error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while updating the folder",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while updating the folder",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<folder_id>", methods=["DELETE"])
     @require_auth
@@ -493,24 +632,39 @@ def create_folders_blueprint() -> Blueprint:
             folder = storage.get_folder_by_id(folder_id)
 
             if not folder:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Folder not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Folder not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if folder.get("user_id") and folder.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Folder not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Folder not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Cannot delete system folders
             if folder.get("is_system"):
-                return jsonify({
-                    "error": "Cannot delete",
-                    "message": "System folders cannot be deleted",
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "error": "Cannot delete",
+                            "message": "System folders cannot be deleted",
+                        }
+                    ),
+                    403,
+                )
 
             # Check if folder has messages
             message_count = folder.get("message_count", 0)
@@ -519,18 +673,30 @@ def create_folders_blueprint() -> Blueprint:
                     # Verify target folder
                     target = storage.get_folder_by_id(move_to)
                     if not target:
-                        return jsonify({
-                            "error": "Invalid target",
-                            "message": "Target folder not found",
-                        }), 400
+                        return (
+                            jsonify(
+                                {
+                                    "error": "Invalid target",
+                                    "message": "Target folder not found",
+                                }
+                            ),
+                            400,
+                        )
 
                     # Check ownership of target
-                    if target.get("user_id") and target.get(
-                            "user_id") != user_id:
-                        return jsonify({
-                            "error": "Invalid target",
-                            "message": "Target folder not found",
-                        }), 400
+                    if (
+                        target.get("user_id")
+                        and target.get("user_id") != user_id
+                    ):
+                        return (
+                            jsonify(
+                                {
+                                    "error": "Invalid target",
+                                    "message": "Target folder not found",
+                                }
+                            ),
+                            400,
+                        )
 
                     # Move messages to target folder
                     messages = storage.get_messages(
@@ -539,14 +705,22 @@ def create_folders_blueprint() -> Blueprint:
                     )
                     for msg in messages:
                         storage.update_message(
-                            msg["id"], {"folder_id": move_to})
+                            msg["id"], {"folder_id": move_to}
+                        )
 
                 elif not force:
-                    return jsonify({
-                        "error": "Folder not empty",
-                        "message": f"Folder contains {message_count} messages. "
-                                   "Use 'move_to' to move messages or 'force=true' to delete anyway.",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Folder not empty",
+                                "message": (
+                                    f"Folder has {message_count} messages. "
+                                    "Use 'move_to' or 'force=true'."
+                                ),
+                            }
+                        ),
+                        400,
+                    )
 
             # Check for child folders
             if user_id:
@@ -554,14 +728,20 @@ def create_folders_blueprint() -> Blueprint:
             else:
                 all_folders = storage.get_folders()
 
-            children = [f for f in all_folders if f.get(
-                "parent_id") == folder_id]
+            children = [
+                f for f in all_folders if f.get("parent_id") == folder_id
+            ]
             if children:
-                return jsonify({
-                    "error": "Folder has children",
-                    "message": f"Folder has {len(children)} child folders. "
-                               "Delete or move them first.",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Folder has children",
+                            "message": f"Folder has {len(children)} child folders. "
+                            "Delete or move them first.",
+                        }
+                    ),
+                    400,
+                )
 
             # Delete folder
             storage.delete_folder(folder_id)
@@ -574,16 +754,26 @@ def create_folders_blueprint() -> Blueprint:
                 },
             )
 
-            return jsonify({
-                "message": "Folder deleted successfully",
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Folder deleted successfully",
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Delete folder error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while deleting the folder",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while deleting the folder",
+                    }
+                ),
+                500,
+            )
 
     return bp
 

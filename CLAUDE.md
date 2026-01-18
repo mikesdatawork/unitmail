@@ -1,5 +1,13 @@
 # Project Constitution & Coordination Rules
 
+## Running the Application
+
+```bash
+source venv/bin/activate && python3 scripts/run_client.py
+```
+
+---
+
 ## MANDATORY: Agent Coordination Protocol
 
 For **ALL non-trivial tasks** in this project you **MUST** follow this workflow:

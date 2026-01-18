@@ -86,7 +86,11 @@ class GatewayServer:
 
         self.socketio = SocketIO(
             self.app,
-            cors_allowed_origins=self.settings.cors_origins if self.settings.cors_enabled else "*",
+            cors_allowed_origins=(
+                self.settings.cors_origins
+                if self.settings.cors_enabled
+                else "*"
+            ),
             ping_interval=self.settings.websocket_ping_interval,
             ping_timeout=self.settings.websocket_ping_timeout,
             async_mode=async_mode,
@@ -111,10 +115,13 @@ class GatewayServer:
         def handle_connect() -> None:
             """Handle client connection."""
             logger.debug("WebSocket client connected")
-            emit("connected", {
-                "status": "connected",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            emit(
+                "connected",
+                {
+                    "status": "connected",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
 
         @self.socketio.on("disconnect")
         def handle_disconnect() -> None:
@@ -132,15 +139,21 @@ class GatewayServer:
             if channel:
                 join_room(channel)
                 logger.debug(f"Client subscribed to channel: {channel}")
-                emit("subscribed", {
-                    "channel": channel,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                emit(
+                    "subscribed",
+                    {
+                        "channel": channel,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
             else:
-                emit("error", {
-                    "message": "Channel name is required",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                emit(
+                    "error",
+                    {
+                        "message": "Channel name is required",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
 
         @self.socketio.on("unsubscribe")
         def handle_unsubscribe(data: dict[str, Any]) -> None:
@@ -153,31 +166,43 @@ class GatewayServer:
             if channel:
                 leave_room(channel)
                 logger.debug(f"Client unsubscribed from channel: {channel}")
-                emit("unsubscribed", {
-                    "channel": channel,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                emit(
+                    "unsubscribed",
+                    {
+                        "channel": channel,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
             else:
-                emit("error", {
-                    "message": "Channel name is required",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                emit(
+                    "error",
+                    {
+                        "message": "Channel name is required",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
 
         @self.socketio.on("ping")
         def handle_ping() -> None:
             """Handle ping message from client."""
-            emit("pong", {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            emit(
+                "pong",
+                {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
 
         @self.socketio.on_error_default
         def handle_error(error: Exception) -> None:
             """Handle WebSocket errors."""
             logger.exception("WebSocket error", exc_info=error)
-            emit("error", {
-                "message": "An error occurred",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            emit(
+                "error",
+                {
+                    "message": "An error occurred",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
 
     def _register_signal_handlers(self) -> None:
         """Register signal handlers for graceful shutdown."""
@@ -309,9 +334,12 @@ class GatewayServer:
 
         # Notify connected WebSocket clients
         if self.socketio:
-            self.emit_event("server_shutdown", {
-                "message": "Server is shutting down",
-            })
+            self.emit_event(
+                "server_shutdown",
+                {
+                    "message": "Server is shutting down",
+                },
+            )
 
         # Stop the SocketIO server if running
         if self.socketio:

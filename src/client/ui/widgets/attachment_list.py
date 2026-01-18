@@ -51,17 +51,20 @@ MIME_TYPE_MAP: dict[str, AttachmentType] = {
     "image/tiff": AttachmentType.IMAGE,
     # Documents
     "application/msword": AttachmentType.DOCUMENT,
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": AttachmentType.DOCUMENT,
+    "application/vnd.openxmlformats-officedocument"
+    ".wordprocessingml.document": AttachmentType.DOCUMENT,
     "application/vnd.oasis.opendocument.text": AttachmentType.DOCUMENT,
     "application/rtf": AttachmentType.DOCUMENT,
     # Spreadsheets
     "application/vnd.ms-excel": AttachmentType.SPREADSHEET,
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": AttachmentType.SPREADSHEET,
+    "application/vnd.openxmlformats-officedocument"
+    ".spreadsheetml.sheet": AttachmentType.SPREADSHEET,
     "application/vnd.oasis.opendocument.spreadsheet": AttachmentType.SPREADSHEET,
     "text/csv": AttachmentType.SPREADSHEET,
     # Presentations
     "application/vnd.ms-powerpoint": AttachmentType.PRESENTATION,
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": AttachmentType.PRESENTATION,
+    "application/vnd.openxmlformats-officedocument"
+    ".presentationml.presentation": AttachmentType.PRESENTATION,
     "application/vnd.oasis.opendocument.presentation": AttachmentType.PRESENTATION,
     # Archives
     "application/zip": AttachmentType.ARCHIVE,
@@ -137,7 +140,8 @@ class Attachment:
     def icon_name(self) -> str:
         """Get the icon name for this attachment type."""
         return ATTACHMENT_ICONS.get(
-            self.attachment_type, ATTACHMENT_ICONS[AttachmentType.UNKNOWN])
+            self.attachment_type, ATTACHMENT_ICONS[AttachmentType.UNKNOWN]
+        )
 
     @property
     def size_display(self) -> str:
@@ -272,7 +276,8 @@ class AttachmentRow(Gtk.Box):
 
         # Download button
         download_button = Gtk.Button.new_from_icon_name(
-            "folder-download-symbolic")
+            "folder-download-symbolic"
+        )
         download_button.set_tooltip_text("Download")
         download_button.add_css_class("flat")
         download_button.add_css_class("circular")
@@ -308,7 +313,11 @@ class AttachmentList(Gtk.Box):
     __gtype_name__ = "AttachmentList"
 
     __gsignals__ = {
-        "attachment-download": (GObject.SignalFlags.RUN_FIRST, None, (object,)),
+        "attachment-download": (
+            GObject.SignalFlags.RUN_FIRST,
+            None,
+            (object,),
+        ),
         "attachment-preview": (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         "attachment-open": (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         "download-all": (GObject.SignalFlags.RUN_FIRST, None, ()),
@@ -369,7 +378,8 @@ class AttachmentList(Gtk.Box):
         self._download_all_button = Gtk.Button.new_with_label("Download All")
         self._download_all_button.add_css_class("flat")
         self._download_all_button.connect(
-            "clicked", self._on_download_all_clicked)
+            "clicked", self._on_download_all_clicked
+        )
         self._download_all_button.set_sensitive(False)
         self._header.append(self._download_all_button)
 
@@ -424,7 +434,8 @@ class AttachmentList(Gtk.Box):
         return sum(a.size for a in self._attachments)
 
     def set_attachments(
-            self, attachments: list[Attachment | dict[str, Any]]) -> None:
+        self, attachments: list[Attachment | dict[str, Any]]
+    ) -> None:
         """Set the list of attachments to display.
 
         Args:
@@ -499,7 +510,8 @@ class AttachmentList(Gtk.Box):
             self._download_all_button.set_sensitive(True)
 
     def set_download_callback(
-            self, callback: Callable[[Attachment], None]) -> None:
+        self, callback: Callable[[Attachment], None]
+    ) -> None:
         """Set the callback for download requests.
 
         Args:
@@ -508,7 +520,8 @@ class AttachmentList(Gtk.Box):
         self._download_callback = callback
 
     def set_preview_callback(
-            self, callback: Callable[[Attachment], None]) -> None:
+        self, callback: Callable[[Attachment], None]
+    ) -> None:
         """Set the callback for preview requests.
 
         Args:
@@ -516,15 +529,17 @@ class AttachmentList(Gtk.Box):
         """
         self._preview_callback = callback
 
-    def _on_row_download(self, row: AttachmentRow,
-                         attachment: Attachment) -> None:
+    def _on_row_download(
+        self, row: AttachmentRow, attachment: Attachment
+    ) -> None:
         """Handle download request from a row."""
         self.emit("attachment-download", attachment)
         if self._download_callback:
             self._download_callback(attachment)
 
-    def _on_row_preview(self, row: AttachmentRow,
-                        attachment: Attachment) -> None:
+    def _on_row_preview(
+        self, row: AttachmentRow, attachment: Attachment
+    ) -> None:
         """Handle preview request from a row."""
         self.emit("attachment-preview", attachment)
         if self._preview_callback:
@@ -637,10 +652,13 @@ class AttachmentPreviewDialog(Gtk.Dialog):
                     self._show_error(scrolled, "Could not load image")
             except Exception as e:
                 self._show_error(scrolled, f"Error loading image: {e}")
-        elif self._attachment.file_path and os.path.exists(self._attachment.file_path):
+        elif self._attachment.file_path and os.path.exists(
+            self._attachment.file_path
+        ):
             try:
                 image = Gtk.Picture.new_for_filename(
-                    self._attachment.file_path)
+                    self._attachment.file_path
+                )
                 image.set_can_shrink(True)
                 scrolled.set_child(image)
             except Exception as e:
@@ -665,6 +683,7 @@ class AttachmentPreviewDialog(Gtk.Dialog):
 try:
     gi.require_version("GdkPixbuf", "2.0")
     from gi.repository import GdkPixbuf
+
     HAS_GDKPIXBUF = True
 except (ValueError, ImportError):
     HAS_GDKPIXBUF = False

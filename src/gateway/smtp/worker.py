@@ -94,23 +94,22 @@ class ErrorClassifier:
     SMTP_CODE_CLASSIFICATIONS = {
         # 4xx - Temporary failures
         421: ErrorType.SERVER_BUSY,  # Service not available
-        450: ErrorType.TEMPORARY,    # Requested mail action not taken
-        451: ErrorType.TEMPORARY,    # Requested action aborted
-        452: ErrorType.TEMPORARY,    # Insufficient storage
-        454: ErrorType.TEMPORARY,    # TLS not available
-
+        450: ErrorType.TEMPORARY,  # Requested mail action not taken
+        451: ErrorType.TEMPORARY,  # Requested action aborted
+        452: ErrorType.TEMPORARY,  # Insufficient storage
+        454: ErrorType.TEMPORARY,  # TLS not available
         # 5xx - Permanent failures
-        500: ErrorType.PERMANENT,           # Syntax error
-        501: ErrorType.PERMANENT,           # Syntax error in parameters
-        502: ErrorType.PERMANENT,           # Command not implemented
-        503: ErrorType.PERMANENT,           # Bad sequence of commands
-        504: ErrorType.PERMANENT,           # Command parameter not implemented
-        550: ErrorType.INVALID_RECIPIENT,   # Requested action not taken
-        551: ErrorType.INVALID_RECIPIENT,   # User not local
-        552: ErrorType.PERMANENT,           # Exceeded storage allocation
-        553: ErrorType.INVALID_RECIPIENT,   # Mailbox name not allowed
-        554: ErrorType.REJECTED,            # Transaction failed
-        556: ErrorType.INVALID_RECIPIENT,   # Domain not accepting mail
+        500: ErrorType.PERMANENT,  # Syntax error
+        501: ErrorType.PERMANENT,  # Syntax error in parameters
+        502: ErrorType.PERMANENT,  # Command not implemented
+        503: ErrorType.PERMANENT,  # Bad sequence of commands
+        504: ErrorType.PERMANENT,  # Command parameter not implemented
+        550: ErrorType.INVALID_RECIPIENT,  # Requested action not taken
+        551: ErrorType.INVALID_RECIPIENT,  # User not local
+        552: ErrorType.PERMANENT,  # Exceeded storage allocation
+        553: ErrorType.INVALID_RECIPIENT,  # Mailbox name not allowed
+        554: ErrorType.REJECTED,  # Transaction failed
+        556: ErrorType.INVALID_RECIPIENT,  # Domain not accepting mail
     }
 
     # Keywords in error messages for classification
@@ -207,8 +206,9 @@ class ErrorClassifier:
             ErrorType classification.
         """
         # Connection errors are typically temporary
-        if isinstance(exc, (ConnectionError, socket.timeout,
-                      asyncio.TimeoutError)):
+        if isinstance(
+            exc, (ConnectionError, socket.timeout, asyncio.TimeoutError)
+        ):
             return ErrorType.CONNECTION_FAILED
 
         if isinstance(exc, socket.gaierror):
@@ -360,7 +360,8 @@ class BaseQueueWorker(ABC):
 
         except Exception as e:
             logger.exception(
-                "Worker error processing item %s: %s", item["id"], e)
+                "Worker error processing item %s: %s", item["id"], e
+            )
             error_type = self._error_classifier.classify_exception(e)
             result = DeliveryResult(
                 success=False,
@@ -371,10 +372,12 @@ class BaseQueueWorker(ABC):
             raise
 
         finally:
-            elapsed = (datetime.now(timezone.utc) -
-                       start_time).total_seconds() * 1000
-            logger.debug("Worker completed item %s in %.2fms",
-                         item["id"], elapsed)
+            elapsed = (
+                datetime.now(timezone.utc) - start_time
+            ).total_seconds() * 1000
+            logger.debug(
+                "Worker completed item %s in %.2fms", item["id"], elapsed
+            )
 
     def _handle_success(self, item: dict, result: DeliveryResult) -> None:
         """Handle successful delivery."""
@@ -387,7 +390,8 @@ class BaseQueueWorker(ABC):
             )
         except Exception as e:
             logger.error(
-                "Failed to mark item %s as completed: %s", item["id"], e)
+                "Failed to mark item %s as completed: %s", item["id"], e
+            )
 
     def _handle_failure(self, item: dict, result: DeliveryResult) -> None:
         """Handle failed delivery."""
@@ -475,8 +479,9 @@ class QueueWorker(BaseQueueWorker):
             # TODO: Implement actual SMTP delivery
             await self._simulate_delivery(message, recipient, domain)
 
-            delivery_time = (datetime.now(timezone.utc) -
-                             start_time).total_seconds() * 1000
+            delivery_time = (
+                datetime.now(timezone.utc) - start_time
+            ).total_seconds() * 1000
 
             return DeliveryResult(
                 success=True,
@@ -492,8 +497,9 @@ class QueueWorker(BaseQueueWorker):
             raise
 
         except Exception as e:
-            delivery_time = (datetime.now(timezone.utc) -
-                             start_time).total_seconds() * 1000
+            delivery_time = (
+                datetime.now(timezone.utc) - start_time
+            ).total_seconds() * 1000
             error_type = self._error_classifier.classify_exception(e)
 
             return DeliveryResult(

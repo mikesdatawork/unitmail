@@ -251,8 +251,7 @@ class ContactsPage(BasePage):
     def details_phone(self) -> Locator:
         """Phone in contact details."""
         return self.contact_details_panel.locator(
-            "[data-testid='details-phone'], .details-phone, "
-            "a[href^='tel:']"
+            "[data-testid='details-phone'], .details-phone, " "a[href^='tel:']"
         )
 
     @property
@@ -400,8 +399,9 @@ class ContactsPage(BasePage):
         await self.edit_contact_button.click()
         await expect(self.contact_form).to_be_visible()
 
-    async def delete_contact(self, index: int = 0,
-                             confirm: bool = True) -> None:
+    async def delete_contact(
+        self, index: int = 0, confirm: bool = True
+    ) -> None:
         """Delete a contact by index."""
         await self.click_contact(index)
         await self.delete_contact_button.click()
@@ -412,7 +412,8 @@ class ContactsPage(BasePage):
         await self.wait_for_loading_complete()
 
     async def delete_contact_by_name(
-            self, name: str, confirm: bool = True) -> None:
+        self, name: str, confirm: bool = True
+    ) -> None:
         """Delete a contact by name."""
         await self.click_contact_by_name(name)
         await self.delete_contact_button.click()
@@ -443,15 +444,19 @@ class ContactsPage(BasePage):
 
     async def get_contact_name(self, index: int = 0) -> str:
         """Get the name of a contact by index."""
-        return await self.contact_items.nth(index).locator(
-            "[data-testid='contact-name'], .contact-name, .name"
-        ).text_content()
+        return (
+            await self.contact_items.nth(index)
+            .locator("[data-testid='contact-name'], .contact-name, .name")
+            .text_content()
+        )
 
     async def get_contact_email(self, index: int = 0) -> str:
         """Get the email of a contact by index."""
-        return await self.contact_items.nth(index).locator(
-            "[data-testid='contact-email'], .contact-email, .email"
-        ).text_content()
+        return (
+            await self.contact_items.nth(index)
+            .locator("[data-testid='contact-email'], .contact-email, .email")
+            .text_content()
+        )
 
     async def compose_email_to_contact(self, index: int = 0) -> None:
         """Open compose window with contact as recipient."""
@@ -490,7 +495,8 @@ class ContactsPage(BasePage):
         await expect(self.contact_form).to_be_hidden()
 
     async def assert_validation_error(
-            self, error_text: Optional[str] = None) -> None:
+        self, error_text: Optional[str] = None
+    ) -> None:
         """Assert that validation error is shown."""
         await expect(self.validation_errors.first).to_be_visible()
         if error_text:

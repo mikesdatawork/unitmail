@@ -97,7 +97,12 @@ class DNSVerificationResult:
     @property
     def all_valid(self) -> bool:
         """Check if all DNS records are valid."""
-        return self.mx_valid and self.spf_valid and self.dkim_valid and self.dmarc_valid
+        return (
+            self.mx_valid
+            and self.spf_valid
+            and self.dkim_valid
+            and self.dmarc_valid
+        )
 
     @property
     def essential_valid(self) -> bool:
@@ -303,8 +308,9 @@ class SetupService:
                 )
 
             # Send request
-            conn.request("GET", "/health",
-                         headers={"User-Agent": "unitMail-Setup/1.0"})
+            conn.request(
+                "GET", "/health", headers={"User-Agent": "unitMail-Setup/1.0"}
+            )
             response = conn.getresponse()
 
             # Get TLS info
@@ -640,7 +646,8 @@ class SetupService:
     def _create_database_tables(self, cursor: sqlite3.Cursor) -> None:
         """Create database tables."""
         # Configuration table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS config (
                 key TEXT PRIMARY KEY,
                 value TEXT,
@@ -650,10 +657,12 @@ class SetupService:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Local message cache
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS message_cache (
                 id TEXT PRIMARY KEY,
                 message_id TEXT UNIQUE,
@@ -671,10 +680,12 @@ class SetupService:
                 received_at TEXT,
                 cached_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Folders
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS folders (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -687,10 +698,12 @@ class SetupService:
                 icon_name TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Contacts
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS contacts (
                 id TEXT PRIMARY KEY,
                 name TEXT,
@@ -704,10 +717,12 @@ class SetupService:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # PGP keys
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS pgp_keys (
                 id TEXT PRIMARY KEY,
                 key_id TEXT UNIQUE,
@@ -721,10 +736,12 @@ class SetupService:
                 expires_at TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Outbox queue
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS outbox (
                 id TEXT PRIMARY KEY,
                 to_addresses TEXT NOT NULL,
@@ -739,21 +756,28 @@ class SetupService:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 scheduled_at TEXT
             )
-        """)
+        """
+        )
 
         # Create indexes
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_message_cache_folder
             ON message_cache(folder_id)
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_message_cache_received
             ON message_cache(received_at DESC)
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_contacts_email
             ON contacts(email)
-        """)
+        """
+        )
 
         # Insert default folders
         default_folders = [
@@ -765,11 +789,22 @@ class SetupService:
             ("archive", "Archive", "archive", 5, 1, "folder-symbolic"),
         ]
 
-        for folder_id, name, folder_type, sort_order, is_system, icon in default_folders:
-            cursor.execute("""
-                INSERT OR IGNORE INTO folders (id, name, folder_type, sort_order, is_system, icon_name)
+        for (
+            folder_id,
+            name,
+            folder_type,
+            sort_order,
+            is_system,
+            icon,
+        ) in default_folders:
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO folders
+                    (id, name, folder_type, sort_order, is_system, icon_name)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (folder_id, name, folder_type, sort_order, is_system, icon))
+            """,
+                (folder_id, name, folder_type, sort_order, is_system, icon),
+            )
 
     # DKIM Key Generation
 
@@ -835,14 +870,14 @@ class SetupService:
                 # Extract base64 key for DNS record
                 lines = public_key_pem.strip().split("\n")
                 key_data = "".join(
-                    line for line in lines
-                    if not line.startswith("-----")
+                    line for line in lines if not line.startswith("-----")
                 )
                 dns_record = f"v=DKIM1; k=rsa; p={key_data}"
 
             # Calculate fingerprint
-            fingerprint = hashlib.sha256(
-                public_key_pem.encode()).hexdigest()[:40]
+            fingerprint = hashlib.sha256(public_key_pem.encode()).hexdigest()[
+                :40
+            ]
 
             # Save keys
             keys_dir = self.DATA_DIR / self.KEYS_DIR
@@ -955,16 +990,21 @@ class SetupService:
 
             if config.pgp_key_id:
                 config_items.append(
-                    ("pgp_key_id", config.pgp_key_id, "security", False))
+                    ("pgp_key_id", config.pgp_key_id, "security", False)
+                )
             if config.mesh_peer_id:
                 config_items.append(
-                    ("mesh_peer_id", config.mesh_peer_id, "mesh", False))
+                    ("mesh_peer_id", config.mesh_peer_id, "mesh", False)
+                )
 
             for key, value, category, is_secret in config_items:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO config (key, value, category, is_secret)
                     VALUES (?, ?, ?, ?)
-                """, (key, value, category, is_secret))
+                """,
+                    (key, value, category, is_secret),
+                )
 
             conn.commit()
             conn.close()
@@ -1115,7 +1155,9 @@ class SetupService:
                 username=setup_data.username,
                 password_hash=password_hash,
                 pgp_enabled=setup_data.generate_pgp,
-                pgp_key_id=setup_data.pgp_key_id if setup_data.generate_pgp else None,
+                pgp_key_id=(
+                    setup_data.pgp_key_id if setup_data.generate_pgp else None
+                ),
                 mesh_enabled=setup_data.join_mesh,
             )
 

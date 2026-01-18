@@ -11,8 +11,9 @@ from typing import Any, Optional
 class UnitMailError(Exception):
     """Base exception for all unitMail errors."""
 
-    def __init__(self, message: str,
-                 details: Optional[dict[str, Any]] = None) -> None:
+    def __init__(
+        self, message: str, details: Optional[dict[str, Any]] = None
+    ) -> None:
         """
         Initialize the base exception.
 
@@ -104,7 +105,9 @@ class DuplicateRecordError(DatabaseError):
             value: The duplicate value.
             details: Optional dictionary with additional error details.
         """
-        message = f"Duplicate value '{value}' for field '{field}' in table '{table}'"
+        message = (
+            f"Duplicate value '{value}' for field '{field}' in table '{table}'"
+        )
         super().__init__(message, details)
         self.table = table
         self.field = field
@@ -185,7 +188,8 @@ class MissingConfigError(ConfigurationError):
             details: Optional dictionary with additional error details.
         """
         super().__init__(
-            f"Missing required configuration: '{config_key}'", details)
+            f"Missing required configuration: '{config_key}'", details
+        )
         self.config_key = config_key
 
 
@@ -291,7 +295,8 @@ class DNSLookupError(DNSError):
             details: Optional dictionary with additional error details.
         """
         super().__init__(
-            f"DNS lookup failed for {record_type} record of '{domain}'", details
+            f"DNS lookup failed for {record_type} record of '{domain}'",
+            details,
         )
         self.domain = domain
         self.record_type = record_type

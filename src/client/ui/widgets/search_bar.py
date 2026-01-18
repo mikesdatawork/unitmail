@@ -268,8 +268,9 @@ class SearchBar(Gtk.Box):
             model=self._suggestion_store,
             autoselect=False,
         )
-        selection_model.connect("selection-changed",
-                                self._on_suggestion_selected)
+        selection_model.connect(
+            "selection-changed", self._on_suggestion_selected
+        )
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_suggestion_item_setup)
@@ -361,7 +362,11 @@ class SearchBar(Gtk.Box):
             children.append(child)
             child = child.get_next_sibling()
 
-        icon, content_box, remove_button = children[0], children[1], children[2]
+        icon, content_box, remove_button = (
+            children[0],
+            children[1],
+            children[2],
+        )
 
         icon.set_from_icon_name(item.icon_name)
 
@@ -697,7 +702,11 @@ class SearchBar(Gtk.Box):
         item = SearchSuggestionItem(
             text=text,
             description=description,
-            icon_name="document-open-recent-symbolic" if is_history else "edit-find-symbolic",
+            icon_name=(
+                "document-open-recent-symbolic"
+                if is_history
+                else "edit-find-symbolic"
+            ),
             is_history=is_history,
         )
 

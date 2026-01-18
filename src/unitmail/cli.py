@@ -70,7 +70,8 @@ def check_dependencies() -> bool:
         print("  - libadwaita", file=sys.stderr)
         print("\nOn Ubuntu/Debian:", file=sys.stderr)
         print(
-            "  sudo apt install python3-gi gir1.2-gtk-4.0 libadwaita-1-dev gir1.2-adw-1",
+            "  sudo apt install python3-gi gir1.2-gtk-4.0 "
+            "libadwaita-1-dev gir1.2-adw-1",
             file=sys.stderr,
         )
         print("\nOn Fedora:", file=sys.stderr)
@@ -79,7 +80,9 @@ def check_dependencies() -> bool:
             file=sys.stderr,
         )
         print("\nOn Arch Linux:", file=sys.stderr)
-        print("  sudo pacman -S python-gobject gtk4 libadwaita", file=sys.stderr)
+        print(
+            "  sudo pacman -S python-gobject gtk4 libadwaita", file=sys.stderr
+        )
         return False
 
 

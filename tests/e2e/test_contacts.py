@@ -28,6 +28,7 @@ TEST_CONTACT_COMPANY = "Test Company Inc."
 # Adding Contact Tests
 # =============================================================================
 
+
 class TestAddContact:
     """Tests for adding new contacts."""
 
@@ -64,7 +65,10 @@ class TestAddContact:
 
     @pytest.mark.asyncio
     async def test_add_contact_with_name_and_email(
-        self, authenticated_page: Page, contacts_page: ContactsPage, unique_contact_name: str
+        self,
+        authenticated_page: Page,
+        contacts_page: ContactsPage,
+        unique_contact_name: str,
     ):
         """Test adding a contact with name and email."""
         contacts_page.page = authenticated_page
@@ -80,7 +84,10 @@ class TestAddContact:
 
     @pytest.mark.asyncio
     async def test_add_contact_with_all_fields(
-        self, authenticated_page: Page, contacts_page: ContactsPage, unique_contact_name: str
+        self,
+        authenticated_page: Page,
+        contacts_page: ContactsPage,
+        unique_contact_name: str,
     ):
         """Test adding a contact with all fields filled."""
         contacts_page.page = authenticated_page
@@ -180,7 +187,9 @@ class TestAddContact:
     ):
         """Test adding a contact with duplicate email."""
         # Create existing contact
-        _existing = await api_client.create_test_contact(email="duplicate@test.com")  # noqa: F841
+        _existing = await api_client.create_test_contact(  # noqa: F841
+            email="duplicate@test.com"
+        )
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -198,6 +207,7 @@ class TestAddContact:
 # =============================================================================
 # Editing Contact Tests
 # =============================================================================
+
 
 class TestEditContact:
     """Tests for editing existing contacts."""
@@ -221,7 +231,9 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test editing contact name."""
-        _contact = await api_client.create_test_contact(name="Original Name")  # noqa: F841
+        _contact = await api_client.create_test_contact(  # noqa: F841
+            name="Original Name"
+        )
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -276,8 +288,7 @@ class TestEditContact:
     ):
         """Test that editing preserves unchanged fields."""
         _contact = await api_client.create_test_contact(  # noqa: F841
-            name="Preserve Test",
-            email="preserve@test.com"
+            name="Preserve Test", email="preserve@test.com"
         )
 
         contacts_page.page = authenticated_page
@@ -297,7 +308,9 @@ class TestEditContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test canceling contact edit."""
-        _contact = await api_client.create_test_contact(name="Cancel Edit Test")  # noqa: F841
+        _contact = await api_client.create_test_contact(  # noqa: F841
+            name="Cancel Edit Test"
+        )
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -333,6 +346,7 @@ class TestEditContact:
 # Deleting Contact Tests
 # =============================================================================
 
+
 class TestDeleteContact:
     """Tests for deleting contacts."""
 
@@ -341,7 +355,9 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test deleting a contact."""
-        _contact = await api_client.create_test_contact(name="Delete Test")  # noqa: F841
+        _contact = await api_client.create_test_contact(  # noqa: F841
+            name="Delete Test"
+        )
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
@@ -374,12 +390,16 @@ class TestDeleteContact:
         self, authenticated_page: Page, contacts_page: ContactsPage, api_client
     ):
         """Test canceling contact deletion."""
-        _contact = await api_client.create_test_contact(name="Cancel Delete Test")  # noqa: F841
+        _contact = await api_client.create_test_contact(  # noqa: F841
+            name="Cancel Delete Test"
+        )
 
         contacts_page.page = authenticated_page
         await contacts_page.goto()
 
-        await contacts_page.delete_contact_by_name("Cancel Delete Test", confirm=False)
+        await contacts_page.delete_contact_by_name(
+            "Cancel Delete Test", confirm=False
+        )
 
         # Contact should still exist
         await contacts_page.assert_contact_visible("Cancel Delete Test")
@@ -420,6 +440,7 @@ class TestDeleteContact:
 # Search Contacts Tests
 # =============================================================================
 
+
 class TestSearchContacts:
     """Tests for searching contacts."""
 
@@ -445,12 +466,10 @@ class TestSearchContacts:
     ):
         """Test searching contacts by email."""
         await api_client.create_test_contact(
-            name="Contact A",
-            email="unique-email@example.com"
+            name="Contact A", email="unique-email@example.com"
         )
         await api_client.create_test_contact(
-            name="Contact B",
-            email="other@example.com"
+            name="Contact B", email="other@example.com"
         )
 
         contacts_page.page = authenticated_page
@@ -549,6 +568,7 @@ class TestSearchContacts:
 # Contact Details Tests
 # =============================================================================
 
+
 class TestContactDetails:
     """Tests for viewing contact details."""
 
@@ -558,8 +578,7 @@ class TestContactDetails:
     ):
         """Test viewing contact details."""
         _contact = await api_client.create_test_contact(  # noqa: F841
-            name="Details Test Contact",
-            email="details@test.com"
+            name="Details Test Contact", email="details@test.com"
         )
 
         contacts_page.page = authenticated_page
@@ -567,7 +586,9 @@ class TestContactDetails:
 
         await contacts_page.click_contact_by_name("Details Test Contact")
 
-        await contacts_page.assert_contact_details_shown("Details Test Contact")
+        await contacts_page.assert_contact_details_shown(
+            "Details Test Contact"
+        )
 
     @pytest.mark.asyncio
     async def test_contact_details_shows_email(
@@ -575,8 +596,7 @@ class TestContactDetails:
     ):
         """Test that contact details shows email."""
         _contact = await api_client.create_test_contact(  # noqa: F841
-            name="Email Details Test",
-            email="email-details@test.com"
+            name="Email Details Test", email="email-details@test.com"
         )
 
         contacts_page.page = authenticated_page
@@ -584,17 +604,21 @@ class TestContactDetails:
 
         await contacts_page.click_contact_by_name("Email Details Test")
 
-        await expect(contacts_page.details_email).to_contain_text("email-details@test.com")
+        await expect(contacts_page.details_email).to_contain_text(
+            "email-details@test.com"
+        )
 
     @pytest.mark.asyncio
     async def test_compose_email_to_contact(
-        self, authenticated_page: Page, contacts_page: ContactsPage,
-        compose_page: ComposePage, api_client
+        self,
+        authenticated_page: Page,
+        contacts_page: ContactsPage,
+        compose_page: ComposePage,
+        api_client,
     ):
         """Test composing email to a contact."""
         _contact = await api_client.create_test_contact(  # noqa: F841
-            name="Compose To Contact",
-            email="compose-to@test.com"
+            name="Compose To Contact", email="compose-to@test.com"
         )
 
         contacts_page.page = authenticated_page
@@ -610,6 +634,7 @@ class TestContactDetails:
 # =============================================================================
 # Contact Groups/Labels Tests
 # =============================================================================
+
 
 class TestContactGroups:
     """Tests for contact groups/labels functionality."""
@@ -636,8 +661,7 @@ class TestContactGroups:
 
         # Look for group filter
         _group_filter = authenticated_page.locator(  # noqa: F841
-            "[data-testid='group-filter'], .group-filter, "
-            ".contact-groups"
+            "[data-testid='group-filter'], .group-filter, " ".contact-groups"
         )
 
         # Document group filtering behavior
@@ -646,6 +670,7 @@ class TestContactGroups:
 # =============================================================================
 # Import/Export Tests
 # =============================================================================
+
 
 class TestImportExport:
     """Tests for contact import/export functionality."""
@@ -658,7 +683,9 @@ class TestImportExport:
         contacts_page.page = authenticated_page
         await contacts_page.goto()
 
-        _export_visible = await contacts_page.export_contacts_button.count() > 0  # noqa: F841
+        _export_visible = (  # noqa: F841
+            await contacts_page.export_contacts_button.count() > 0
+        )
         # Document export functionality
 
     @pytest.mark.asyncio
@@ -669,13 +696,16 @@ class TestImportExport:
         contacts_page.page = authenticated_page
         await contacts_page.goto()
 
-        _import_visible = await contacts_page.import_contacts_button.count() > 0  # noqa: F841
+        _import_visible = (  # noqa: F841
+            await contacts_page.import_contacts_button.count() > 0
+        )
         # Document import functionality
 
 
 # =============================================================================
 # Accessibility Tests
 # =============================================================================
+
 
 class TestContactsAccessibility:
     """Accessibility tests for contacts functionality."""
@@ -728,8 +758,12 @@ class TestContactsAccessibility:
         await contacts_page.open_add_contact_form()
 
         # Check for labels or aria-labels
-        email_label = await contacts_page.form_email_input.get_attribute("aria-label")
-        email_placeholder = await contacts_page.form_email_input.get_attribute("placeholder")
+        email_label = await contacts_page.form_email_input.get_attribute(
+            "aria-label"
+        )
+        email_placeholder = await contacts_page.form_email_input.get_attribute(
+            "placeholder"
+        )
 
         assert email_label or email_placeholder
 
@@ -754,6 +788,7 @@ class TestContactsAccessibility:
 # Performance Tests
 # =============================================================================
 
+
 class TestContactsPerformance:
     """Performance tests for contacts functionality."""
 
@@ -770,6 +805,7 @@ class TestContactsPerformance:
 
         # Measure load time
         import time
+
         start = time.time()
         await contacts_page.goto()
         await contacts_page.wait_for_loading_complete()
@@ -792,6 +828,7 @@ class TestContactsPerformance:
 
         # Measure search time
         import time
+
         start = time.time()
         await contacts_page.search_contacts("Perf")
         await contacts_page.wait_for_loading_complete()

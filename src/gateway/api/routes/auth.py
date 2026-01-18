@@ -53,8 +53,9 @@ class LoginRequest(BaseModel):
 class PasswordChangeRequest(BaseModel):
     """Password change request model."""
 
-    current_password: str = Field(..., min_length=1,
-                                  description="Current password")
+    current_password: str = Field(
+        ..., min_length=1, description="Current password"
+    )
     new_password: str = Field(
         ..., min_length=8, max_length=128, description="New password"
     )
@@ -73,7 +74,8 @@ class RefreshTokenRequest(BaseModel):
 
 
 def hash_password(
-        password: str, salt: Optional[str] = None) -> tuple[str, str]:
+    password: str, salt: Optional[str] = None
+) -> tuple[str, str]:
     """
     Hash a password using PBKDF2.
 
@@ -198,7 +200,8 @@ def decode_token(token: str, token_type: str = "access") -> dict[str, Any]:
             storage = get_storage()
             if storage.is_token_blacklisted(jti):
                 raise TokenInvalidError(
-                    details={"reason": "Token has been revoked"})
+                    details={"reason": "Token has been revoked"}
+                )
 
         return payload
 
@@ -217,8 +220,10 @@ def blacklist_token(token: str) -> None:
     """
     try:
         payload = jwt.decode(
-            token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM],
-            options={"verify_exp": False}
+            token,
+            JWT_SECRET_KEY,
+            algorithms=[JWT_ALGORITHM],
+            options={"verify_exp": False},
         )
         jti = payload.get("jti")
         exp = payload.get("exp")
@@ -229,7 +234,8 @@ def blacklist_token(token: str) -> None:
             expires_at = None
             if exp:
                 expires_at = datetime.fromtimestamp(
-                    exp, tz=timezone.utc).isoformat()
+                    exp, tz=timezone.utc
+                ).isoformat()
             storage.add_to_blacklist(jti, expires_at)
     except Exception:
         pass
@@ -248,23 +254,34 @@ def require_auth(f: F) -> F:
     Returns:
         Decorated function.
     """
+
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         auth_header = request.headers.get("Authorization")
 
         if not auth_header:
-            return jsonify({
-                "error": "Authorization required",
-                "message": "Missing Authorization header",
-            }), 401
+            return (
+                jsonify(
+                    {
+                        "error": "Authorization required",
+                        "message": "Missing Authorization header",
+                    }
+                ),
+                401,
+            )
 
         # Extract token from "Bearer <token>" format
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            return jsonify({
-                "error": "Invalid authorization",
-                "message": "Authorization header must be 'Bearer <token>'",
-            }), 401
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid authorization",
+                        "message": "Authorization header must be 'Bearer <token>'",
+                    }
+                ),
+                401,
+            )
 
         token = parts[1]
 
@@ -276,16 +293,26 @@ def require_auth(f: F) -> F:
             g.token_jti = payload.get("jti")
 
         except TokenExpiredError:
-            return jsonify({
-                "error": "Token expired",
-                "message": "Access token has expired. Please refresh or login again.",
-            }), 401
+            return (
+                jsonify(
+                    {
+                        "error": "Token expired",
+                        "message": "Access token has expired. Please refresh.",
+                    }
+                ),
+                401,
+            )
 
         except TokenInvalidError as e:
-            return jsonify({
-                "error": "Invalid token",
-                "message": str(e.message),
-            }), 401
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid token",
+                        "message": str(e.message),
+                    }
+                ),
+                401,
+            )
 
         return f(*args, **kwargs)
 
@@ -324,19 +351,29 @@ def create_auth_blueprint() -> Blueprint:
             JSON with access_token, refresh_token, and user info.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         try:
             data = LoginRequest(**request.get_json())
         except ValidationError as e:
-            return jsonify({
-                "error": "Validation error",
-                "message": "Invalid request data",
-                "details": e.errors(),
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "Invalid request data",
+                        "details": e.errors(),
+                    }
+                ),
+                400,
+            )
 
         try:
             storage = get_storage()
@@ -347,29 +384,45 @@ def create_auth_blueprint() -> Blueprint:
                     "Login attempt for non-existent user",
                     extra={"email": str(data.email)},
                 )
-                return jsonify({
-                    "error": "Authentication failed",
-                    "message": "Invalid email or password",
-                }), 401
+                return (
+                    jsonify(
+                        {
+                            "error": "Authentication failed",
+                            "message": "Invalid email or password",
+                        }
+                    ),
+                    401,
+                )
 
             # Verify password
             if not verify_password(
-                    data.password, user.get("password_hash", "")):
+                data.password, user.get("password_hash", "")
+            ):
                 logger.warning(
                     "Login attempt with invalid password",
                     extra={"user_id": user["id"]},
                 )
-                return jsonify({
-                    "error": "Authentication failed",
-                    "message": "Invalid email or password",
-                }), 401
+                return (
+                    jsonify(
+                        {
+                            "error": "Authentication failed",
+                            "message": "Invalid email or password",
+                        }
+                    ),
+                    401,
+                )
 
             # Check if user is active
             if not user.get("is_active", True):
-                return jsonify({
-                    "error": "Account disabled",
-                    "message": "Your account has been disabled. Please contact support.",
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "error": "Account disabled",
+                            "message": "Account disabled. Please contact support.",
+                        }
+                    ),
+                    403,
+                )
 
             # Create tokens
             access_token = create_access_token(user["id"], user["email"])
@@ -383,26 +436,38 @@ def create_auth_blueprint() -> Blueprint:
                 extra={"user_id": user["id"]},
             )
 
-            return jsonify({
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "token_type": "Bearer",
-                "expires_in": int(JWT_ACCESS_TOKEN_EXPIRES.total_seconds()),
-                "user": {
-                    "id": user["id"],
-                    "email": user["email"],
-                    "username": user.get("username"),
-                    "display_name": user.get("display_name"),
-                    "is_verified": user.get("is_verified", False),
-                },
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "access_token": access_token,
+                        "refresh_token": refresh_token,
+                        "token_type": "Bearer",
+                        "expires_in": int(
+                            JWT_ACCESS_TOKEN_EXPIRES.total_seconds()
+                        ),
+                        "user": {
+                            "id": user["id"],
+                            "email": user["email"],
+                            "username": user.get("username"),
+                            "display_name": user.get("display_name"),
+                            "is_verified": user.get("is_verified", False),
+                        },
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Login error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred during authentication",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred during authentication",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/logout", methods=["POST"])
     @require_auth
@@ -435,9 +500,14 @@ def create_auth_blueprint() -> Blueprint:
             extra={"user_id": g.current_user_id},
         )
 
-        return jsonify({
-            "message": "Successfully logged out",
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Successfully logged out",
+                }
+            ),
+            200,
+        )
 
     @bp.route("/refresh", methods=["POST"])
     @rate_limit(max_requests=20, window_seconds=60)
@@ -452,19 +522,29 @@ def create_auth_blueprint() -> Blueprint:
             New access_token and refresh_token.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         try:
             data = RefreshTokenRequest(**request.get_json())
         except ValidationError as e:
-            return jsonify({
-                "error": "Validation error",
-                "message": "Invalid request data",
-                "details": e.errors(),
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "Invalid request data",
+                        "details": e.errors(),
+                    }
+                ),
+                400,
+            )
 
         try:
             # Validate refresh token
@@ -476,16 +556,26 @@ def create_auth_blueprint() -> Blueprint:
             user = storage.get_user_by_id(user_id)
 
             if not user:
-                return jsonify({
-                    "error": "User not found",
-                    "message": "User associated with token no longer exists.",
-                }), 401
+                return (
+                    jsonify(
+                        {
+                            "error": "User not found",
+                            "message": "User associated with token no longer exists.",
+                        }
+                    ),
+                    401,
+                )
 
             if not user.get("is_active", True):
-                return jsonify({
-                    "error": "Account disabled",
-                    "message": "Your account has been disabled.",
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "error": "Account disabled",
+                            "message": "Your account has been disabled.",
+                        }
+                    ),
+                    403,
+                )
 
             # Blacklist old refresh token (rotation)
             blacklist_token(data.refresh_token)
@@ -499,31 +589,53 @@ def create_auth_blueprint() -> Blueprint:
                 extra={"user_id": user_id},
             )
 
-            return jsonify({
-                "access_token": access_token,
-                "refresh_token": new_refresh_token,
-                "token_type": "Bearer",
-                "expires_in": int(JWT_ACCESS_TOKEN_EXPIRES.total_seconds()),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "access_token": access_token,
+                        "refresh_token": new_refresh_token,
+                        "token_type": "Bearer",
+                        "expires_in": int(
+                            JWT_ACCESS_TOKEN_EXPIRES.total_seconds()
+                        ),
+                    }
+                ),
+                200,
+            )
 
         except TokenExpiredError:
-            return jsonify({
-                "error": "Token expired",
-                "message": "Refresh token has expired. Please login again.",
-            }), 401
+            return (
+                jsonify(
+                    {
+                        "error": "Token expired",
+                        "message": "Refresh token has expired. Please login again.",
+                    }
+                ),
+                401,
+            )
 
         except TokenInvalidError as e:
-            return jsonify({
-                "error": "Invalid token",
-                "message": str(e.message),
-            }), 401
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid token",
+                        "message": str(e.message),
+                    }
+                ),
+                401,
+            )
 
         except Exception as e:
             logger.error(f"Token refresh error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred during token refresh",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred during token refresh",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/me", methods=["GET"])
     @require_auth
@@ -539,29 +651,44 @@ def create_auth_blueprint() -> Blueprint:
             user = storage.get_user_by_id(g.current_user_id)
 
             if not user:
-                return jsonify({
-                    "error": "User not found",
-                    "message": "User no longer exists",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "User not found",
+                            "message": "User no longer exists",
+                        }
+                    ),
+                    404,
+                )
 
-            return jsonify({
-                "id": user["id"],
-                "email": user["email"],
-                "username": user.get("username"),
-                "display_name": user.get("display_name"),
-                "is_active": user.get("is_active", True),
-                "is_verified": user.get("is_verified", False),
-                "last_login": user.get("last_login"),
-                "created_at": user.get("created_at"),
-                "settings": user.get("settings", {}),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "id": user["id"],
+                        "email": user["email"],
+                        "username": user.get("username"),
+                        "display_name": user.get("display_name"),
+                        "is_active": user.get("is_active", True),
+                        "is_verified": user.get("is_verified", False),
+                        "last_login": user.get("last_login"),
+                        "created_at": user.get("created_at"),
+                        "settings": user.get("settings", {}),
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Get current user error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching user info",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching user info",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/password", methods=["POST"])
     @require_auth
@@ -579,51 +706,82 @@ def create_auth_blueprint() -> Blueprint:
             Success message.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         try:
             data = PasswordChangeRequest(**request.get_json())
         except ValidationError as e:
-            return jsonify({
-                "error": "Validation error",
-                "message": "Invalid request data",
-                "details": e.errors(),
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "Invalid request data",
+                        "details": e.errors(),
+                    }
+                ),
+                400,
+            )
 
         # Verify passwords match
         if data.new_password != data.confirm_password:
-            return jsonify({
-                "error": "Validation error",
-                "message": "New password and confirmation do not match",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "New password and confirmation do not match",
+                    }
+                ),
+                400,
+            )
 
         # Check password strength (basic check)
         if len(data.new_password) < 8:
-            return jsonify({
-                "error": "Validation error",
-                "message": "Password must be at least 8 characters long",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "Password must be at least 8 characters long",
+                    }
+                ),
+                400,
+            )
 
         try:
             storage = get_storage()
             user = storage.get_user_by_id(g.current_user_id)
 
             if not user:
-                return jsonify({
-                    "error": "User not found",
-                    "message": "User no longer exists",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "User not found",
+                            "message": "User no longer exists",
+                        }
+                    ),
+                    404,
+                )
 
             # Verify current password
-            if not verify_password(data.current_password,
-                                   user.get("password_hash", "")):
-                return jsonify({
-                    "error": "Authentication failed",
-                    "message": "Current password is incorrect",
-                }), 401
+            if not verify_password(
+                data.current_password, user.get("password_hash", "")
+            ):
+                return (
+                    jsonify(
+                        {
+                            "error": "Authentication failed",
+                            "message": "Current password is incorrect",
+                        }
+                    ),
+                    401,
+                )
 
             # Hash new password
             new_hash, salt = hash_password(data.new_password)
@@ -637,16 +795,26 @@ def create_auth_blueprint() -> Blueprint:
                 extra={"user_id": user["id"]},
             )
 
-            return jsonify({
-                "message": "Password changed successfully",
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Password changed successfully",
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Password change error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while changing password",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while changing password",
+                    }
+                ),
+                500,
+            )
 
     return bp
 

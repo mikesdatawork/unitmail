@@ -78,7 +78,9 @@ class SearchCriteria:
             "to_address": self.to_address,
             "subject_contains": self.subject_contains,
             "body_contains": self.body_contains,
-            "date_from": self.date_from.isoformat() if self.date_from else None,
+            "date_from": (
+                self.date_from.isoformat() if self.date_from else None
+            ),
             "date_to": self.date_to.isoformat() if self.date_to else None,
             "has_attachments": self.has_attachments,
             "is_starred": self.is_starred,
@@ -99,12 +101,16 @@ class SearchCriteria:
             to_address=data.get("to_address"),
             subject_contains=data.get("subject_contains"),
             body_contains=data.get("body_contains"),
-            date_from=datetime.fromisoformat(data["date_from"])
-            if data.get("date_from")
-            else None,
-            date_to=datetime.fromisoformat(data["date_to"])
-            if data.get("date_to")
-            else None,
+            date_from=(
+                datetime.fromisoformat(data["date_from"])
+                if data.get("date_from")
+                else None
+            ),
+            date_to=(
+                datetime.fromisoformat(data["date_to"])
+                if data.get("date_to")
+                else None
+            ),
             has_attachments=data.get("has_attachments"),
             is_starred=data.get("is_starred"),
             is_unread=data.get("is_unread"),
@@ -223,7 +229,8 @@ class SearchResult:
         received_at = row.get("received_at")
         if isinstance(received_at, str):
             received_at = datetime.fromisoformat(
-                received_at.replace("Z", "+00:00"))
+                received_at.replace("Z", "+00:00")
+            )
         elif received_at is None:
             received_at = datetime.now()
 
@@ -236,8 +243,9 @@ class SearchResult:
             message_id=row.get("message_id", ""),
             folder_id=row.get("folder_id"),
             from_address=row.get("from_address", ""),
-            to_addresses=to_addresses if isinstance(
-                to_addresses, list) else [],
+            to_addresses=(
+                to_addresses if isinstance(to_addresses, list) else []
+            ),
             subject=row.get("subject"),
             body_preview=body_preview,
             received_at=received_at,
@@ -365,8 +373,9 @@ class SearchResultCache:
         """
         # Evict oldest entries if at capacity
         if len(self._cache) >= self._max_size:
-            oldest_key = min(self._cache.keys(),
-                             key=lambda k: self._cache[k][1])
+            oldest_key = min(
+                self._cache.keys(), key=lambda k: self._cache[k][1]
+            )
             del self._cache[oldest_key]
 
         self._cache[key] = (results, datetime.now())
@@ -392,7 +401,10 @@ class SearchResultCache:
         """
         keys_to_remove = []
         for key, (results, _) in self._cache.items():
-            if results.criteria.folder_id == folder_id or results.criteria.folder_id is None:
+            if (
+                results.criteria.folder_id == folder_id
+                or results.criteria.folder_id is None
+            ):
                 keys_to_remove.append(key)
         for key in keys_to_remove:
             del self._cache[key]
@@ -582,7 +594,7 @@ class SearchService:
 
             # Apply offset
             if criteria.offset > 0:
-                results = results[criteria.offset:]
+                results = results[criteria.offset :]
 
             # Get total count
             total_count = len(results)
@@ -590,7 +602,7 @@ class SearchService:
                 total_count = criteria.offset + criteria.limit + 1
 
             return SearchResults(
-                results=results[:criteria.limit],
+                results=results[: criteria.limit],
                 total_count=total_count,
                 criteria=criteria,
             )
@@ -600,7 +612,8 @@ class SearchService:
             raise SearchError(f"Search failed: {e}") from e
 
     def _execute_filter_search(
-            self, criteria: SearchCriteria) -> SearchResults:
+        self, criteria: SearchCriteria
+    ) -> SearchResults:
         """
         Execute a search using filters without FTS.
 
@@ -631,7 +644,8 @@ class SearchService:
                 rows = []
                 for folder in self._storage.get_folders():
                     rows.extend(
-                        self._storage.get_messages_by_folder(folder["name"]))
+                        self._storage.get_messages_by_folder(folder["name"])
+                    )
 
             results = [SearchResult.from_sqlite_row(dict(row)) for row in rows]
 
@@ -643,7 +657,9 @@ class SearchService:
 
             # Apply pagination
             total_count = len(results)
-            results = results[criteria.offset:criteria.offset + criteria.limit]
+            results = results[
+                criteria.offset : criteria.offset + criteria.limit
+            ]
 
             return SearchResults(
                 results=results,
@@ -665,13 +681,15 @@ class SearchService:
 
         if criteria.from_address:
             filtered = [
-                r for r in filtered
+                r
+                for r in filtered
                 if criteria.from_address.lower() in r.from_address.lower()
             ]
 
         if criteria.to_address:
             filtered = [
-                r for r in filtered
+                r
+                for r in filtered
                 if any(
                     criteria.to_address.lower() in addr.lower()
                     for addr in r.to_addresses
@@ -680,32 +698,40 @@ class SearchService:
 
         if criteria.subject_contains:
             filtered = [
-                r for r in filtered
-                if r.subject and criteria.subject_contains.lower() in r.subject.lower()
+                r
+                for r in filtered
+                if r.subject
+                and criteria.subject_contains.lower() in r.subject.lower()
             ]
 
         if criteria.date_from:
-            filtered = [r for r in filtered if r.received_at >=
-                        criteria.date_from]
+            filtered = [
+                r for r in filtered if r.received_at >= criteria.date_from
+            ]
 
         if criteria.date_to:
             filtered = [
-                r for r in filtered if r.received_at <= criteria.date_to]
+                r for r in filtered if r.received_at <= criteria.date_to
+            ]
 
         if criteria.is_starred is not None:
-            filtered = [r for r in filtered if r.is_starred ==
-                        criteria.is_starred]
+            filtered = [
+                r for r in filtered if r.is_starred == criteria.is_starred
+            ]
 
         if criteria.is_unread is not None:
             filtered = [r for r in filtered if r.is_read != criteria.is_unread]
 
         if criteria.is_encrypted is not None:
-            filtered = [r for r in filtered if r.encrypted ==
-                        criteria.is_encrypted]
+            filtered = [
+                r for r in filtered if r.encrypted == criteria.is_encrypted
+            ]
 
         if criteria.has_attachments is not None:
             filtered = [
-                r for r in filtered if r.has_attachments == criteria.has_attachments
+                r
+                for r in filtered
+                if r.has_attachments == criteria.has_attachments
             ]
 
         return filtered
@@ -893,9 +919,7 @@ class SearchService:
         if len(self._history) > self.MAX_HISTORY_SIZE:
             self._history = self._history[: self.MAX_HISTORY_SIZE]
 
-    def get_search_history(
-        self, limit: int = 10
-    ) -> List[SearchHistoryEntry]:
+    def get_search_history(self, limit: int = 10) -> List[SearchHistoryEntry]:
         """
         Get recent search history.
 
@@ -1059,9 +1083,11 @@ class SearchService:
                     "name": saved.name,
                     "criteria": saved.criteria.to_dict(),
                     "created_at": saved.created_at.isoformat(),
-                    "last_used": saved.last_used.isoformat()
-                    if saved.last_used
-                    else None,
+                    "last_used": (
+                        saved.last_used.isoformat()
+                        if saved.last_used
+                        else None
+                    ),
                     "use_count": saved.use_count,
                 }
             )
@@ -1087,9 +1113,11 @@ class SearchService:
                     name=item["name"],
                     criteria=SearchCriteria.from_dict(item["criteria"]),
                     created_at=datetime.fromisoformat(item["created_at"]),
-                    last_used=datetime.fromisoformat(item["last_used"])
-                    if item.get("last_used")
-                    else None,
+                    last_used=(
+                        datetime.fromisoformat(item["last_used"])
+                        if item.get("last_used")
+                        else None
+                    ),
                     use_count=item.get("use_count", 0),
                 )
                 self._saved_searches[saved.id] = saved

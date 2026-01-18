@@ -31,27 +31,23 @@ class StorageSettings(BaseSettings):
 
     data_dir: str = Field(
         default="~/.unitmail/data",
-        description="Directory for SQLite database and data files"
+        description="Directory for SQLite database and data files",
     )
     database_name: str = Field(
-        default="unitmail.db",
-        description="SQLite database filename"
+        default="unitmail.db", description="SQLite database filename"
     )
     backup_enabled: bool = Field(
-        default=True,
-        description="Enable automatic backups"
+        default=True, description="Enable automatic backups"
     )
     backup_dir: str = Field(
         default="~/.unitmail/backups",
-        description="Directory for database backups"
+        description="Directory for database backups",
     )
     backup_retention_days: int = Field(
-        default=30,
-        description="Number of days to retain backups"
+        default=30, description="Number of days to retain backups"
     )
     cache_size_mb: int = Field(
-        default=32,
-        description="SQLite cache size in megabytes"
+        default=32, description="SQLite cache size in megabytes"
     )
 
     @property
@@ -70,10 +66,12 @@ class SMTPSettings(BaseSettings):
     )
 
     host: str = Field(default="0.0.0.0", description="SMTP server bind host")
-    port: int = Field(default=25, ge=1, le=65535,
-                      description="SMTP server port")
-    tls_port: int = Field(default=465, ge=1, le=65535,
-                          description="SMTP TLS port")
+    port: int = Field(
+        default=25, ge=1, le=65535, description="SMTP server port"
+    )
+    tls_port: int = Field(
+        default=465, ge=1, le=65535, description="SMTP TLS port"
+    )
     submission_port: int = Field(
         default=587, ge=1, le=65535, description="SMTP submission port"
     )
@@ -84,14 +82,17 @@ class SMTPSettings(BaseSettings):
         default=25 * 1024 * 1024, description="Maximum message size in bytes"
     )
     timeout: int = Field(
-        default=300, description="Connection timeout in seconds")
+        default=300, description="Connection timeout in seconds"
+    )
     require_auth: bool = Field(
         default=True, description="Require authentication for sending"
     )
     tls_cert_file: Optional[str] = Field(
-        None, description="Path to TLS certificate")
+        None, description="Path to TLS certificate"
+    )
     tls_key_file: Optional[str] = Field(
-        None, description="Path to TLS private key")
+        None, description="Path to TLS private key"
+    )
 
 
 class APISettings(BaseSettings):
@@ -103,8 +104,9 @@ class APISettings(BaseSettings):
     )
 
     host: str = Field(default="0.0.0.0", description="API server bind host")
-    port: int = Field(default=8000, ge=1, le=65535,
-                      description="API server port")
+    port: int = Field(
+        default=8000, ge=1, le=65535, description="API server port"
+    )
     debug: bool = Field(default=False, description="Enable debug mode")
     cors_origins: list[str] = Field(
         default=["http://localhost:3000"], description="Allowed CORS origins"
@@ -138,7 +140,8 @@ class DNSSettings(BaseSettings):
     )
 
     resolver: str = Field(
-        default="8.8.8.8", description="DNS resolver address")
+        default="8.8.8.8", description="DNS resolver address"
+    )
     timeout: int = Field(default=5, description="DNS query timeout in seconds")
     cache_ttl: int = Field(default=300, description="DNS cache TTL in seconds")
     dkim_selector: str = Field(default="unitmail", description="DKIM selector")
@@ -227,7 +230,8 @@ class LoggingSettings(BaseSettings):
         v_upper = v.upper()
         if v_upper not in valid_levels:
             raise ValueError(
-                f"Log level must be one of: {', '.join(valid_levels)}")
+                f"Log level must be one of: {', '.join(valid_levels)}"
+            )
         return v_upper
 
 
@@ -241,8 +245,9 @@ class Settings(BaseSettings):
 
     # Application metadata
     app_name: str = Field(default="unitMail", description="Application name")
-    environment: str = Field(default="development",
-                             description="Environment name")
+    environment: str = Field(
+        default="development", description="Environment name"
+    )
     debug: bool = Field(default=False, description="Debug mode")
 
     # Sub-settings

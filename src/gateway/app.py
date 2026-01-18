@@ -192,7 +192,8 @@ def _register_error_handlers(app: Flask) -> None:
             "error": {
                 "code": 400,
                 "name": "Bad Request",
-                "message": error.description or "The request was invalid or malformed",
+                "message": error.description
+                or "The request was invalid or malformed",
             },
             "request_id": getattr(g, "request_id", None),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -220,7 +221,8 @@ def _register_error_handlers(app: Flask) -> None:
             "error": {
                 "code": 403,
                 "name": "Forbidden",
-                "message": error.description or "You do not have permission to access this resource",
+                "message": error.description
+                or "You do not have permission to access this resource",
             },
             "request_id": getattr(g, "request_id", None),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -234,7 +236,8 @@ def _register_error_handlers(app: Flask) -> None:
             "error": {
                 "code": 404,
                 "name": "Not Found",
-                "message": error.description or "The requested resource was not found",
+                "message": error.description
+                or "The requested resource was not found",
             },
             "request_id": getattr(g, "request_id", None),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -243,13 +246,15 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(405)
     def handle_method_not_allowed(
-            error: HTTPException) -> tuple[Response, int]:
+        error: HTTPException,
+    ) -> tuple[Response, int]:
         """Handle 405 Method Not Allowed errors."""
         response = {
             "error": {
                 "code": 405,
                 "name": "Method Not Allowed",
-                "message": error.description or "The method is not allowed for this resource",
+                "message": error.description
+                or "The method is not allowed for this resource",
             },
             "request_id": getattr(g, "request_id", None),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -263,7 +268,8 @@ def _register_error_handlers(app: Flask) -> None:
             "error": {
                 "code": 429,
                 "name": "Too Many Requests",
-                "message": error.description or "Rate limit exceeded. Please try again later.",
+                "message": error.description
+                or "Rate limit exceeded. Please try again later.",
             },
             "request_id": getattr(g, "request_id", None),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -286,13 +292,15 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(503)
     def handle_service_unavailable(
-            error: HTTPException) -> tuple[Response, int]:
+        error: HTTPException,
+    ) -> tuple[Response, int]:
         """Handle 503 Service Unavailable errors."""
         response = {
             "error": {
                 "code": 503,
                 "name": "Service Unavailable",
-                "message": error.description or "The service is temporarily unavailable",
+                "message": error.description
+                or "The service is temporarily unavailable",
             },
             "request_id": getattr(g, "request_id", None),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -344,8 +352,9 @@ def _register_middleware(app: Flask, settings: GatewaySettings) -> None:
         # Calculate response time
         request_start_time = getattr(g, "request_start_time", None)
         if request_start_time:
-            response_time_ms = (time.perf_counter() -
-                                request_start_time) * 1000
+            response_time_ms = (
+                time.perf_counter() - request_start_time
+            ) * 1000
             response.headers["X-Response-Time"] = f"{response_time_ms:.2f}ms"
         else:
             response_time_ms = 0

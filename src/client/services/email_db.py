@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class MessageStatus(str, Enum):
     """Status of an email message."""
+
     DRAFT = "draft"
     QUEUED = "queued"
     SENDING = "sending"
@@ -34,6 +35,7 @@ class MessageStatus(str, Enum):
 
 class MessagePriority(str, Enum):
     """Priority level for messages."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -42,6 +44,7 @@ class MessagePriority(str, Enum):
 
 class FolderType(str, Enum):
     """Type of email folder."""
+
     INBOX = "inbox"
     SENT = "sent"
     DRAFTS = "drafts"
@@ -53,6 +56,7 @@ class FolderType(str, Enum):
 
 class SyncStatus(str, Enum):
     """Sync status for local records."""
+
     SYNCED = "synced"
     PENDING = "pending"
     CONFLICT = "conflict"
@@ -61,6 +65,7 @@ class SyncStatus(str, Enum):
 @dataclass
 class Folder:
     """Email folder model."""
+
     id: str
     name: str
     folder_type: str
@@ -78,6 +83,7 @@ class Folder:
 @dataclass
 class Message:
     """Email message model."""
+
     id: str
     folder_id: str
     message_id: str  # RFC 5322 Message-ID
@@ -110,6 +116,7 @@ class Message:
 @dataclass
 class Attachment:
     """Email attachment model."""
+
     id: str
     message_id: str
     filename: str
@@ -125,6 +132,7 @@ class Attachment:
 @dataclass
 class Thread:
     """Email thread/conversation model."""
+
     id: str
     subject: str
     folder_id: str
@@ -340,11 +348,19 @@ class EmailDatabase:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    folder.id, folder.name, folder.folder_type, folder.icon_name,
-                    folder.parent_id, folder.message_count, folder.unread_count,
-                    folder.sort_order, folder.color, int(
-                        folder.is_system), now, now
-                )
+                    folder.id,
+                    folder.name,
+                    folder.folder_type,
+                    folder.icon_name,
+                    folder.parent_id,
+                    folder.message_count,
+                    folder.unread_count,
+                    folder.sort_order,
+                    folder.color,
+                    int(folder.is_system),
+                    now,
+                    now,
+                ),
             )
         folder.created_at = datetime.fromisoformat(now)
         folder.updated_at = datetime.fromisoformat(now)
@@ -363,8 +379,7 @@ class EmailDatabase:
         """
         with self.get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM folders WHERE id = ?",
-                (folder_id,)
+                "SELECT * FROM folders WHERE id = ?", (folder_id,)
             ).fetchone()
 
             if row:
@@ -388,8 +403,9 @@ class EmailDatabase:
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT * FROM folders WHERE parent_id = ? ORDER BY sort_order, name",
-                    (parent_id,)
+                    "SELECT * FROM folders WHERE parent_id = ? "
+                    "ORDER BY sort_order, name",
+                    (parent_id,),
                 ).fetchall()
 
             return [self._row_to_folder(row) for row in rows]
@@ -408,14 +424,13 @@ class EmailDatabase:
         if not kwargs:
             return self.get_folder(folder_id)
 
-        kwargs['updated_at'] = self._now_iso()
+        kwargs["updated_at"] = self._now_iso()
         set_clause = ", ".join(f"{k} = ?" for k in kwargs.keys())
         values = list(kwargs.values()) + [folder_id]
 
         with self.get_connection() as conn:
             conn.execute(
-                f"UPDATE folders SET {set_clause} WHERE id = ?",
-                values
+                f"UPDATE folders SET {set_clause} WHERE id = ?", values
             )
 
         return self.get_folder(folder_id)
@@ -432,8 +447,7 @@ class EmailDatabase:
         """
         with self.get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM folders WHERE id = ?",
-                (folder_id,)
+                "DELETE FROM folders WHERE id = ?", (folder_id,)
             )
             return cursor.rowcount > 0
 
@@ -452,7 +466,7 @@ class EmailDatabase:
                     SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) as unread
                 FROM messages WHERE folder_id = ?
                 """,
-                (folder_id,)
+                (folder_id,),
             ).fetchone()
 
             conn.execute(
@@ -461,8 +475,12 @@ class EmailDatabase:
                 SET message_count = ?, unread_count = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (counts['total'], counts['unread']
-                 or 0, self._now_iso(), folder_id)
+                (
+                    counts["total"],
+                    counts["unread"] or 0,
+                    self._now_iso(),
+                    folder_id,
+                ),
             )
 
     # Message operations
@@ -488,25 +506,44 @@ class EmailDatabase:
                     is_read, is_starred, is_encrypted, has_attachments,
                     attachment_count, in_reply_to, references_list,
                     received_at, sent_at, created_at, updated_at, sync_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
                 """,
                 (
-                    message.id, message.folder_id, message.thread_id,
-                    message.message_id, message.from_address,
+                    message.id,
+                    message.folder_id,
+                    message.thread_id,
+                    message.message_id,
+                    message.from_address,
                     json.dumps(message.to_addresses),
                     json.dumps(message.cc_addresses),
                     json.dumps(message.bcc_addresses),
-                    message.subject, message.body_text, message.body_html,
-                    message.preview, json.dumps(message.headers),
-                    message.status, message.priority,
-                    int(message.is_read), int(message.is_starred),
-                    int(message.is_encrypted), int(message.has_attachments),
-                    message.attachment_count, message.in_reply_to,
+                    message.subject,
+                    message.body_text,
+                    message.body_html,
+                    message.preview,
+                    json.dumps(message.headers),
+                    message.status,
+                    message.priority,
+                    int(message.is_read),
+                    int(message.is_starred),
+                    int(message.is_encrypted),
+                    int(message.has_attachments),
+                    message.attachment_count,
+                    message.in_reply_to,
                     json.dumps(message.references),
-                    message.received_at.isoformat() if message.received_at else now,
+                    (
+                        message.received_at.isoformat()
+                        if message.received_at
+                        else now
+                    ),
                     message.sent_at.isoformat() if message.sent_at else None,
-                    now, now, message.sync_status
-                )
+                    now,
+                    now,
+                    message.sync_status,
+                ),
             )
 
         # Update folder counts
@@ -529,8 +566,7 @@ class EmailDatabase:
         """
         with self.get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM messages WHERE id = ?",
-                (message_id,)
+                "SELECT * FROM messages WHERE id = ?", (message_id,)
             ).fetchone()
 
             if row:
@@ -594,7 +630,7 @@ class EmailDatabase:
                 ORDER BY {order_by} {direction}
                 LIMIT ? OFFSET ?
                 """,
-                params + [limit, offset]
+                params + [limit, offset],
             ).fetchall()
 
             return [self._row_to_message(row) for row in rows]
@@ -614,19 +650,19 @@ class EmailDatabase:
             return self.get_message(message_id)
 
         # Handle special fields
-        if 'to_addresses' in kwargs:
-            kwargs['to_addresses'] = json.dumps(kwargs['to_addresses'])
-        if 'cc_addresses' in kwargs:
-            kwargs['cc_addresses'] = json.dumps(kwargs['cc_addresses'])
-        if 'bcc_addresses' in kwargs:
-            kwargs['bcc_addresses'] = json.dumps(kwargs['bcc_addresses'])
-        if 'headers' in kwargs:
-            kwargs['headers'] = json.dumps(kwargs['headers'])
-        if 'references' in kwargs:
-            kwargs['references_list'] = json.dumps(kwargs.pop('references'))
+        if "to_addresses" in kwargs:
+            kwargs["to_addresses"] = json.dumps(kwargs["to_addresses"])
+        if "cc_addresses" in kwargs:
+            kwargs["cc_addresses"] = json.dumps(kwargs["cc_addresses"])
+        if "bcc_addresses" in kwargs:
+            kwargs["bcc_addresses"] = json.dumps(kwargs["bcc_addresses"])
+        if "headers" in kwargs:
+            kwargs["headers"] = json.dumps(kwargs["headers"])
+        if "references" in kwargs:
+            kwargs["references_list"] = json.dumps(kwargs.pop("references"))
 
-        kwargs['updated_at'] = self._now_iso()
-        kwargs['sync_status'] = SyncStatus.PENDING.value
+        kwargs["updated_at"] = self._now_iso()
+        kwargs["sync_status"] = SyncStatus.PENDING.value
 
         set_clause = ", ".join(f"{k} = ?" for k in kwargs.keys())
         values = list(kwargs.values()) + [message_id]
@@ -637,12 +673,11 @@ class EmailDatabase:
 
         with self.get_connection() as conn:
             conn.execute(
-                f"UPDATE messages SET {set_clause} WHERE id = ?",
-                values
+                f"UPDATE messages SET {set_clause} WHERE id = ?", values
             )
 
         # Update folder counts if read status changed
-        if folder_id and 'is_read' in kwargs:
+        if folder_id and "is_read" in kwargs:
             self.update_folder_counts(folder_id)
 
         return self.get_message(message_id)
@@ -662,8 +697,7 @@ class EmailDatabase:
 
         with self.get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM messages WHERE id = ?",
-                (message_id,)
+                "DELETE FROM messages WHERE id = ?", (message_id,)
             )
             deleted = cursor.rowcount > 0
 
@@ -672,8 +706,9 @@ class EmailDatabase:
 
         return deleted
 
-    def move_message(self, message_id: str,
-                     new_folder_id: str) -> Optional[Message]:
+    def move_message(
+        self, message_id: str, new_folder_id: str
+    ) -> Optional[Message]:
         """
         Move a message to a different folder.
 
@@ -697,8 +732,12 @@ class EmailDatabase:
                 SET folder_id = ?, updated_at = ?, sync_status = ?
                 WHERE id = ?
                 """,
-                (new_folder_id, self._now_iso(),
-                 SyncStatus.PENDING.value, message_id)
+                (
+                    new_folder_id,
+                    self._now_iso(),
+                    SyncStatus.PENDING.value,
+                    message_id,
+                ),
             )
 
         # Update both folder counts
@@ -734,7 +773,7 @@ class EmailDatabase:
                     ORDER BY rank
                     LIMIT ?
                     """,
-                    (query, folder_id, limit)
+                    (query, folder_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
@@ -745,7 +784,7 @@ class EmailDatabase:
                     ORDER BY rank
                     LIMIT ?
                     """,
-                    (query, limit)
+                    (query, limit),
                 ).fetchall()
 
             return [self._row_to_message(row) for row in rows]
@@ -772,12 +811,20 @@ class EmailDatabase:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    thread.id, thread.subject, thread.folder_id,
-                    thread.message_count, thread.unread_count,
+                    thread.id,
+                    thread.subject,
+                    thread.folder_id,
+                    thread.message_count,
+                    thread.unread_count,
                     json.dumps(thread.participant_addresses),
-                    thread.last_message_at.isoformat() if thread.last_message_at else now,
-                    now, now
-                )
+                    (
+                        thread.last_message_at.isoformat()
+                        if thread.last_message_at
+                        else now
+                    ),
+                    now,
+                    now,
+                ),
             )
         thread.created_at = datetime.fromisoformat(now)
         thread.updated_at = datetime.fromisoformat(now)
@@ -796,8 +843,7 @@ class EmailDatabase:
         """
         with self.get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM threads WHERE id = ?",
-                (thread_id,)
+                "SELECT * FROM threads WHERE id = ?", (thread_id,)
             ).fetchone()
 
             if row:
@@ -823,7 +869,7 @@ class EmailDatabase:
                 ORDER BY last_message_at DESC
                 LIMIT ?
                 """,
-                (folder_id, limit)
+                (folder_id, limit),
             ).fetchall()
 
             return [self._row_to_thread(row) for row in rows]
@@ -844,7 +890,7 @@ class EmailDatabase:
                     MAX(received_at) as last_message
                 FROM messages WHERE thread_id = ?
                 """,
-                (thread_id,)
+                (thread_id,),
             ).fetchone()
 
             conn.execute(
@@ -855,9 +901,12 @@ class EmailDatabase:
                 WHERE id = ?
                 """,
                 (
-                    counts['total'], counts['unread'] or 0,
-                    counts['last_message'], self._now_iso(), thread_id
-                )
+                    counts["total"],
+                    counts["unread"] or 0,
+                    counts["last_message"],
+                    self._now_iso(),
+                    thread_id,
+                ),
             )
 
     # Attachment operations
@@ -882,18 +931,24 @@ class EmailDatabase:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    attachment.id, attachment.message_id, attachment.filename,
-                    attachment.content_type, attachment.size, attachment.content_id,
-                    int(attachment.is_inline), attachment.storage_path,
-                    attachment.checksum, now
-                )
+                    attachment.id,
+                    attachment.message_id,
+                    attachment.filename,
+                    attachment.content_type,
+                    attachment.size,
+                    attachment.content_id,
+                    int(attachment.is_inline),
+                    attachment.storage_path,
+                    attachment.checksum,
+                    now,
+                ),
             )
 
         # Update message attachment count
         with self.get_connection() as conn:
             count = conn.execute(
                 "SELECT COUNT(*) FROM attachments WHERE message_id = ?",
-                (attachment.message_id,)
+                (attachment.message_id,),
             ).fetchone()[0]
 
             conn.execute(
@@ -902,7 +957,7 @@ class EmailDatabase:
                 SET has_attachments = 1, attachment_count = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (count, self._now_iso(), attachment.message_id)
+                (count, self._now_iso(), attachment.message_id),
             )
 
         attachment.created_at = datetime.fromisoformat(now)
@@ -922,7 +977,7 @@ class EmailDatabase:
         with self.get_connection() as conn:
             rows = conn.execute(
                 "SELECT * FROM attachments WHERE message_id = ? ORDER BY filename",
-                (message_id,)
+                (message_id,),
             ).fetchall()
 
             return [self._row_to_attachment(row) for row in rows]
@@ -941,17 +996,16 @@ class EmailDatabase:
             # Get message_id before delete
             row = conn.execute(
                 "SELECT message_id FROM attachments WHERE id = ?",
-                (attachment_id,)
+                (attachment_id,),
             ).fetchone()
 
             if not row:
                 return False
 
-            message_id = row['message_id']
+            message_id = row["message_id"]
 
             cursor = conn.execute(
-                "DELETE FROM attachments WHERE id = ?",
-                (attachment_id,)
+                "DELETE FROM attachments WHERE id = ?", (attachment_id,)
             )
             deleted = cursor.rowcount > 0
 
@@ -960,7 +1014,7 @@ class EmailDatabase:
             with self.get_connection() as conn:
                 count = conn.execute(
                     "SELECT COUNT(*) FROM attachments WHERE message_id = ?",
-                    (message_id,)
+                    (message_id,),
                 ).fetchone()[0]
 
                 conn.execute(
@@ -969,7 +1023,7 @@ class EmailDatabase:
                     SET has_attachments = ?, attachment_count = ?, updated_at = ?
                     WHERE id = ?
                     """,
-                    (int(count > 0), count, self._now_iso(), message_id)
+                    (int(count > 0), count, self._now_iso(), message_id),
                 )
 
         return deleted
@@ -985,9 +1039,11 @@ class EmailDatabase:
         """
         with self.get_connection() as conn:
             folder_count = conn.execute(
-                "SELECT COUNT(*) FROM folders").fetchone()[0]
+                "SELECT COUNT(*) FROM folders"
+            ).fetchone()[0]
             message_count = conn.execute(
-                "SELECT COUNT(*) FROM messages").fetchone()[0]
+                "SELECT COUNT(*) FROM messages"
+            ).fetchone()[0]
             unread_count = conn.execute(
                 "SELECT COUNT(*) FROM messages WHERE is_read = 0"
             ).fetchone()[0]
@@ -995,9 +1051,11 @@ class EmailDatabase:
                 "SELECT COUNT(*) FROM messages WHERE is_starred = 1"
             ).fetchone()[0]
             thread_count = conn.execute(
-                "SELECT COUNT(*) FROM threads").fetchone()[0]
+                "SELECT COUNT(*) FROM threads"
+            ).fetchone()[0]
             attachment_count = conn.execute(
-                "SELECT COUNT(*) FROM attachments").fetchone()[0]
+                "SELECT COUNT(*) FROM attachments"
+            ).fetchone()[0]
             pending_sync = conn.execute(
                 "SELECT COUNT(*) FROM messages WHERE sync_status = 'pending'"
             ).fetchone()[0]
@@ -1011,7 +1069,11 @@ class EmailDatabase:
                 "attachments": attachment_count,
                 "pending_sync": pending_sync,
                 "database_path": str(self._db_path),
-                "database_size_bytes": self._db_path.stat().st_size if self._db_path.exists() else 0,
+                "database_size_bytes": (
+                    self._db_path.stat().st_size
+                    if self._db_path.exists()
+                    else 0
+                ),
             }
 
     # Helper methods for row conversion
@@ -1019,89 +1081,119 @@ class EmailDatabase:
     def _row_to_folder(self, row: sqlite3.Row) -> Folder:
         """Convert a database row to a Folder object."""
         return Folder(
-            id=row['id'],
-            name=row['name'],
-            folder_type=row['folder_type'],
-            icon_name=row['icon_name'],
-            parent_id=row['parent_id'],
-            message_count=row['message_count'],
-            unread_count=row['unread_count'],
-            sort_order=row['sort_order'],
-            color=row['color'],
-            is_system=bool(row['is_system']),
-            created_at=datetime.fromisoformat(
-                row['created_at']) if row['created_at'] else None,
-            updated_at=datetime.fromisoformat(
-                row['updated_at']) if row['updated_at'] else None,
+            id=row["id"],
+            name=row["name"],
+            folder_type=row["folder_type"],
+            icon_name=row["icon_name"],
+            parent_id=row["parent_id"],
+            message_count=row["message_count"],
+            unread_count=row["unread_count"],
+            sort_order=row["sort_order"],
+            color=row["color"],
+            is_system=bool(row["is_system"]),
+            created_at=(
+                datetime.fromisoformat(row["created_at"])
+                if row["created_at"]
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(row["updated_at"])
+                if row["updated_at"]
+                else None
+            ),
         )
 
     def _row_to_message(self, row: sqlite3.Row) -> Message:
         """Convert a database row to a Message object."""
         return Message(
-            id=row['id'],
-            folder_id=row['folder_id'],
-            thread_id=row['thread_id'],
-            message_id=row['message_id'],
-            from_address=row['from_address'],
-            to_addresses=json.loads(row['to_addresses']),
-            cc_addresses=json.loads(row['cc_addresses']),
-            bcc_addresses=json.loads(row['bcc_addresses']),
-            subject=row['subject'],
-            body_text=row['body_text'],
-            body_html=row['body_html'],
-            preview=row['preview'],
-            headers=json.loads(row['headers']),
-            status=row['status'],
-            priority=row['priority'],
-            is_read=bool(row['is_read']),
-            is_starred=bool(row['is_starred']),
-            is_encrypted=bool(row['is_encrypted']),
-            has_attachments=bool(row['has_attachments']),
-            attachment_count=row['attachment_count'],
-            in_reply_to=row['in_reply_to'],
-            references=json.loads(row['references_list']),
-            received_at=datetime.fromisoformat(
-                row['received_at']) if row['received_at'] else None,
-            sent_at=datetime.fromisoformat(
-                row['sent_at']) if row['sent_at'] else None,
-            created_at=datetime.fromisoformat(
-                row['created_at']) if row['created_at'] else None,
-            updated_at=datetime.fromisoformat(
-                row['updated_at']) if row['updated_at'] else None,
-            sync_status=row['sync_status'],
+            id=row["id"],
+            folder_id=row["folder_id"],
+            thread_id=row["thread_id"],
+            message_id=row["message_id"],
+            from_address=row["from_address"],
+            to_addresses=json.loads(row["to_addresses"]),
+            cc_addresses=json.loads(row["cc_addresses"]),
+            bcc_addresses=json.loads(row["bcc_addresses"]),
+            subject=row["subject"],
+            body_text=row["body_text"],
+            body_html=row["body_html"],
+            preview=row["preview"],
+            headers=json.loads(row["headers"]),
+            status=row["status"],
+            priority=row["priority"],
+            is_read=bool(row["is_read"]),
+            is_starred=bool(row["is_starred"]),
+            is_encrypted=bool(row["is_encrypted"]),
+            has_attachments=bool(row["has_attachments"]),
+            attachment_count=row["attachment_count"],
+            in_reply_to=row["in_reply_to"],
+            references=json.loads(row["references_list"]),
+            received_at=(
+                datetime.fromisoformat(row["received_at"])
+                if row["received_at"]
+                else None
+            ),
+            sent_at=(
+                datetime.fromisoformat(row["sent_at"])
+                if row["sent_at"]
+                else None
+            ),
+            created_at=(
+                datetime.fromisoformat(row["created_at"])
+                if row["created_at"]
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(row["updated_at"])
+                if row["updated_at"]
+                else None
+            ),
+            sync_status=row["sync_status"],
         )
 
     def _row_to_thread(self, row: sqlite3.Row) -> Thread:
         """Convert a database row to a Thread object."""
         return Thread(
-            id=row['id'],
-            subject=row['subject'],
-            folder_id=row['folder_id'],
-            message_count=row['message_count'],
-            unread_count=row['unread_count'],
-            participant_addresses=json.loads(row['participant_addresses']),
-            last_message_at=datetime.fromisoformat(
-                row['last_message_at']) if row['last_message_at'] else None,
-            created_at=datetime.fromisoformat(
-                row['created_at']) if row['created_at'] else None,
-            updated_at=datetime.fromisoformat(
-                row['updated_at']) if row['updated_at'] else None,
+            id=row["id"],
+            subject=row["subject"],
+            folder_id=row["folder_id"],
+            message_count=row["message_count"],
+            unread_count=row["unread_count"],
+            participant_addresses=json.loads(row["participant_addresses"]),
+            last_message_at=(
+                datetime.fromisoformat(row["last_message_at"])
+                if row["last_message_at"]
+                else None
+            ),
+            created_at=(
+                datetime.fromisoformat(row["created_at"])
+                if row["created_at"]
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(row["updated_at"])
+                if row["updated_at"]
+                else None
+            ),
         )
 
     def _row_to_attachment(self, row: sqlite3.Row) -> Attachment:
         """Convert a database row to an Attachment object."""
         return Attachment(
-            id=row['id'],
-            message_id=row['message_id'],
-            filename=row['filename'],
-            content_type=row['content_type'],
-            size=row['size'],
-            content_id=row['content_id'],
-            is_inline=bool(row['is_inline']),
-            storage_path=row['storage_path'],
-            checksum=row['checksum'],
-            created_at=datetime.fromisoformat(
-                row['created_at']) if row['created_at'] else None,
+            id=row["id"],
+            message_id=row["message_id"],
+            filename=row["filename"],
+            content_type=row["content_type"],
+            size=row["size"],
+            content_id=row["content_id"],
+            is_inline=bool(row["is_inline"]),
+            storage_path=row["storage_path"],
+            checksum=row["checksum"],
+            created_at=(
+                datetime.fromisoformat(row["created_at"])
+                if row["created_at"]
+                else None
+            ),
         )
 
 

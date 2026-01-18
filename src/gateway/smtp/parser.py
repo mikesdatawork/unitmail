@@ -253,7 +253,8 @@ class EmailParser:
                     )
                 else:
                     parsed.headers[header_name] = self._decode_header(
-                        header_value)
+                        header_value
+                    )
 
     def _extract_content(self, msg: Message, parsed: ParsedEmail) -> None:
         """Extract body content and attachments from the message."""
@@ -275,7 +276,8 @@ class EmailParser:
                     parsed.attachments.append(attachment)
 
     def _extract_multipart_content(
-            self, msg: Message, parsed: ParsedEmail) -> None:
+        self, msg: Message, parsed: ParsedEmail
+    ) -> None:
         """Extract content from multipart message."""
         for part in msg.walk():
             # Skip the container parts
@@ -286,9 +288,8 @@ class EmailParser:
             content_disposition = part.get_content_disposition()
 
             # Check if this is an attachment
-            is_attachment = (
-                content_disposition == "attachment"
-                or (content_disposition == "inline" and part.get_filename())
+            is_attachment = content_disposition == "attachment" or (
+                content_disposition == "inline" and part.get_filename()
             )
 
             if is_attachment:
@@ -396,11 +397,13 @@ class EmailParser:
                 if isinstance(content, bytes):
                     try:
                         charset = charset or "utf-8"
-                        result_parts.append(content.decode(
-                            charset, errors="replace"))
+                        result_parts.append(
+                            content.decode(charset, errors="replace")
+                        )
                     except (LookupError, UnicodeDecodeError):
-                        result_parts.append(content.decode(
-                            "utf-8", errors="replace"))
+                        result_parts.append(
+                            content.decode("utf-8", errors="replace")
+                        )
                 else:
                     result_parts.append(content)
 
@@ -493,16 +496,22 @@ class EmailParser:
         if not parsed.from_address:
             errors.append("Missing From address")
 
-        if not parsed.to_addresses and not parsed.cc_addresses and not parsed.bcc_addresses:
+        if (
+            not parsed.to_addresses
+            and not parsed.cc_addresses
+            and not parsed.bcc_addresses
+        ):
             errors.append("No recipients specified")
 
         # Validate email address format
         email_pattern = re.compile(r"^[\w\.-]+@[\w\.-]+\.\w+$")
 
         if parsed.from_address and not email_pattern.match(
-                parsed.from_address):
+            parsed.from_address
+        ):
             errors.append(
-                f"Invalid From address format: {parsed.from_address}")
+                f"Invalid From address format: {parsed.from_address}"
+            )
 
         for addr in parsed.to_addresses:
             if not email_pattern.match(addr):

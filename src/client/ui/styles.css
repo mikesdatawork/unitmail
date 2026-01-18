@@ -73,9 +73,10 @@ headerbar searchentry {
 
 /* Folder list navigation */
 listview.navigation-sidebar row {
-    padding: 2px 0;
+    padding: 4px 8px;
     border-radius: 0;
-    margin: 2px 6px;
+    margin: 1px 4px;
+    min-height: 24px;
 }
 
 listview.navigation-sidebar row:selected {
@@ -264,7 +265,6 @@ listview.message-list row:selected checkbutton {
 
 .column-resize-handle:hover {
     background-color: alpha(@accent_bg_color, 0.3);
-    cursor: col-resize;
 }
 
 .view-theme-minimal .message-row {
@@ -289,13 +289,41 @@ listview.message-list row:selected checkbutton {
 }
 
 .view-theme-minimal listview.message-list row {
-    min-height: 26px;
+    min-height: 24px;
     border-bottom: 1px solid alpha(@borders, 0.3);
 }
 
 /* Grid lines for minimal view */
 .view-theme-minimal .column-headers {
     border-bottom: 1px solid @borders;
+}
+
+/* ColumnView message list styling */
+.message-column-view {
+    background-color: transparent;
+}
+
+.message-column-view > listview > row {
+    padding: 0;
+    min-height: 0;
+    margin: 0;
+}
+
+.message-column-view > listview > row:selected {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+.message-column-view > listview > row:hover:not(:selected) {
+    background-color: alpha(@accent_bg_color, 0.1);
+}
+
+/* ColumnView header row styling */
+.message-column-view > header > button {
+    padding: 4px 8px;
+    min-height: 24px;
+    font-size: 0.85em;
+    font-weight: 600;
 }
 
 /* Checkbox and favorite button hidden via set_visible(False) in minimal view */
@@ -314,9 +342,9 @@ listview.message-list row:selected checkbutton {
 
 /* Minimal view message row - tighter spacing */
 .view-theme-minimal .message-row {
-    margin-left: 4px;
-    margin-right: 4px;
-    padding: 4px 8px;
+    margin-left: 2px;
+    margin-right: 2px;
+    padding: 2px 8px;
 }
 
 /* Favorite indicator - left border for minimal view */
@@ -330,7 +358,8 @@ listview.message-list row:selected checkbutton {
 
 /* Sortable column header buttons */
 .column-header-btn {
-    padding: 2px 8px;  /* Vertical and horizontal padding for clickability */
+    padding: 4px 8px;
+    min-height: 24px;
     font-size: 0.85em;
     font-weight: 600;
     border-radius: 0;

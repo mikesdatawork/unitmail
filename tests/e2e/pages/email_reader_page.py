@@ -82,8 +82,7 @@ class EmailReaderPage(BasePage):
     def email_body_plain(self) -> Locator:
         """Plain text email body."""
         return self.page.locator(
-            "[data-testid='email-plain'], .plain-text, "
-            "pre.email-body"
+            "[data-testid='email-plain'], .plain-text, " "pre.email-body"
         )
 
     # Selectors - Attachments

@@ -36,27 +36,31 @@ def create_api_v1_blueprint() -> Blueprint:
     @bp.route("/", methods=["GET"])
     def api_root():
         """API v1 root endpoint."""
-        return jsonify({
-            "api": "unitmail-gateway",
-            "version": "v1",
-            "status": "operational",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "endpoints": {
-                "auth": f"{API_V1_PREFIX}/auth",
-                "messages": f"{API_V1_PREFIX}/messages",
-                "contacts": f"{API_V1_PREFIX}/contacts",
-                "folders": f"{API_V1_PREFIX}/folders",
-                "queue": f"{API_V1_PREFIX}/queue",
-            },
-        })
+        return jsonify(
+            {
+                "api": "unitmail-gateway",
+                "version": "v1",
+                "status": "operational",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "endpoints": {
+                    "auth": f"{API_V1_PREFIX}/auth",
+                    "messages": f"{API_V1_PREFIX}/messages",
+                    "contacts": f"{API_V1_PREFIX}/contacts",
+                    "folders": f"{API_V1_PREFIX}/folders",
+                    "queue": f"{API_V1_PREFIX}/queue",
+                },
+            }
+        )
 
     @bp.route("/health", methods=["GET"])
     def health_check():
         """Health check endpoint."""
-        return jsonify({
-            "status": "healthy",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        return jsonify(
+            {
+                "status": "healthy",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     return bp
 
@@ -74,26 +78,46 @@ def create_mailboxes_blueprint() -> Blueprint:
     @bp.route("/", methods=["GET"])
     def list_mailboxes():
         """List mailboxes endpoint."""
-        return jsonify(
-            {"message": "List mailboxes endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {"message": "List mailboxes endpoint - to be implemented"}
+            ),
+            501,
+        )
 
     @bp.route("/<mailbox_id>", methods=["GET"])
     def get_mailbox(mailbox_id: str):
         """Get single mailbox endpoint."""
-        return jsonify(
-            {"message": f"Get mailbox {mailbox_id} endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {
+                    "message": f"Get mailbox {mailbox_id} endpoint - to be implemented"
+                }
+            ),
+            501,
+        )
 
     @bp.route("/", methods=["POST"])
     def create_mailbox():
         """Create mailbox endpoint."""
-        return jsonify(
-            {"message": "Create mailbox endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {"message": "Create mailbox endpoint - to be implemented"}
+            ),
+            501,
+        )
 
     @bp.route("/<mailbox_id>", methods=["DELETE"])
     def delete_mailbox(mailbox_id: str):
         """Delete mailbox endpoint."""
-        return jsonify(
-            {"message": f"Delete mailbox {mailbox_id} endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {
+                    "message": f"Delete mailbox {mailbox_id} - not implemented"
+                }
+            ),
+            501,
+        )
 
     return bp
 
@@ -111,20 +135,30 @@ def create_users_blueprint() -> Blueprint:
     @bp.route("/me", methods=["GET"])
     def get_current_user():
         """Get current user endpoint."""
-        return jsonify(
-            {"message": "Get current user endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {"message": "Get current user endpoint - to be implemented"}
+            ),
+            501,
+        )
 
     @bp.route("/me", methods=["PATCH"])
     def update_current_user():
         """Update current user endpoint."""
-        return jsonify(
-            {"message": "Update current user endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {"message": "Update current user endpoint - to be implemented"}
+            ),
+            501,
+        )
 
     @bp.route("/", methods=["GET"])
     def list_users():
         """List users endpoint (admin only)."""
-        return jsonify(
-            {"message": "List users endpoint - to be implemented"}), 501
+        return (
+            jsonify({"message": "List users endpoint - to be implemented"}),
+            501,
+        )
 
     return bp
 
@@ -142,26 +176,42 @@ def create_domains_blueprint() -> Blueprint:
     @bp.route("/", methods=["GET"])
     def list_domains():
         """List domains endpoint."""
-        return jsonify(
-            {"message": "List domains endpoint - to be implemented"}), 501
+        return (
+            jsonify({"message": "List domains endpoint - to be implemented"}),
+            501,
+        )
 
     @bp.route("/<domain_id>", methods=["GET"])
     def get_domain(domain_id: str):
         """Get single domain endpoint."""
-        return jsonify(
-            {"message": f"Get domain {domain_id} endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {
+                    "message": f"Get domain {domain_id} endpoint - to be implemented"
+                }
+            ),
+            501,
+        )
 
     @bp.route("/", methods=["POST"])
     def create_domain():
         """Create domain endpoint."""
-        return jsonify(
-            {"message": "Create domain endpoint - to be implemented"}), 501
+        return (
+            jsonify({"message": "Create domain endpoint - to be implemented"}),
+            501,
+        )
 
     @bp.route("/<domain_id>/verify", methods=["POST"])
     def verify_domain(domain_id: str):
         """Verify domain endpoint."""
-        return jsonify(
-            {"message": f"Verify domain {domain_id} endpoint - to be implemented"}), 501
+        return (
+            jsonify(
+                {
+                    "message": f"Verify domain {domain_id} endpoint - to be implemented"
+                }
+            ),
+            501,
+        )
 
     return bp
 

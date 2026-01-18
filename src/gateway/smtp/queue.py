@@ -37,9 +37,9 @@ class DeliveryStatus(str, Enum):
 
 # Exponential backoff intervals in seconds: 5min, 15min, 1hr, 4hr, 24hr
 RETRY_INTERVALS = [
-    5 * 60,       # 5 minutes
-    15 * 60,      # 15 minutes
-    60 * 60,      # 1 hour
+    5 * 60,  # 5 minutes
+    15 * 60,  # 15 minutes
+    60 * 60,  # 1 hour
     4 * 60 * 60,  # 4 hours
     24 * 60 * 60,  # 24 hours
 ]
@@ -74,7 +74,8 @@ class QueueEvent(BaseModel):
     status: Optional[str] = None
     error: Optional[str] = None
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc))
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -90,7 +91,8 @@ class QueueConfig:
     # Retry configuration
     max_retries: int = DEFAULT_MAX_RETRIES
     retry_intervals: list[int] = field(
-        default_factory=lambda: RETRY_INTERVALS.copy())
+        default_factory=lambda: RETRY_INTERVALS.copy()
+    )
 
     # Timeout configuration
     processing_timeout: float = 300.0  # 5 minutes
@@ -182,8 +184,9 @@ class QueueManager:
         if self._running:
             raise MessageQueueError("Queue manager is already running")
 
-        logger.info("Starting queue manager with %d workers",
-                    self.config.num_workers)
+        logger.info(
+            "Starting queue manager with %d workers", self.config.num_workers
+        )
 
         self._running = True
         self._started_at = datetime.now(timezone.utc)
@@ -198,10 +201,12 @@ class QueueManager:
         )
 
         # Emit start event
-        await self._emit_event(QueueEvent(
-            event_type="queue_started",
-            metadata={"num_workers": self.config.num_workers},
-        ))
+        await self._emit_event(
+            QueueEvent(
+                event_type="queue_started",
+                metadata={"num_workers": self.config.num_workers},
+            )
+        )
 
         # Start the main processing loop
         try:
@@ -260,10 +265,12 @@ class QueueManager:
         self._workers.clear()
 
         # Emit stop event
-        await self._emit_event(QueueEvent(
-            event_type="queue_stopped",
-            metadata={"uptime_seconds": self._calculate_uptime()},
-        ))
+        await self._emit_event(
+            QueueEvent(
+                event_type="queue_stopped",
+                metadata={"uptime_seconds": self._calculate_uptime()},
+            )
+        )
 
         logger.info("Queue manager stopped")
 
@@ -309,13 +316,20 @@ class QueueManager:
             )
 
             # Emit enqueue event (sync, don't await)
-            asyncio.create_task(self._emit_event(QueueEvent(
-                event_type="message_enqueued",
-                queue_item_id=item["id"],
-                message_id=str(message_id),
-                status=DeliveryStatus.PENDING.value,
-                metadata={"recipient": recipient, "priority": priority},
-            )))
+            asyncio.create_task(
+                self._emit_event(
+                    QueueEvent(
+                        event_type="message_enqueued",
+                        queue_item_id=item["id"],
+                        message_id=str(message_id),
+                        status=DeliveryStatus.PENDING.value,
+                        metadata={
+                            "recipient": recipient,
+                            "priority": priority,
+                        },
+                    )
+                )
+            )
 
             return item
 
@@ -340,21 +354,25 @@ class QueueManager:
 
             # Calculate average processing time
             if self._processing_times:
-                self._stats.avg_processing_time_ms = (
-                    sum(self._processing_times) / len(self._processing_times)
-                )
+                self._stats.avg_processing_time_ms = sum(
+                    self._processing_times
+                ) / len(self._processing_times)
 
             # Query database for counts (synchronous SQLite calls)
             try:
                 self._stats.pending = self._storage.count_queue_items(
-                    "pending")
+                    "pending"
+                )
                 self._stats.processing = self._storage.count_queue_items(
-                    "processing")
+                    "processing"
+                )
                 self._stats.completed = self._storage.count_queue_items(
-                    "completed")
+                    "completed"
+                )
                 self._stats.failed = self._storage.count_queue_items("failed")
                 self._stats.deferred = self._storage.count_queue_items(
-                    "retrying")
+                    "retrying"
+                )
             except Exception as e:
                 logger.warning("Failed to fetch queue counts: %s", e)
 
@@ -394,11 +412,15 @@ class QueueManager:
                 self._storage.retry_queue_item(queue_item_id)
                 logger.info("Queued retry for failed item %s", queue_item_id)
 
-                asyncio.create_task(self._emit_event(QueueEvent(
-                    event_type="message_retry_queued",
-                    queue_item_id=queue_item_id,
-                    message_id=item["message_id"],
-                )))
+                asyncio.create_task(
+                    self._emit_event(
+                        QueueEvent(
+                            event_type="message_retry_queued",
+                            queue_item_id=queue_item_id,
+                            message_id=item["message_id"],
+                        )
+                    )
+                )
 
                 return 1
 
@@ -414,15 +436,20 @@ class QueueManager:
                         self._storage.retry_queue_item(item["id"])
                         retry_count += 1
 
-                        asyncio.create_task(self._emit_event(QueueEvent(
-                            event_type="message_retry_queued",
-                            queue_item_id=item["id"],
-                            message_id=item["message_id"],
-                        )))
+                        asyncio.create_task(
+                            self._emit_event(
+                                QueueEvent(
+                                    event_type="message_retry_queued",
+                                    queue_item_id=item["id"],
+                                    message_id=item["message_id"],
+                                )
+                            )
+                        )
 
                     except Exception as e:
                         logger.error(
-                            "Failed to queue retry for %s: %s", item["id"], e)
+                            "Failed to queue retry for %s: %s", item["id"], e
+                        )
 
                 logger.info("Queued %d items for retry", retry_count)
                 return retry_count
@@ -466,13 +493,18 @@ class QueueManager:
 
             for item in completed_items:
                 item_updated = item.get("updated_at", "")
-                if item_updated and item_updated < completed_before.isoformat():
+                if (
+                    item_updated
+                    and item_updated < completed_before.isoformat()
+                ):
                     try:
                         self._storage.delete_queue_item(item["id"])
                         purged["completed"] += 1
                     except Exception as e:
                         logger.warning(
-                            "Failed to purge completed item %s: %s", item["id"], e
+                            "Failed to purge completed item %s: %s",
+                            item["id"],
+                            e,
                         )
 
             # Get failed items to purge (dead letter)
@@ -484,13 +516,18 @@ class QueueManager:
                 # Check if max attempts reached (dead letter)
                 if item["attempts"] >= item["max_attempts"]:
                     item_updated = item.get("updated_at", "")
-                    if item_updated and item_updated < failed_before.isoformat():
+                    if (
+                        item_updated
+                        and item_updated < failed_before.isoformat()
+                    ):
                         try:
                             self._storage.delete_queue_item(item["id"])
                             purged["dead_letter"] += 1
                         except Exception as e:
                             logger.warning(
-                                "Failed to purge dead letter item %s: %s", item["id"], e
+                                "Failed to purge dead letter item %s: %s",
+                                item["id"],
+                                e,
                             )
 
             logger.info(
@@ -499,10 +536,14 @@ class QueueManager:
                 purged["dead_letter"],
             )
 
-            asyncio.create_task(self._emit_event(QueueEvent(
-                event_type="queue_purged",
-                metadata=purged,
-            )))
+            asyncio.create_task(
+                self._emit_event(
+                    QueueEvent(
+                        event_type="queue_purged",
+                        metadata=purged,
+                    )
+                )
+            )
 
             return purged
 
@@ -510,8 +551,9 @@ class QueueManager:
             logger.error("Failed to purge old items: %s", e)
             raise MessageQueueError(f"Failed to purge old items: {e}")
 
-    def move_to_dead_letter(self, queue_item_id: str,
-                            error: str) -> Optional[dict]:
+    def move_to_dead_letter(
+        self, queue_item_id: str, error: str
+    ) -> Optional[dict]:
         """
         Move a queue item to the dead letter queue.
 
@@ -538,13 +580,17 @@ class QueueManager:
                 error,
             )
 
-            asyncio.create_task(self._emit_event(QueueEvent(
-                event_type="message_dead_letter",
-                queue_item_id=queue_item_id,
-                message_id=item["message_id"],
-                status=DeliveryStatus.DEAD_LETTER.value,
-                error=error,
-            )))
+            asyncio.create_task(
+                self._emit_event(
+                    QueueEvent(
+                        event_type="message_dead_letter",
+                        queue_item_id=queue_item_id,
+                        message_id=item["message_id"],
+                        status=DeliveryStatus.DEAD_LETTER.value,
+                        error=error,
+                    )
+                )
+            )
 
             return updated_item
 
@@ -620,7 +666,7 @@ class QueueManager:
                 if next_attempt and next_attempt <= now:
                     ready_items.append(item)
 
-            return ready_items[:self.config.batch_size]
+            return ready_items[: self.config.batch_size]
 
         except Exception as e:
             logger.error("Failed to fetch ready items: %s", e)
@@ -646,16 +692,21 @@ class QueueManager:
                 logger.debug("Item %s already claimed, skipping", item["id"])
                 return
 
-            logger.info("Processing queue item %s (attempt %d)",
-                        item["id"], item["attempts"] + 1)
+            logger.info(
+                "Processing queue item %s (attempt %d)",
+                item["id"],
+                item["attempts"] + 1,
+            )
 
             # Emit processing event
-            await self._emit_event(QueueEvent(
-                event_type="message_processing",
-                queue_item_id=item["id"],
-                message_id=item["message_id"],
-                status=DeliveryStatus.PROCESSING.value,
-            ))
+            await self._emit_event(
+                QueueEvent(
+                    event_type="message_processing",
+                    queue_item_id=item["id"],
+                    message_id=item["message_id"],
+                    status=DeliveryStatus.PROCESSING.value,
+                )
+            )
 
             # Process the item using the worker class
             if self._worker_class:
@@ -666,8 +717,9 @@ class QueueManager:
                 self._mark_completed(item["id"])
 
             # Track processing time
-            processing_time = (datetime.now(timezone.utc) -
-                               start_time).total_seconds() * 1000
+            processing_time = (
+                datetime.now(timezone.utc) - start_time
+            ).total_seconds() * 1000
             async with self._stats_lock:
                 self._processing_times.append(processing_time)
                 if len(self._processing_times) > 1000:
@@ -713,12 +765,16 @@ class QueueManager:
             logger.info("Successfully delivered queue item %s", item_id)
 
             if item:
-                asyncio.create_task(self._emit_event(QueueEvent(
-                    event_type="message_sent",
-                    queue_item_id=item_id,
-                    message_id=item["message_id"],
-                    status=DeliveryStatus.SENT.value,
-                )))
+                asyncio.create_task(
+                    self._emit_event(
+                        QueueEvent(
+                            event_type="message_sent",
+                            queue_item_id=item_id,
+                            message_id=item["message_id"],
+                            status=DeliveryStatus.SENT.value,
+                        )
+                    )
+                )
 
         except Exception as e:
             logger.error("Failed to mark item %s as completed: %s", item_id, e)
@@ -738,8 +794,9 @@ class QueueManager:
         else:
             # Schedule retry with exponential backoff
             retry_interval = self._get_retry_interval(new_attempts)
-            next_attempt = datetime.now(
-                timezone.utc) + timedelta(seconds=retry_interval)
+            next_attempt = datetime.now(timezone.utc) + timedelta(
+                seconds=retry_interval
+            )
 
             try:
                 self._storage.update_queue_item(
@@ -761,23 +818,28 @@ class QueueManager:
                     self.config.max_retries,
                 )
 
-                asyncio.create_task(self._emit_event(QueueEvent(
-                    event_type="message_deferred",
-                    queue_item_id=item["id"],
-                    message_id=item["message_id"],
-                    status=DeliveryStatus.DEFERRED.value,
-                    error=error,
-                    metadata={
-                        "attempt": new_attempts,
-                        "max_attempts": self.config.max_retries,
-                        "next_attempt_at": next_attempt.isoformat(),
-                        "retry_interval_seconds": retry_interval,
-                    },
-                )))
+                asyncio.create_task(
+                    self._emit_event(
+                        QueueEvent(
+                            event_type="message_deferred",
+                            queue_item_id=item["id"],
+                            message_id=item["message_id"],
+                            status=DeliveryStatus.DEFERRED.value,
+                            error=error,
+                            metadata={
+                                "attempt": new_attempts,
+                                "max_attempts": self.config.max_retries,
+                                "next_attempt_at": next_attempt.isoformat(),
+                                "retry_interval_seconds": retry_interval,
+                            },
+                        )
+                    )
+                )
 
             except Exception as e:
                 logger.error(
-                    "Failed to schedule retry for item %s: %s", item["id"], e)
+                    "Failed to schedule retry for item %s: %s", item["id"], e
+                )
 
     def _get_retry_interval(self, attempt: int) -> int:
         """
@@ -794,8 +856,9 @@ class QueueManager:
     def _calculate_uptime(self) -> float:
         """Calculate uptime in seconds since start."""
         if self._started_at:
-            return (datetime.now(timezone.utc) -
-                    self._started_at).total_seconds()
+            return (
+                datetime.now(timezone.utc) - self._started_at
+            ).total_seconds()
         return 0.0
 
     async def _emit_event(self, event: QueueEvent) -> None:
@@ -809,8 +872,9 @@ class QueueManager:
             else:
                 self._event_handler(event)
         except Exception as e:
-            logger.warning("Event handler failed for %s: %s",
-                           event.event_type, e)
+            logger.warning(
+                "Event handler failed for %s: %s", event.event_type, e
+            )
 
 
 # Convenience function for creating a queue manager with default settings
@@ -832,4 +896,5 @@ def create_queue_manager(
     """
     config = QueueConfig(num_workers=num_workers)
     return QueueManager(
-        config=config, event_handler=event_handler, storage=storage)
+        config=config, event_handler=event_handler, storage=storage
+    )

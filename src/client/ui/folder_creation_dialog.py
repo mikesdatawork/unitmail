@@ -165,7 +165,9 @@ class FolderCreationDialog(Adw.Window):
 
         # Check for empty name
         if not name:
-            self._validation_error = None  # No error shown for empty, just disable button
+            self._validation_error = (
+                None  # No error shown for empty, just disable button
+            )
             self._update_validation_ui(is_valid=False)
             return False
 
@@ -239,7 +241,9 @@ class FolderCreationDialog(Adw.Window):
 
         except Exception as e:
             # Handle unexpected errors
-            self._validation_error = "An error occurred while creating the folder"
+            self._validation_error = (
+                "An error occurred while creating the folder"
+            )
             self._update_validation_ui(is_valid=False)
             logger.error(f"Unexpected error creating folder: {e}")
 

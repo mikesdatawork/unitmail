@@ -117,10 +117,12 @@ class InMemoryRateLimiter:
 
             if expired_keys:
                 logger.debug(
-                    f"Cleaned up {len(expired_keys)} expired rate limit entries")
+                    f"Cleaned up {len(expired_keys)} expired rate limit entries"
+                )
 
-    def is_allowed(self, key: Optional[str]
-                   = None) -> tuple[bool, dict[str, Any]]:
+    def is_allowed(
+        self, key: Optional[str] = None
+    ) -> tuple[bool, dict[str, Any]]:
         """
         Check if a request is allowed under rate limiting.
 
@@ -212,10 +214,12 @@ class RedisRateLimiter:
         if self._redis is None:
             try:
                 import redis
+
                 self._redis = redis.from_url(self._redis_url)
             except ImportError:
                 raise RuntimeError(
-                    "redis package is required for Redis rate limiting")
+                    "redis package is required for Redis rate limiting"
+                )
         return self._redis
 
     def _get_client_key(self) -> str:
@@ -232,8 +236,9 @@ class RedisRateLimiter:
 
         return f"{self.key_prefix}ip:{client_ip}"
 
-    def is_allowed(self, key: Optional[str]
-                   = None) -> tuple[bool, dict[str, Any]]:
+    def is_allowed(
+        self, key: Optional[str] = None
+    ) -> tuple[bool, dict[str, Any]]:
         """
         Check if a request is allowed under rate limiting.
 
@@ -347,6 +352,7 @@ def rate_limit(
     Returns:
         Decorated function.
     """
+
     def decorator(f: F) -> F:
         @wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -381,7 +387,9 @@ def rate_limit(
                     },
                 )
                 abort(
-                    429, description="Rate limit exceeded. Please try again later.")
+                    429,
+                    description="Rate limit exceeded. Please try again later.",
+                )
 
             return f(*args, **kwargs)
 
@@ -423,6 +431,7 @@ class RequestValidator:
         Returns:
             Decorated function.
         """
+
         def decorator(f: F) -> F:
             @wraps(f)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -436,7 +445,8 @@ class RequestValidator:
                 # Check required fields
                 if required_fields:
                     missing = [
-                        field for field in required_fields
+                        field
+                        for field in required_fields
                         if field not in data or data[field] is None
                     ]
                     if missing:
@@ -470,13 +480,15 @@ class RequestValidator:
         Returns:
             Decorated function.
         """
+
         def decorator(f: F) -> F:
             @wraps(f)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 # Check required params
                 if required_params:
                     missing = [
-                        param for param in required_params
+                        param
+                        for param in required_params
                         if param not in request.args
                     ]
                     if missing:
@@ -494,8 +506,8 @@ class RequestValidator:
                         if value is not None:
                             try:
                                 if param_type == bool:
-                                    validated_params[param] = value.lower() in (
-                                        "true", "1", "yes"
+                                    validated_params[param] = (
+                                        value.lower() in ("true", "1", "yes")
                                     )
                                 else:
                                     validated_params[param] = param_type(value)
@@ -541,6 +553,7 @@ def validate_content_type(allowed_types: list[str]) -> Callable[[F], F]:
     Returns:
         Decorated function.
     """
+
     def decorator(f: F) -> F:
         @wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -651,7 +664,7 @@ class MetricsCollector:
 
             # Trim old entries
             if len(self._metrics) > self.max_entries:
-                self._metrics = self._metrics[-self.max_entries:]
+                self._metrics = self._metrics[-self.max_entries :]
 
     def get_stats(self) -> dict[str, Any]:
         """

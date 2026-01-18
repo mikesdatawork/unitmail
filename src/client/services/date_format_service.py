@@ -26,23 +26,27 @@ class DateFormat(Enum):
     """Supported date format options."""
 
     # Date only formats
-    US = "MM/DD/YYYY"          # 01/13/2026
-    EUROPEAN = "DD/MM/YYYY"    # 13/01/2026
-    ISO = "YYYY-MM-DD"         # 2026-01-13
+    US = "MM/DD/YYYY"  # 01/13/2026
+    EUROPEAN = "DD/MM/YYYY"  # 13/01/2026
+    ISO = "YYYY-MM-DD"  # 2026-01-13
     DAY_MONTH_YEAR = "DD MMM YYYY"  # 13 Jan 2026
     MONTH_DAY_YEAR = "MMM DD, YYYY"  # Jan 13, 2026
     # Date and time formats (24-hour)
-    US_TIME = "MM/DD/YYYY HH:MM"          # 01/13/2026 14:30
-    EUROPEAN_TIME = "DD/MM/YYYY HH:MM"    # 13/01/2026 14:30
-    ISO_TIME = "YYYY-MM-DD HH:MM"         # 2026-01-13 14:30
+    US_TIME = "MM/DD/YYYY HH:MM"  # 01/13/2026 14:30
+    EUROPEAN_TIME = "DD/MM/YYYY HH:MM"  # 13/01/2026 14:30
+    ISO_TIME = "YYYY-MM-DD HH:MM"  # 2026-01-13 14:30
     DAY_MONTH_YEAR_TIME = "DD MMM YYYY HH:MM"  # 13 Jan 2026 14:30
     MONTH_DAY_YEAR_TIME = "MMM DD, YYYY HH:MM"  # Jan 13, 2026 14:30
     # Date and time formats (12-hour am/pm)
-    US_TIME_AMPM = "MM/DD/YYYY hh:mm am/pm"          # 01/13/2026 02:30 pm
-    EUROPEAN_TIME_AMPM = "DD/MM/YYYY hh:mm am/pm"    # 13/01/2026 02:30 pm
-    ISO_TIME_AMPM = "YYYY-MM-DD hh:mm am/pm"         # 2026-01-13 02:30 pm
-    DAY_MONTH_YEAR_TIME_AMPM = "DD MMM YYYY hh:mm am/pm"  # 13 Jan 2026 02:30 pm
-    MONTH_DAY_YEAR_TIME_AMPM = "MMM DD, YYYY hh:mm am/pm"  # Jan 13, 2026 02:30 pm
+    US_TIME_AMPM = "MM/DD/YYYY hh:mm am/pm"  # 01/13/2026 02:30 pm
+    EUROPEAN_TIME_AMPM = "DD/MM/YYYY hh:mm am/pm"  # 13/01/2026 02:30 pm
+    ISO_TIME_AMPM = "YYYY-MM-DD hh:mm am/pm"  # 2026-01-13 02:30 pm
+    DAY_MONTH_YEAR_TIME_AMPM = (
+        "DD MMM YYYY hh:mm am/pm"  # 13 Jan 2026 02:30 pm
+    )
+    MONTH_DAY_YEAR_TIME_AMPM = (
+        "MMM DD, YYYY hh:mm am/pm"  # Jan 13, 2026 02:30 pm
+    )
 
 
 # Format string mappings for strftime
@@ -184,11 +188,13 @@ class DateFormatService(GObject.Object):
             old_format = self._current_format
             self._current_format = format_value
             logger.info(
-                f"Date format changed from {old_format.value} to {format_value.value}")
+                f"Date format changed from {old_format.value} to {format_value.value}"
+            )
             self.emit("format-changed", format_value.value)
 
-    def format_date(self, date: datetime,
-                    show_time_for_today: bool = True) -> str:
+    def format_date(
+        self, date: datetime, show_time_for_today: bool = True
+    ) -> str:
         """
         Format a datetime using the current format setting.
 
@@ -246,7 +252,8 @@ class DateFormatService(GObject.Object):
         return result
 
     def get_format_label(
-            self, format_value: Optional[DateFormat] = None) -> str:
+        self, format_value: Optional[DateFormat] = None
+    ) -> str:
         """
         Get the human-readable label for a format.
 
@@ -261,7 +268,8 @@ class DateFormatService(GObject.Object):
         return DATE_FORMAT_LABELS.get(format_value, format_value.value)
 
     def get_format_example(
-            self, format_value: Optional[DateFormat] = None) -> str:
+        self, format_value: Optional[DateFormat] = None
+    ) -> str:
         """
         Get an example date string for a format.
 

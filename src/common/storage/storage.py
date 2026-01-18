@@ -102,7 +102,12 @@ class EmailStorage:
                 INSERT INTO users (id, email, username, display_name)
                 VALUES (?, ?, ?, ?)
                 """,
-                (self._default_user_id, "local@unitmail.local", "local", "Local User"),
+                (
+                    self._default_user_id,
+                    "local@unitmail.local",
+                    "local",
+                    "Local User",
+                ),
             )
         # Ensure default folders exist
         self._ensure_default_folders()
@@ -180,13 +185,17 @@ class EmailStorage:
             "SELECT * FROM users WHERE id = ?",
             (self._default_user_id,),
         )
-        return self._row_to_user(row) if row else {
-            "id": self._default_user_id,
-            "email": "local@unitmail.local",
-            "username": "local",
-            "display_name": "Local User",
-            "is_active": True,
-        }
+        return (
+            self._row_to_user(row)
+            if row
+            else {
+                "id": self._default_user_id,
+                "email": "local@unitmail.local",
+                "username": "local",
+                "display_name": "Local User",
+                "is_active": True,
+            }
+        )
 
     def _row_to_user(self, row) -> dict:
         """Convert a database row to a user dictionary."""
@@ -222,8 +231,14 @@ class EmailStorage:
         params = []
 
         allowed_fields = {
-            "email", "username", "display_name", "password_hash",
-            "is_active", "is_verified", "settings", "last_login",
+            "email",
+            "username",
+            "display_name",
+            "password_hash",
+            "is_active",
+            "is_verified",
+            "settings",
+            "last_login",
         }
 
         for key, value in updates.items():
@@ -249,9 +264,9 @@ class EmailStorage:
 
     def update_user_last_login(self, user_id: str) -> Optional[dict]:
         """Update user's last login timestamp."""
-        return self.update_user(user_id, {
-            "last_login": datetime.now(timezone.utc).isoformat()
-        })
+        return self.update_user(
+            user_id, {"last_login": datetime.now(timezone.utc).isoformat()}
+        )
 
     def get_folders_by_user(self, user_id: str) -> list[dict]:
         """Get all folders for a specific user."""
@@ -348,7 +363,8 @@ class EmailStorage:
                     self._default_user_id,
                     folder_id,
                     message.get(
-                        "message_id", f"<{message_id}@unitmail.local>"),
+                        "message_id", f"<{message_id}@unitmail.local>"
+                    ),
                     message.get("from_address", ""),
                     json.dumps(to_addresses),
                     json.dumps(cc_addresses),
@@ -442,8 +458,9 @@ class EmailStorage:
         )
         return [self._row_to_message(row) for row in rows]
 
-    def get_all_messages(self, limit: int = 100,
-                         offset: int = 0) -> list[dict]:
+    def get_all_messages(
+        self, limit: int = 100, offset: int = 0
+    ) -> list[dict]:
         """Get all messages sorted by date."""
         rows = self._db.fetchall(
             """
@@ -611,8 +628,12 @@ class EmailStorage:
         for key, column in field_mapping.items():
             if key in updates:
                 value = updates[key]
-                if key in ("is_read", "is_starred",
-                           "is_important", "is_encrypted"):
+                if key in (
+                    "is_read",
+                    "is_starred",
+                    "is_important",
+                    "is_encrypted",
+                ):
                     value = 1 if value else 0
                 set_clauses.append(f"{column} = ?")
                 params.append(value)
@@ -664,11 +685,14 @@ class EmailStorage:
         if msg["folder_id"] == trash["id"]:
             return msg
 
-        return self.update_message(message_id, {
-            "original_folder_id": msg["folder_id"],
-            "folder_id": trash["id"],
-            "deleted_at": datetime.now(timezone.utc).isoformat(),
-        })
+        return self.update_message(
+            message_id,
+            {
+                "original_folder_id": msg["folder_id"],
+                "folder_id": trash["id"],
+                "deleted_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     def restore_from_trash(self, message_id: str) -> Optional[dict]:
         """Restore a message from Trash to its original folder."""
@@ -685,11 +709,14 @@ class EmailStorage:
             inbox = self.get_folder_by_name("Inbox")
             original_folder_id = inbox["id"] if inbox else None
 
-        return self.update_message(message_id, {
-            "folder_id": original_folder_id,
-            "original_folder_id": None,
-            "deleted_at": None,
-        })
+        return self.update_message(
+            message_id,
+            {
+                "folder_id": original_folder_id,
+                "original_folder_id": None,
+                "deleted_at": None,
+            },
+        )
 
     def empty_trash(self) -> int:
         """Permanently delete all messages in Trash."""
@@ -705,8 +732,9 @@ class EmailStorage:
         self._update_folder_counts()
         return count
 
-    def move_to_folder(self, message_id: str,
-                       folder_name: str) -> Optional[dict]:
+    def move_to_folder(
+        self, message_id: str, folder_name: str
+    ) -> Optional[dict]:
         """Move a message to a different folder."""
         folder = self.get_folder_by_name(folder_name)
         if not folder:
@@ -717,22 +745,24 @@ class EmailStorage:
         """Toggle starred status."""
         msg = self.get_message(message_id)
         if msg:
-            return self.update_message(message_id, {
-                "is_starred": not msg.get("is_starred", False)
-            })
+            return self.update_message(
+                message_id, {"is_starred": not msg.get("is_starred", False)}
+            )
         return None
 
     def toggle_important(self, message_id: str) -> Optional[dict]:
         """Toggle important status."""
         msg = self.get_message(message_id)
         if msg:
-            return self.update_message(message_id, {
-                "is_important": not msg.get("is_important", False)
-            })
+            return self.update_message(
+                message_id,
+                {"is_important": not msg.get("is_important", False)},
+            )
         return None
 
-    def set_important(self, message_id: str,
-                      important: bool) -> Optional[dict]:
+    def set_important(
+        self, message_id: str, important: bool
+    ) -> Optional[dict]:
         """Set important status."""
         return self.update_message(message_id, {"is_important": important})
 
@@ -828,8 +858,9 @@ class EmailStorage:
         )
         return self._row_to_folder(row) if row else None
 
-    def create_folder(self, name: str,
-                      parent_id: Optional[str] = None) -> dict:
+    def create_folder(
+        self, name: str, parent_id: Optional[str] = None
+    ) -> dict:
         """
         Create a new custom folder.
 
@@ -852,9 +883,7 @@ class EmailStorage:
             raise ValueError(f"A folder named '{name}' already exists")
 
         # Get next sort order
-        result = self._db.fetchone(
-            "SELECT MAX(sort_order) FROM folders"
-        )
+        result = self._db.fetchone("SELECT MAX(sort_order) FROM folders")
         next_order = (result[0] or 0) + 1
 
         folder_id = str(uuid4())
@@ -1117,8 +1146,16 @@ class EmailStorage:
         params = []
 
         for key, value in updates.items():
-            if key in ("email", "name", "display_name", "organization",
-                       "phone", "notes", "is_favorite", "contact_frequency"):
+            if key in (
+                "email",
+                "name",
+                "display_name",
+                "organization",
+                "phone",
+                "notes",
+                "is_favorite",
+                "contact_frequency",
+            ):
                 if key == "email":
                     value = value.lower() if value else None
                 elif key == "is_favorite":
@@ -1265,8 +1302,9 @@ class EmailStorage:
         sent_folder = self.get_folder_by_name("Sent")
         sent_folder_id = sent_folder["id"] if sent_folder else None
 
-        start_date = (datetime.now(timezone.utc) -
-                      timedelta(days=days - 1)).date()
+        start_date = (
+            datetime.now(timezone.utc) - timedelta(days=days - 1)
+        ).date()
 
         # Get all messages in date range
         rows = self._db.fetchall(
@@ -1288,8 +1326,9 @@ class EmailStorage:
             if row[0] == sent_folder_id:
                 sent_by_date[date_str] = sent_by_date.get(date_str, 0) + count
             else:
-                received_by_date[date_str] = received_by_date.get(
-                    date_str, 0) + count
+                received_by_date[date_str] = (
+                    received_by_date.get(date_str, 0) + count
+                )
 
         # Build daily lists
         sent_list = []
@@ -1499,7 +1538,9 @@ class EmailStorage:
             return None
 
         new_attempts = item["attempts"] + 1
-        new_status = "failed" if new_attempts >= item["max_attempts"] else "pending"
+        new_status = (
+            "failed" if new_attempts >= item["max_attempts"] else "pending"
+        )
 
         self._db.execute(
             """
@@ -1556,8 +1597,13 @@ class EmailStorage:
             GROUP BY status
             """
         )
-        stats = {"pending": 0, "processing": 0,
-                 "completed": 0, "failed": 0, "dead_letter": 0}
+        stats = {
+            "pending": 0,
+            "processing": 0,
+            "completed": 0,
+            "failed": 0,
+            "dead_letter": 0,
+        }
         for row in rows:
             stats[row["status"]] = row["cnt"]
         return stats
@@ -1630,8 +1676,16 @@ class EmailStorage:
         params = []
 
         for key, value in updates.items():
-            if key in ("status", "priority", "attempts", "max_attempts",
-                       "error_message", "scheduled_at", "last_attempt", "next_attempt_at"):
+            if key in (
+                "status",
+                "priority",
+                "attempts",
+                "max_attempts",
+                "error_message",
+                "scheduled_at",
+                "last_attempt",
+                "next_attempt_at",
+            ):
                 set_clauses.append(f"{key} = ?")
                 params.append(value)
 

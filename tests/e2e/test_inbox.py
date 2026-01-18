@@ -19,6 +19,7 @@ from .pages import InboxPage, EmailReaderPage
 # Viewing Inbox Tests
 # =============================================================================
 
+
 class TestViewingInbox:
     """Tests for viewing the inbox."""
 
@@ -153,13 +154,17 @@ class TestViewingInbox:
 # Reading Email Tests
 # =============================================================================
 
+
 class TestReadingEmail:
     """Tests for reading individual emails."""
 
     @pytest.mark.asyncio
     async def test_click_email_opens_reader(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test that clicking an email opens the reader."""
         await api_client.create_test_email(subject="Click Test Email")
@@ -174,8 +179,11 @@ class TestReadingEmail:
 
     @pytest.mark.asyncio
     async def test_email_reader_shows_subject(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test that email reader shows the subject."""
         _test_email = await api_client.create_test_email(  # noqa: F841
@@ -192,13 +200,16 @@ class TestReadingEmail:
 
     @pytest.mark.asyncio
     async def test_email_reader_shows_body(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test that email reader shows the body content."""
         _test_email = await api_client.create_test_email(  # noqa: F841
             subject="Body Test",
-            body="This is the email body content for testing."
+            body="This is the email body content for testing.",
         )
 
         inbox_page.page = authenticated_page
@@ -211,8 +222,11 @@ class TestReadingEmail:
 
     @pytest.mark.asyncio
     async def test_email_reader_shows_sender(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test that email reader shows sender information."""
         _test_email = await api_client.create_test_email(  # noqa: F841
@@ -229,8 +243,11 @@ class TestReadingEmail:
 
     @pytest.mark.asyncio
     async def test_email_reader_shows_date(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test that email reader shows date."""
         await api_client.create_test_email()
@@ -246,8 +263,11 @@ class TestReadingEmail:
 
     @pytest.mark.asyncio
     async def test_email_reader_shows_attachments(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test that email reader shows attachments."""
         # Note: This would need an email with attachments
@@ -255,8 +275,11 @@ class TestReadingEmail:
 
     @pytest.mark.asyncio
     async def test_back_to_inbox_from_reader(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test navigating back to inbox from email reader."""
         await api_client.create_test_email()
@@ -274,8 +297,11 @@ class TestReadingEmail:
 
     @pytest.mark.asyncio
     async def test_navigate_between_emails(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test navigating between emails using prev/next."""
         await api_client.create_test_email(subject="Email 1")
@@ -297,13 +323,17 @@ class TestReadingEmail:
 # Mark Read/Unread Tests
 # =============================================================================
 
+
 class TestMarkReadUnread:
     """Tests for marking emails as read/unread."""
 
     @pytest.mark.asyncio
     async def test_opening_email_marks_as_read(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test that opening an email marks it as read."""
         _test_email = await api_client.create_test_email()  # noqa: F841
@@ -314,7 +344,9 @@ class TestMarkReadUnread:
         await inbox_page.goto()
 
         # Email should be unread initially
-        _initial_unread_count = await inbox_page.get_unread_count()  # noqa: F841
+        _initial_unread_count = (  # noqa: F841
+            await inbox_page.get_unread_count()
+        )
 
         # Open the email
         await inbox_page.click_email(0)
@@ -327,8 +359,11 @@ class TestMarkReadUnread:
 
     @pytest.mark.asyncio
     async def test_mark_email_as_unread(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test marking an email as unread."""
         test_email = await api_client.create_test_email()
@@ -392,6 +427,7 @@ class TestMarkReadUnread:
 # Starring Tests
 # =============================================================================
 
+
 class TestStarring:
     """Tests for starring/favoriting emails."""
 
@@ -432,8 +468,11 @@ class TestStarring:
 
     @pytest.mark.asyncio
     async def test_star_email_from_reader(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test starring an email from the reader view."""
         await api_client.create_test_email()
@@ -478,6 +517,7 @@ class TestStarring:
 # Deleting Tests
 # =============================================================================
 
+
 class TestDeleting:
     """Tests for deleting emails."""
 
@@ -503,8 +543,11 @@ class TestDeleting:
 
     @pytest.mark.asyncio
     async def test_delete_email_from_reader(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        email_reader_page: EmailReaderPage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        email_reader_page: EmailReaderPage,
+        api_client,
     ):
         """Test deleting an email from reader view."""
         _test_email = await api_client.create_test_email(  # noqa: F841
@@ -617,6 +660,7 @@ class TestDeleting:
 # Folder Navigation Tests
 # =============================================================================
 
+
 class TestFolderNavigation:
     """Tests for navigating between folders."""
 
@@ -672,6 +716,7 @@ class TestFolderNavigation:
 # =============================================================================
 # Search Tests
 # =============================================================================
+
 
 class TestInboxSearch:
     """Tests for searching emails."""
@@ -742,6 +787,7 @@ class TestInboxSearch:
 # Bulk Actions Tests
 # =============================================================================
 
+
 class TestBulkActions:
     """Tests for bulk email actions."""
 
@@ -784,6 +830,7 @@ class TestBulkActions:
 # =============================================================================
 # Accessibility Tests
 # =============================================================================
+
 
 class TestInboxAccessibility:
     """Accessibility tests for inbox functionality."""

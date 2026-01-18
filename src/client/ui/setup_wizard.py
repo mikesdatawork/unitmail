@@ -452,11 +452,14 @@ class SetupWizard(Adw.Window):
 
         # Connect signals
         hosted_check.connect(
-            "toggled", self._on_deployment_changed, DeploymentModel.HOSTED)
+            "toggled", self._on_deployment_changed, DeploymentModel.HOSTED
+        )
         self_hosted_check.connect(
-            "toggled", self._on_deployment_changed, DeploymentModel.SELF_HOSTED)
+            "toggled", self._on_deployment_changed, DeploymentModel.SELF_HOSTED
+        )
         mesh_check.connect(
-            "toggled", self._on_deployment_changed, DeploymentModel.MESH)
+            "toggled", self._on_deployment_changed, DeploymentModel.MESH
+        )
 
         content.append(options_group)
 
@@ -567,7 +570,7 @@ class SetupWizard(Adw.Window):
         # SPF record
         self._spf_row = Adw.ActionRow(
             title="SPF Record",
-            subtitle="@ TXT \"v=spf1 mx -all\"",
+            subtitle='@ TXT "v=spf1 mx -all"',
         )
         spf_status = Gtk.Image(icon_name="dialog-question-symbolic")
         self._spf_row.add_suffix(spf_status)
@@ -577,7 +580,7 @@ class SetupWizard(Adw.Window):
         # DKIM record
         self._dkim_row = Adw.ActionRow(
             title="DKIM Record",
-            subtitle="unitmail._domainkey TXT \"v=DKIM1; k=rsa; p=...\"",
+            subtitle='unitmail._domainkey TXT "v=DKIM1; k=rsa; p=..."',
         )
         dkim_status = Gtk.Image(icon_name="dialog-question-symbolic")
         self._dkim_row.add_suffix(dkim_status)
@@ -587,7 +590,7 @@ class SetupWizard(Adw.Window):
         # DMARC record
         self._dmarc_row = Adw.ActionRow(
             title="DMARC Record",
-            subtitle="_dmarc TXT \"v=DMARC1; p=quarantine; ...\"",
+            subtitle='_dmarc TXT "v=DMARC1; p=quarantine; ..."',
         )
         dmarc_status = Gtk.Image(icon_name="dialog-question-symbolic")
         self._dmarc_row.add_suffix(dmarc_status)
@@ -772,7 +775,9 @@ class SetupWizard(Adw.Window):
         content.append(generate_box)
 
         # Validation
-        self._validation_callbacks[SetupStep.PASSWORD] = self._validate_password
+        self._validation_callbacks[SetupStep.PASSWORD] = (
+            self._validate_password
+        )
 
         self._stack.add_named(page, SetupStep.PASSWORD.value)
         self._step_widgets[SetupStep.PASSWORD] = page
@@ -823,7 +828,8 @@ class SetupWizard(Adw.Window):
             subtitle="When the key will expire",
         )
         expiry_options = Gtk.StringList.new(
-            ["1 Year", "2 Years", "5 Years", "Never"])
+            ["1 Year", "2 Years", "5 Years", "Never"]
+        )
         expiry_row.set_model(expiry_options)
         expiry_row.set_selected(1)
         self._pgp_options.add(expiry_row)
@@ -1074,12 +1080,12 @@ class SetupWizard(Adw.Window):
         # Update DNS record previews
         if domain:
             self._mx_row.set_subtitle(f"@ MX 10 mail.{domain}")
-            self._spf_row.set_subtitle("@ TXT \"v=spf1 mx -all\"")
+            self._spf_row.set_subtitle('@ TXT "v=spf1 mx -all"')
             self._dkim_row.set_subtitle(
-                f"unitmail._domainkey.{domain} TXT \"v=DKIM1; ...\""
+                f'unitmail._domainkey.{domain} TXT "v=DKIM1; ..."'
             )
             self._dmarc_row.set_subtitle(
-                f"_dmarc.{domain} TXT \"v=DMARC1; p=quarantine; ...\""
+                f'_dmarc.{domain} TXT "v=DMARC1; p=quarantine; ..."'
             )
 
         # Update email preview
@@ -1270,7 +1276,8 @@ class SetupWizard(Adw.Window):
 
         if len(password) < 8:
             self._show_validation_error(
-                "Password must be at least 8 characters.")
+                "Password must be at least 8 characters."
+            )
             return False
         if password != confirm:
             self._show_validation_error("Passwords do not match.")
@@ -1296,7 +1303,8 @@ class SetupWizard(Adw.Window):
         # Update network page visibility based on deployment model
         if step == SetupStep.NETWORK:
             is_self_hosted = (
-                self._setup_data.deployment_model == DeploymentModel.SELF_HOSTED
+                self._setup_data.deployment_model
+                == DeploymentModel.SELF_HOSTED
             )
             self._hosted_config.set_visible(not is_self_hosted)
             self._self_hosted_config.set_visible(is_self_hosted)

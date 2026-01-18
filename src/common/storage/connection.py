@@ -61,8 +61,10 @@ class ConnectionPool:
         thread_id = threading.get_ident()
 
         # Check if this thread already has a connection
-        if hasattr(self._local,
-                   "connection") and self._local.connection is not None:
+        if (
+            hasattr(self._local, "connection")
+            and self._local.connection is not None
+        ):
             return self._local.connection
 
         # Create new connection
@@ -86,7 +88,7 @@ class ConnectionPool:
         conn = sqlite3.connect(
             self._db_path,
             check_same_thread=False,  # We manage thread safety ourselves
-            isolation_level=None,  # Autocommit mode - explicit transactions via transaction()
+            isolation_level=None,  # Autocommit; explicit via transaction()
             timeout=30.0,  # Wait up to 30 seconds for locks
         )
 
@@ -115,7 +117,8 @@ class ConnectionPool:
         conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
 
         logger.debug(
-            f"Created new SQLite connection for thread {threading.get_ident()}")
+            f"Created new SQLite connection for thread {threading.get_ident()}"
+        )
         return conn
 
     def close_all(self) -> None:
@@ -332,7 +335,8 @@ class DatabaseConnection:
         conn = self.connection
         conn.execute("ANALYZE")
         conn.execute(
-            "INSERT INTO messages_fts(messages_fts) VALUES('optimize')")
+            "INSERT INTO messages_fts(messages_fts) VALUES('optimize')"
+        )
         logger.info("Database optimized")
 
     def integrity_check(self) -> bool:

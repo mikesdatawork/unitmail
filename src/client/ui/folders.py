@@ -106,7 +106,11 @@ class FolderManagerDialog(Adw.Window):
 
     __gsignals__ = {
         # Emitted when a folder is created
-        "folder-created": (GObject.SignalFlags.RUN_FIRST, None, (str, str, str)),
+        "folder-created": (
+            GObject.SignalFlags.RUN_FIRST,
+            None,
+            (str, str, str),
+        ),
         # Emitted when a folder is renamed
         "folder-renamed": (GObject.SignalFlags.RUN_FIRST, None, (str, str)),
         # Emitted when a folder is deleted
@@ -147,8 +151,9 @@ class FolderManagerDialog(Adw.Window):
         self._selected_item: Optional[FolderListItem] = None
         self._drag_source_item: Optional[FolderListItem] = None
 
-        self._on_folder_created: Optional[Callable[[
-            str, str, str], None]] = None
+        self._on_folder_created: Optional[Callable[[str, str, str], None]] = (
+            None
+        )
         self._on_folder_renamed: Optional[Callable[[str, str], None]] = None
         self._on_folder_deleted: Optional[Callable[[str], None]] = None
 
@@ -278,7 +283,8 @@ class FolderManagerDialog(Adw.Window):
         # Selection model
         self._selection_model = Gtk.SingleSelection(model=self._folder_store)
         self._selection_model.connect(
-            "selection-changed", self._on_selection_changed)
+            "selection-changed", self._on_selection_changed
+        )
 
         # List view
         self._list_view = Gtk.ListView(
@@ -433,7 +439,8 @@ class FolderManagerDialog(Adw.Window):
         if self._selected_item and not self._selected_item.is_system_folder:
             self._drag_source_item = self._selected_item
             return Gdk.ContentProvider.new_for_value(
-                self._selected_item.folder_id)
+                self._selected_item.folder_id
+            )
         return None
 
     def _on_drag_begin(
@@ -519,15 +526,22 @@ class FolderManagerDialog(Adw.Window):
             if parent:
                 source_folder.parent_id = target_parent_id
                 target_idx = next(
-                    (i for i, f in enumerate(parent.children)
-                     if f.folder_id == target_id),
+                    (
+                        i
+                        for i, f in enumerate(parent.children)
+                        if f.folder_id == target_id
+                    ),
                     len(parent.children) - 1,
                 )
                 parent.children.insert(target_idx + 1, source_folder)
         else:
             source_folder.parent_id = None
             target_idx = next(
-                (i for i, f in enumerate(self._folders) if f.folder_id == target_id),
+                (
+                    i
+                    for i, f in enumerate(self._folders)
+                    if f.folder_id == target_id
+                ),
                 len(self._folders) - 1,
             )
             self._folders.insert(target_idx + 1, source_folder)
@@ -554,7 +568,8 @@ class FolderManagerDialog(Adw.Window):
             message=f"Enter name for subfolder of '{
                 self._selected_item.name}':",
             callback=lambda name: self._create_folder(
-                name, self._selected_item.folder_id),
+                name, self._selected_item.folder_id
+            ),
         )
 
     def _on_rename_clicked(self, button: Gtk.Button) -> None:
@@ -613,7 +628,8 @@ class FolderManagerDialog(Adw.Window):
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("create", "OK")
         dialog.set_response_appearance(
-            "create", Adw.ResponseAppearance.SUGGESTED)
+            "create", Adw.ResponseAppearance.SUGGESTED
+        )
         dialog.set_default_response("create")
 
         def on_response(dialog: Adw.MessageDialog, response: str) -> None:
@@ -648,7 +664,8 @@ class FolderManagerDialog(Adw.Window):
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("delete", "Delete")
         dialog.set_response_appearance(
-            "delete", Adw.ResponseAppearance.DESTRUCTIVE)
+            "delete", Adw.ResponseAppearance.DESTRUCTIVE
+        )
 
         def on_response(dialog: Adw.MessageDialog, response: str) -> None:
             if response == "delete":
@@ -658,8 +675,9 @@ class FolderManagerDialog(Adw.Window):
         dialog.connect("response", on_response)
         dialog.present()
 
-    def _create_folder(self, name: str,
-                       parent_id: Optional[str] = None) -> None:
+    def _create_folder(
+        self, name: str, parent_id: Optional[str] = None
+    ) -> None:
         """Create a new folder.
 
         Args:
@@ -746,10 +764,12 @@ class FolderManagerDialog(Adw.Window):
             parent = self._find_folder_by_id(folder.parent_id)
             if parent:
                 parent.children = [
-                    c for c in parent.children if c.folder_id != folder_id]
+                    c for c in parent.children if c.folder_id != folder_id
+                ]
         else:
             self._folders = [
-                f for f in self._folders if f.folder_id != folder_id]
+                f for f in self._folders if f.folder_id != folder_id
+            ]
 
     def _find_folder_by_id(self, folder_id: str) -> Optional[FolderData]:
         """Find a folder by its ID.
@@ -762,7 +782,8 @@ class FolderManagerDialog(Adw.Window):
         """
 
         def search_recursive(
-                folders: list[FolderData]) -> Optional[FolderData]:
+            folders: list[FolderData],
+        ) -> Optional[FolderData]:
             for folder in folders:
                 if folder.folder_id == folder_id:
                     return folder

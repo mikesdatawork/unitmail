@@ -266,9 +266,11 @@ class RestoreDialog(Adw.Window):
             title="Password",
         )
         self._restore_password_row.connect(
-            "changed", self._on_password_changed)
+            "changed", self._on_password_changed
+        )
         self._restore_password_row.connect(
-            "entry-activated", self._on_password_activated)
+            "entry-activated", self._on_password_activated
+        )
         password_group.add(self._restore_password_row)
 
         content.append(password_group)
@@ -692,9 +694,7 @@ class RestoreDialog(Adw.Window):
         )
 
         # Account email
-        self._backup_email_label.set_label(
-            metadata.user_email or "Unknown"
-        )
+        self._backup_email_label.set_label(metadata.user_email or "Unknown")
 
         # Update switches with counts
         self._restore_messages_switch.set_subtitle(
@@ -821,9 +821,11 @@ class RestoreDialog(Adw.Window):
         """Update progress UI (must be called from main thread)."""
         self._restore_status_label.set_label(progress.current_step)
         self._restore_progress_bar.set_fraction(
-            progress.percent_complete / 100)
+            progress.percent_complete / 100
+        )
         self._restore_progress_bar.set_text(
-            f"{progress.percent_complete:.0f}%")
+            f"{progress.percent_complete:.0f}%"
+        )
 
         return False
 

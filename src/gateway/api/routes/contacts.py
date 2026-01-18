@@ -31,11 +31,14 @@ class CreateContactRequest(BaseModel):
 
     email: EmailStr = Field(..., description="Contact email address")
     name: Optional[str] = Field(
-        None, max_length=200, description="Contact name")
+        None, max_length=200, description="Contact name"
+    )
     display_name: Optional[str] = Field(
-        None, max_length=200, description="Display name")
+        None, max_length=200, description="Display name"
+    )
     phone: Optional[str] = Field(
-        None, max_length=20, description="Phone number")
+        None, max_length=20, description="Phone number"
+    )
     organization: Optional[str] = Field(
         None, max_length=200, description="Organization name"
     )
@@ -47,13 +50,17 @@ class UpdateContactRequest(BaseModel):
     """Request model for updating a contact."""
 
     email: Optional[EmailStr] = Field(
-        None, description="Contact email address")
+        None, description="Contact email address"
+    )
     name: Optional[str] = Field(
-        None, max_length=200, description="Contact name")
+        None, max_length=200, description="Contact name"
+    )
     display_name: Optional[str] = Field(
-        None, max_length=200, description="Display name")
+        None, max_length=200, description="Display name"
+    )
     phone: Optional[str] = Field(
-        None, max_length=20, description="Phone number")
+        None, max_length=20, description="Phone number"
+    )
     organization: Optional[str] = Field(
         None, max_length=200, description="Organization name"
     )
@@ -120,8 +127,9 @@ def create_contacts_blueprint() -> Blueprint:
             page = max(1, int(request.args.get("page", 1)))
             per_page = min(100, max(1, int(request.args.get("per_page", 50))))
             search = request.args.get("search", "").strip()
-            favorites_only = request.args.get(
-                "favorites", "").lower() == "true"
+            favorites_only = (
+                request.args.get("favorites", "").lower() == "true"
+            )
 
             offset = (page - 1) * per_page
 
@@ -149,24 +157,38 @@ def create_contacts_blueprint() -> Blueprint:
             # Get total count
             total = storage.count_contacts(user_id=user_id)
 
-            return jsonify({
-                "contacts": [serialize_contact(c) for c in contacts],
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total": total,
-                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
-                    "has_next": page * per_page < total,
-                    "has_prev": page > 1,
-                },
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "contacts": [serialize_contact(c) for c in contacts],
+                        "pagination": {
+                            "page": page,
+                            "per_page": per_page,
+                            "total": total,
+                            "total_pages": (
+                                (total + per_page - 1) // per_page
+                                if total > 0
+                                else 1
+                            ),
+                            "has_next": page * per_page < total,
+                            "has_prev": page > 1,
+                        },
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"List contacts error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching contacts",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching contacts",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<contact_id>", methods=["GET"])
     @require_auth
@@ -185,27 +207,42 @@ def create_contacts_blueprint() -> Blueprint:
             contact = storage.get_contact(contact_id)
 
             if not contact:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Contact not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Contact not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             user_id = getattr(g, "user_id", None)
             if contact.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Contact not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Contact not found",
+                        }
+                    ),
+                    404,
+                )
 
             return jsonify(serialize_contact(contact)), 200
 
         except Exception as e:
             logger.error(f"Get contact error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching the contact",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching the contact",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("", methods=["POST"])
     @bp.route("/", methods=["POST"])
@@ -228,19 +265,29 @@ def create_contacts_blueprint() -> Blueprint:
             Created contact details.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         try:
             data = CreateContactRequest(**request.get_json())
         except ValidationError as e:
-            return jsonify({
-                "error": "Validation error",
-                "message": "Invalid request data",
-                "details": e.errors(),
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "Invalid request data",
+                        "details": e.errors(),
+                    }
+                ),
+                400,
+            )
 
         try:
             storage = get_storage()
@@ -249,10 +296,15 @@ def create_contacts_blueprint() -> Blueprint:
             # Check if contact with this email already exists for user
             existing = storage.get_contact_by_email(str(data.email), user_id)
             if existing:
-                return jsonify({
-                    "error": "Duplicate contact",
-                    "message": f"A contact with email '{data.email}' already exists",
-                }), 409
+                return (
+                    jsonify(
+                        {
+                            "error": "Duplicate contact",
+                            "message": f"Contact with email '{data.email}' exists",
+                        }
+                    ),
+                    409,
+                )
 
             # Create contact
             contact_data = {
@@ -279,17 +331,27 @@ def create_contacts_blueprint() -> Blueprint:
             return jsonify(serialize_contact(contact)), 201
 
         except DuplicateRecordError:
-            return jsonify({
-                "error": "Duplicate contact",
-                "message": "A contact with this email already exists",
-            }), 409
+            return (
+                jsonify(
+                    {
+                        "error": "Duplicate contact",
+                        "message": "A contact with this email already exists",
+                    }
+                ),
+                409,
+            )
 
         except Exception as e:
             logger.error(f"Create contact error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while creating the contact",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while creating the contact",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<contact_id>", methods=["PUT"])
     @require_auth
@@ -314,19 +376,29 @@ def create_contacts_blueprint() -> Blueprint:
         """
         try:
             if not request.is_json:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": "Request must be JSON",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": "Request must be JSON",
+                        }
+                    ),
+                    400,
+                )
 
             try:
                 data = UpdateContactRequest(**request.get_json())
             except ValidationError as e:
-                return jsonify({
-                    "error": "Validation error",
-                    "message": "Invalid request data",
-                    "details": e.errors(),
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Validation error",
+                            "message": "Invalid request data",
+                            "details": e.errors(),
+                        }
+                    ),
+                    400,
+                )
 
             storage = get_storage()
             user_id = getattr(g, "user_id", None)
@@ -335,27 +407,43 @@ def create_contacts_blueprint() -> Blueprint:
             contact = storage.get_contact(contact_id)
 
             if not contact:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Contact not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Contact not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if contact.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Contact not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Contact not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check for email conflict if changing email
             if data.email and str(data.email) != contact.get("email"):
                 existing = storage.get_contact_by_email(
-                    str(data.email), user_id)
+                    str(data.email), user_id
+                )
                 if existing and existing["id"] != contact_id:
-                    return jsonify({
-                        "error": "Duplicate contact",
-                        "message": f"A contact with email '{data.email}' already exists",
-                    }), 409
+                    return (
+                        jsonify(
+                            {
+                                "error": "Duplicate contact",
+                                "message": f"Contact with email '{data.email}' exists",
+                            }
+                        ),
+                        409,
+                    )
 
             # Build update data (only include non-None values)
             update_data = data.model_dump(exclude_unset=True)
@@ -363,10 +451,15 @@ def create_contacts_blueprint() -> Blueprint:
                 update_data["email"] = str(update_data["email"])
 
             if not update_data:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": "No valid fields to update",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": "No valid fields to update",
+                        }
+                    ),
+                    400,
+                )
 
             contact = storage.update_contact(contact_id, update_data)
 
@@ -382,10 +475,15 @@ def create_contacts_blueprint() -> Blueprint:
 
         except Exception as e:
             logger.error(f"Update contact error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while updating the contact",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while updating the contact",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<contact_id>", methods=["DELETE"])
     @require_auth
@@ -407,17 +505,27 @@ def create_contacts_blueprint() -> Blueprint:
             contact = storage.get_contact(contact_id)
 
             if not contact:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Contact not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Contact not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if contact.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Contact not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Contact not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Delete contact
             storage.delete_contact(contact_id)
@@ -430,16 +538,26 @@ def create_contacts_blueprint() -> Blueprint:
                 },
             )
 
-            return jsonify({
-                "message": "Contact deleted successfully",
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Contact deleted successfully",
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Delete contact error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while deleting the contact",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while deleting the contact",
+                    }
+                ),
+                500,
+            )
 
     return bp
 

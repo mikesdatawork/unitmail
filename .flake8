@@ -1,0 +1,28 @@
+[flake8]
+# Match black's line length
+max-line-length = 88
+
+# Ignore specific errors:
+# E203: whitespace before ':' - conflicts with black's formatting
+# E402: module level import not at top of file - needed for gi.require_version()
+# W503: line break before binary operator - conflicts with black
+extend-ignore = E203, E402, W503
+
+# Exclude common directories
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    build,
+    dist,
+    *.egg-info
+
+# Per-file ignores for files with natural language content
+per-file-ignores =
+    # Sample data contains email body text that cannot be wrapped
+    src/common/sample_data.py: E501
+    # Test files contain long assertion messages and test descriptions
+    tests/test_gui_features.py: E501
+    tests/test_message_management.py: E501
+    tests/e2e/conftest.py: E501

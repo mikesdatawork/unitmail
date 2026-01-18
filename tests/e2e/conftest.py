@@ -46,16 +46,19 @@ DEFAULT_TIMEOUT = int(os.environ.get("E2E_TIMEOUT", "30000"))
 # Test user credentials
 TEST_USER_EMAIL = os.environ.get("E2E_TEST_USER_EMAIL", "test@unitmail.local")
 TEST_USER_PASSWORD = os.environ.get(
-    "E2E_TEST_USER_PASSWORD", "testpassword123")
+    "E2E_TEST_USER_PASSWORD", "testpassword123"
+)
 
 
 # =============================================================================
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class TestUser:
     """Test user data."""
+
     id: str
     email: str
     password: str
@@ -66,6 +69,7 @@ class TestUser:
 @dataclass
 class TestEmail:
     """Test email data."""
+
     id: str
     subject: str
     body: str
@@ -78,6 +82,7 @@ class TestEmail:
 @dataclass
 class TestContact:
     """Test contact data."""
+
     id: str
     name: str
     email: str
@@ -88,6 +93,7 @@ class TestContact:
 # =============================================================================
 # Event Loop Fixture
 # =============================================================================
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -101,6 +107,7 @@ def event_loop():
 # Playwright Fixtures
 # =============================================================================
 
+
 @pytest_asyncio.fixture(scope="session")
 async def playwright() -> AsyncGenerator[Playwright, None]:
     """Create a Playwright instance for the test session."""
@@ -110,7 +117,8 @@ async def playwright() -> AsyncGenerator[Playwright, None]:
 
 @pytest_asyncio.fixture(scope="session")
 async def browser_chromium(
-        playwright: Playwright) -> AsyncGenerator[Browser, None]:
+    playwright: Playwright,
+) -> AsyncGenerator[Browser, None]:
     """Launch Chromium browser for tests."""
     browser = await playwright.chromium.launch(
         headless=HEADLESS,
@@ -122,7 +130,8 @@ async def browser_chromium(
 
 @pytest_asyncio.fixture(scope="session")
 async def browser_firefox(
-        playwright: Playwright) -> AsyncGenerator[Browser, None]:
+    playwright: Playwright,
+) -> AsyncGenerator[Browser, None]:
     """Launch Firefox browser for tests."""
     browser = await playwright.firefox.launch(
         headless=HEADLESS,
@@ -134,7 +143,8 @@ async def browser_firefox(
 
 @pytest_asyncio.fixture(scope="session")
 async def browser_webkit(
-        playwright: Playwright) -> AsyncGenerator[Browser, None]:
+    playwright: Playwright,
+) -> AsyncGenerator[Browser, None]:
     """Launch WebKit browser for tests."""
     browser = await playwright.webkit.launch(
         headless=HEADLESS,
@@ -173,8 +183,11 @@ async def context(browser: Browser) -> AsyncGenerator[BrowserContext, None]:
         locale="en-US",
         timezone_id="America/New_York",
         # Enable recording for debugging
-        record_video_dir="test-results/videos" if os.environ.get(
-            "E2E_RECORD_VIDEO") else None,
+        record_video_dir=(
+            "test-results/videos"
+            if os.environ.get("E2E_RECORD_VIDEO")
+            else None
+        ),
     )
 
     # Set default timeout
@@ -202,6 +215,7 @@ async def page(context: BrowserContext) -> AsyncGenerator[Page, None]:
 # =============================================================================
 # Multi-Browser Fixtures (for cross-browser testing)
 # =============================================================================
+
 
 @pytest.fixture(params=["chromium", "firefox", "webkit"])
 def browser_name(request) -> str:
@@ -248,6 +262,7 @@ async def cross_browser_page(
 # =============================================================================
 # API Client Fixture
 # =============================================================================
+
 
 class APIClient:
     """
@@ -324,7 +339,9 @@ class APIClient:
     # Auth endpoints
     async def login(self, email: str, password: str) -> Dict[str, Any]:
         """Login and get authentication token."""
-        result = await self.post("auth/login", {"email": email, "password": password})
+        result = await self.post(
+            "auth/login", {"email": email, "password": password}
+        )
         if "token" in result:
             self.set_token(result["token"])
         return result
@@ -339,11 +356,14 @@ class APIClient:
         self, email: str, password: str, name: str
     ) -> Dict[str, Any]:
         """Register a new user."""
-        return await self.post("auth/register", {
-            "email": email,
-            "password": password,
-            "name": name,
-        })
+        return await self.post(
+            "auth/register",
+            {
+                "email": email,
+                "password": password,
+                "name": name,
+            },
+        )
 
     # User endpoints
     async def get_current_user(self) -> Dict[str, Any]:
@@ -385,13 +405,16 @@ class APIClient:
         bcc: list = None,
     ) -> Dict[str, Any]:
         """Send an email."""
-        return await self.post("emails/send", {
-            "to": to,
-            "subject": subject,
-            "body": body,
-            "cc": cc or [],
-            "bcc": bcc or [],
-        })
+        return await self.post(
+            "emails/send",
+            {
+                "to": to,
+                "subject": subject,
+                "body": body,
+                "cc": cc or [],
+                "bcc": bcc or [],
+            },
+        )
 
     async def create_test_email(
         self,
@@ -403,11 +426,14 @@ class APIClient:
         subject = subject or f"Test Email {uuid.uuid4().hex[:8]}"
         sender = sender or "sender@unitmail.local"
 
-        result = await self.post("emails/test", {
-            "subject": subject,
-            "body": body,
-            "sender": sender,
-        })
+        result = await self.post(
+            "emails/test",
+            {
+                "subject": subject,
+                "body": body,
+                "sender": sender,
+            },
+        )
 
         return TestEmail(
             id=result.get("id", str(uuid.uuid4())),
@@ -422,12 +448,14 @@ class APIClient:
         return await self.delete(f"emails/{email_id}")
 
     async def mark_email_read(
-            self, email_id: str, read: bool = True) -> Dict[str, Any]:
+        self, email_id: str, read: bool = True
+    ) -> Dict[str, Any]:
         """Mark email as read/unread."""
         return await self.patch(f"emails/{email_id}", {"is_read": read})
 
-    async def star_email(self, email_id: str,
-                         starred: bool = True) -> Dict[str, Any]:
+    async def star_email(
+        self, email_id: str, starred: bool = True
+    ) -> Dict[str, Any]:
         """Star/unstar an email."""
         return await self.patch(f"emails/{email_id}", {"is_starred": starred})
 
@@ -448,12 +476,15 @@ class APIClient:
         company: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new contact."""
-        return await self.post("contacts", {
-            "name": name,
-            "email": email,
-            "phone": phone,
-            "company": company,
-        })
+        return await self.post(
+            "contacts",
+            {
+                "name": name,
+                "email": email,
+                "phone": phone,
+                "company": company,
+            },
+        )
 
     async def create_test_contact(
         self,
@@ -499,6 +530,7 @@ async def api_client(page: Page) -> APIClient:
 # Database Fixtures
 # =============================================================================
 
+
 @pytest_asyncio.fixture
 async def test_db(api_client: APIClient) -> AsyncGenerator[None, None]:
     """
@@ -517,7 +549,8 @@ async def test_db(api_client: APIClient) -> AsyncGenerator[None, None]:
 
 @pytest_asyncio.fixture
 async def seeded_db(
-        api_client: APIClient) -> AsyncGenerator[Dict[str, Any], None]:
+    api_client: APIClient,
+) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Set up database with seed data for tests.
 
@@ -546,6 +579,7 @@ async def seeded_db(
 # =============================================================================
 # Authentication Fixtures
 # =============================================================================
+
 
 @pytest_asyncio.fixture
 async def authenticated_context(
@@ -636,6 +670,7 @@ async def logged_in_user(
 # Page Object Fixtures
 # =============================================================================
 
+
 @pytest_asyncio.fixture
 async def login_page(page: Page) -> LoginPage:
     """Create a LoginPage instance."""
@@ -670,6 +705,7 @@ async def email_reader_page(page: Page) -> EmailReaderPage:
 # Authenticated Page Object Fixtures
 # =============================================================================
 
+
 @pytest_asyncio.fixture
 async def auth_inbox_page(authenticated_page: Page) -> InboxPage:
     """Create an authenticated InboxPage instance."""
@@ -691,6 +727,7 @@ async def auth_contacts_page(authenticated_page: Page) -> ContactsPage:
 # =============================================================================
 # Utility Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def screenshot_on_failure(request, page: Page):
@@ -750,6 +787,7 @@ def temp_files(tmp_path) -> Generator[list, None, None]:
 # =============================================================================
 # Test Data Generators
 # =============================================================================
+
 
 @pytest.fixture
 def unique_email() -> str:

@@ -122,7 +122,8 @@ class Settings:
     security: SecuritySettings = field(default_factory=SecuritySettings)
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
     notifications: NotificationSettings = field(
-        default_factory=NotificationSettings)
+        default_factory=NotificationSettings
+    )
     advanced: AdvancedSettings = field(default_factory=AdvancedSettings)
 
     def to_dict(self) -> dict[str, Any]:
@@ -151,7 +152,8 @@ class Settings:
             settings.appearance = AppearanceSettings(**data["appearance"])
         if "notifications" in data:
             settings.notifications = NotificationSettings(
-                **data["notifications"])
+                **data["notifications"]
+            )
         if "advanced" in data:
             settings.advanced = AdvancedSettings(**data["advanced"])
 
@@ -195,7 +197,8 @@ class SettingsService(GObject.Object):
         self._config_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(
-            f"Settings service initialized, config path: {self._config_path}")
+            f"Settings service initialized, config path: {self._config_path}"
+        )
 
     def _get_config_path(self) -> Path:
         """Get the configuration file path."""
@@ -334,11 +337,15 @@ class SettingsService(GObject.Object):
     def _apply_date_format(self) -> None:
         """Apply current date format setting to the date format service."""
         try:
-            from client.services.date_format_service import get_date_format_service
+            from client.services.date_format_service import (
+                get_date_format_service,
+            )
+
             date_service = get_date_format_service()
             date_service.set_format(self._settings.appearance.date_format)
             logger.info(
-                f"Applied date format: {self._settings.appearance.date_format}")
+                f"Applied date format: {self._settings.appearance.date_format}"
+            )
         except Exception as e:
             logger.warning(f"Could not apply date format: {e}")
 
@@ -478,7 +485,10 @@ class SettingsService(GObject.Object):
         theme_changed = False
         date_format_changed = False
 
-        if theme_mode is not None and theme_mode != self._settings.appearance.theme_mode:
+        if (
+            theme_mode is not None
+            and theme_mode != self._settings.appearance.theme_mode
+        ):
             self._settings.appearance.theme_mode = theme_mode
             theme_changed = True
         if view_density is not None:
@@ -490,14 +500,23 @@ class SettingsService(GObject.Object):
         if show_avatars is not None:
             self._settings.appearance.show_avatars = show_avatars
         if message_preview_lines is not None:
-            self._settings.appearance.message_preview_lines = message_preview_lines
+            self._settings.appearance.message_preview_lines = (
+                message_preview_lines
+            )
         if column_width_received is not None:
-            self._settings.appearance.column_width_received = column_width_received
+            self._settings.appearance.column_width_received = (
+                column_width_received
+            )
         if column_width_from is not None:
             self._settings.appearance.column_width_from = column_width_from
         if column_width_subject is not None:
-            self._settings.appearance.column_width_subject = column_width_subject
-        if date_format is not None and date_format != self._settings.appearance.date_format:
+            self._settings.appearance.column_width_subject = (
+                column_width_subject
+            )
+        if (
+            date_format is not None
+            and date_format != self._settings.appearance.date_format
+        ):
             self._settings.appearance.date_format = date_format
             date_format_changed = True
 
@@ -509,8 +528,9 @@ class SettingsService(GObject.Object):
 
         if date_format_changed:
             self._apply_date_format()
-            self.emit("date-format-changed",
-                      self._settings.appearance.date_format)
+            self.emit(
+                "date-format-changed", self._settings.appearance.date_format
+            )
 
         self.emit("settings-changed", "appearance")
 
@@ -526,17 +546,29 @@ class SettingsService(GObject.Object):
     ) -> None:
         """Update notification settings."""
         if desktop_notifications is not None:
-            self._settings.notifications.desktop_notifications = desktop_notifications
+            self._settings.notifications.desktop_notifications = (
+                desktop_notifications
+            )
         if notification_sound is not None:
-            self._settings.notifications.notification_sound = notification_sound
+            self._settings.notifications.notification_sound = (
+                notification_sound
+            )
         if notification_sound_path is not None:
-            self._settings.notifications.notification_sound_path = notification_sound_path
+            self._settings.notifications.notification_sound_path = (
+                notification_sound_path
+            )
         if show_message_preview is not None:
-            self._settings.notifications.show_message_preview = show_message_preview
+            self._settings.notifications.show_message_preview = (
+                show_message_preview
+            )
         if notify_on_new_mail is not None:
-            self._settings.notifications.notify_on_new_mail = notify_on_new_mail
+            self._settings.notifications.notify_on_new_mail = (
+                notify_on_new_mail
+            )
         if notify_on_send_success is not None:
-            self._settings.notifications.notify_on_send_success = notify_on_send_success
+            self._settings.notifications.notify_on_send_success = (
+                notify_on_send_success
+            )
         if notify_on_error is not None:
             self._settings.notifications.notify_on_error = notify_on_error
 
@@ -567,9 +599,13 @@ class SettingsService(GObject.Object):
         if log_path is not None:
             self._settings.advanced.log_path = log_path
         if sync_interval_seconds is not None:
-            self._settings.advanced.sync_interval_seconds = sync_interval_seconds
+            self._settings.advanced.sync_interval_seconds = (
+                sync_interval_seconds
+            )
         if max_concurrent_connections is not None:
-            self._settings.advanced.max_concurrent_connections = max_concurrent_connections
+            self._settings.advanced.max_concurrent_connections = (
+                max_concurrent_connections
+            )
         if show_quota is not None:
             self._settings.advanced.show_quota = show_quota
         if debug_mode is not None:

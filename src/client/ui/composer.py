@@ -11,7 +11,8 @@ Provides a full-featured email composition interface with:
 """
 
 import gi
-gi.require_version('Gtk', '4.0')
+
+gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GObject, Gdk, Pango, GLib
 from typing import Optional, List, Callable
 from enum import Enum
@@ -23,6 +24,7 @@ from .widgets.attachment_panel import AttachmentPanel
 
 class ComposerMode(Enum):
     """Mode of the composer window."""
+
     NEW = "new"
     REPLY = "reply"
     REPLY_ALL = "reply_all"
@@ -33,6 +35,7 @@ class ComposerMode(Enum):
 @dataclass
 class EmailMessage:
     """Represents an email message for reply/forward."""
+
     message_id: Optional[str] = None
     subject: str = ""
     sender: str = ""
@@ -60,18 +63,20 @@ class ComposerWindow(Gtk.Window):
     """
 
     __gsignals__ = {
-        'send-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
-        'save-draft-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
-        'discard-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "send-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "save-draft-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "discard-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
-    def __init__(self,
-                 mode: ComposerMode = ComposerMode.NEW,
-                 original_message: Optional[EmailMessage] = None,
-                 contacts_provider: Optional[Callable[[], List[dict]]] = None,
-                 signature: str = "",
-                 application: Optional[Gtk.Application] = None,
-                 draft_message_id: Optional[str] = None):
+    def __init__(
+        self,
+        mode: ComposerMode = ComposerMode.NEW,
+        original_message: Optional[EmailMessage] = None,
+        contacts_provider: Optional[Callable[[], List[dict]]] = None,
+        signature: str = "",
+        application: Optional[Gtk.Application] = None,
+        draft_message_id: Optional[str] = None,
+    ):
         """
         Initialize the composer window.
 
@@ -81,13 +86,14 @@ class ComposerWindow(Gtk.Window):
             contacts_provider: Callable returning contacts for auto-complete
             signature: Default signature to insert
             application: Parent application
-            draft_message_id: Message ID when editing an existing draft (for update operations)
+            draft_message_id: Message ID when editing an existing draft
+                (for update operations)
         """
         super().__init__(
             title=self._get_title(mode),
             default_width=700,
             default_height=600,
-            application=application
+            application=application,
         )
 
         self._mode = mode
@@ -95,7 +101,9 @@ class ComposerWindow(Gtk.Window):
         self._contacts_provider = contacts_provider
         self._signature = signature
         self._is_modified = False
-        self._draft_message_id = draft_message_id  # For editing existing drafts
+        self._draft_message_id = (
+            draft_message_id  # For editing existing drafts
+        )
 
         # Setup window
         self._setup_header_bar()
@@ -171,8 +179,7 @@ class ComposerWindow(Gtk.Window):
         # To field
         to_row = self._create_field_row("To:")
         self.to_entry = RecipientEntry(
-            placeholder="Recipients",
-            contacts_provider=self._contacts_provider
+            placeholder="Recipients", contacts_provider=self._contacts_provider
         )
         self.to_entry.set_hexpand(True)
         to_row.append(self.to_entry)
@@ -184,7 +191,7 @@ class ComposerWindow(Gtk.Window):
         cc_row = self._create_field_row("CC:")
         self.cc_entry = RecipientEntry(
             placeholder="CC recipients",
-            contacts_provider=self._contacts_provider
+            contacts_provider=self._contacts_provider,
         )
         self.cc_entry.set_hexpand(True)
         cc_row.append(self.cc_entry)
@@ -197,7 +204,7 @@ class ComposerWindow(Gtk.Window):
         bcc_row = self._create_field_row("BCC:")
         self.bcc_entry = RecipientEntry(
             placeholder="BCC recipients",
-            contacts_provider=self._contacts_provider
+            contacts_provider=self._contacts_provider,
         )
         self.bcc_entry.set_hexpand(True)
         bcc_row.append(self.bcc_entry)
@@ -249,9 +256,11 @@ class ComposerWindow(Gtk.Window):
         self.attachment_panel.set_margin_end(12)
         self.attachment_panel.set_margin_bottom(12)
         self.attachment_panel.connect(
-            'attachments-changed', self._on_attachments_changed)
+            "attachments-changed", self._on_attachments_changed
+        )
         self.attachment_panel.connect(
-            'size-limit-exceeded', self._on_size_limit_exceeded)
+            "size-limit-exceeded", self._on_size_limit_exceeded
+        )
         self.attachment_revealer.set_child(self.attachment_panel)
         main_box.append(self.attachment_revealer)
 
@@ -397,7 +406,8 @@ class ComposerWindow(Gtk.Window):
     def _apply_styles(self):
         """Apply CSS styles."""
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
+        css_provider.load_from_data(
+            b"""
             .body-editor {
                 background-color: @view_bg_color;
                 font-family: sans-serif;
@@ -406,20 +416,21 @@ class ComposerWindow(Gtk.Window):
             .body-editor text {
                 background-color: @view_bg_color;
             }
-        """)
+        """
+        )
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
     def _connect_modification_tracking(self):
         """Connect signals to track modifications."""
-        self.to_entry.connect('recipients-changed', self._on_content_modified)
-        self.cc_entry.connect('recipients-changed', self._on_content_modified)
-        self.bcc_entry.connect('recipients-changed', self._on_content_modified)
-        self.subject_entry.connect('changed', self._on_content_modified)
-        self.body_buffer.connect('changed', self._on_content_modified)
+        self.to_entry.connect("recipients-changed", self._on_content_modified)
+        self.cc_entry.connect("recipients-changed", self._on_content_modified)
+        self.bcc_entry.connect("recipients-changed", self._on_content_modified)
+        self.subject_entry.connect("changed", self._on_content_modified)
+        self.body_buffer.connect("changed", self._on_content_modified)
 
     def _on_content_modified(self, *args):
         """Handle content modification."""
@@ -484,8 +495,8 @@ class ComposerWindow(Gtk.Window):
         quote_header = f"\n\nOn {msg.date}, {msg.sender} wrote:\n"
 
         # Quote the body
-        body_lines = msg.body.split('\n')
-        quoted_body = '\n'.join(f"> {line}" for line in body_lines)
+        body_lines = msg.body.split("\n")
+        quoted_body = "\n".join(f"> {line}" for line in body_lines)
 
         # Insert with quote formatting
         end_iter = self.body_buffer.get_end_iter()
@@ -624,11 +635,11 @@ class ComposerWindow(Gtk.Window):
     def _on_send_clicked(self, button):
         """Handle send button click."""
         if self._validate_for_send():
-            self.emit('send-requested')
+            self.emit("send-requested")
 
     def _on_save_clicked(self, button):
         """Handle save button click."""
-        self.emit('save-draft-requested')
+        self.emit("save-draft-requested")
         self._is_modified = False
         self._update_title()
 
@@ -637,7 +648,7 @@ class ComposerWindow(Gtk.Window):
         if self._is_modified:
             self._show_discard_confirmation()
         else:
-            self.emit('discard-requested')
+            self.emit("discard-requested")
             self.close()
 
     def _show_discard_confirmation(self):
@@ -645,7 +656,8 @@ class ComposerWindow(Gtk.Window):
         dialog = Gtk.AlertDialog()
         dialog.set_message("Discard Message?")
         dialog.set_detail(
-            "You have unsaved changes. Are you sure you want to discard this message?")
+            "You have unsaved changes. Are you sure you want to discard this message?"
+        )
         dialog.set_buttons(["Cancel", "Discard"])
         dialog.set_cancel_button(0)
         dialog.set_default_button(0)
@@ -656,7 +668,7 @@ class ComposerWindow(Gtk.Window):
         try:
             response = dialog.choose_finish(result)
             if response == 1:  # Discard
-                self.emit('discard-requested')
+                self.emit("discard-requested")
                 self.close()
         except GLib.Error:
             pass  # Cancelled
@@ -672,12 +684,18 @@ class ComposerWindow(Gtk.Window):
             errors.append("Some recipient addresses are invalid.")
 
         # Check CC validation if visible
-        if self.cc_revealer.get_reveal_child() and self.cc_entry.has_recipients():
+        if (
+            self.cc_revealer.get_reveal_child()
+            and self.cc_entry.has_recipients()
+        ):
             if not self.cc_entry.is_valid():
                 errors.append("Some CC addresses are invalid.")
 
         # Check BCC validation if visible
-        if self.bcc_revealer.get_reveal_child() and self.bcc_entry.has_recipients():
+        if (
+            self.bcc_revealer.get_reveal_child()
+            and self.bcc_entry.has_recipients()
+        ):
             if not self.bcc_entry.is_valid():
                 errors.append("Some BCC addresses are invalid.")
 
@@ -712,11 +730,13 @@ class ComposerWindow(Gtk.Window):
                 return True
             elif keyval == Gdk.KEY_i:
                 self.italic_button.set_active(
-                    not self.italic_button.get_active())
+                    not self.italic_button.get_active()
+                )
                 return True
             elif keyval == Gdk.KEY_u:
                 self.underline_button.set_active(
-                    not self.underline_button.get_active())
+                    not self.underline_button.get_active()
+                )
                 return True
 
         return False
@@ -731,18 +751,38 @@ class ComposerWindow(Gtk.Window):
             Dictionary with message fields
         """
         return {
-            'to': self.to_entry.get_recipients(),
-            'to_formatted': self.to_entry.get_recipients_formatted(),
-            'cc': self.cc_entry.get_recipients() if self.cc_revealer.get_reveal_child() else [],
-            'cc_formatted': self.cc_entry.get_recipients_formatted() if self.cc_revealer.get_reveal_child() else [],
-            'bcc': self.bcc_entry.get_recipients() if self.bcc_revealer.get_reveal_child() else [],
-            'bcc_formatted': self.bcc_entry.get_recipients_formatted() if self.bcc_revealer.get_reveal_child() else [],
-            'subject': self.subject_entry.get_text(),
-            'body': self._get_body_text(),
-            'body_html': self._get_body_html(),
-            'attachments': self.attachment_panel.get_attachment_paths(),
-            'in_reply_to': self._original_message.message_id if self._original_message else None,
-            'mode': self._mode.value,
+            "to": self.to_entry.get_recipients(),
+            "to_formatted": self.to_entry.get_recipients_formatted(),
+            "cc": (
+                self.cc_entry.get_recipients()
+                if self.cc_revealer.get_reveal_child()
+                else []
+            ),
+            "cc_formatted": (
+                self.cc_entry.get_recipients_formatted()
+                if self.cc_revealer.get_reveal_child()
+                else []
+            ),
+            "bcc": (
+                self.bcc_entry.get_recipients()
+                if self.bcc_revealer.get_reveal_child()
+                else []
+            ),
+            "bcc_formatted": (
+                self.bcc_entry.get_recipients_formatted()
+                if self.bcc_revealer.get_reveal_child()
+                else []
+            ),
+            "subject": self.subject_entry.get_text(),
+            "body": self._get_body_text(),
+            "body_html": self._get_body_html(),
+            "attachments": self.attachment_panel.get_attachment_paths(),
+            "in_reply_to": (
+                self._original_message.message_id
+                if self._original_message
+                else None
+            ),
+            "mode": self._mode.value,
         }
 
     def _get_body_text(self) -> str:
@@ -763,10 +803,10 @@ class ComposerWindow(Gtk.Window):
         text = self._get_body_text()
 
         # Basic HTML escaping
-        text = text.replace('&', '&amp;')
-        text = text.replace('<', '&lt;')
-        text = text.replace('>', '&gt;')
-        text = text.replace('\n', '<br>\n')
+        text = text.replace("&", "&amp;")
+        text = text.replace("<", "&lt;")
+        text = text.replace(">", "&gt;")
+        text = text.replace("\n", "<br>\n")
 
         return f"<html><body>{text}</body></html>"
 
@@ -836,9 +876,11 @@ class ComposerWindow(Gtk.Window):
 
 
 # Convenience function for creating composer windows
-def create_composer(mode: str = "new",
-                    original_message: Optional[EmailMessage] = None,
-                    **kwargs) -> ComposerWindow:
+def create_composer(
+    mode: str = "new",
+    original_message: Optional[EmailMessage] = None,
+    **kwargs,
+) -> ComposerWindow:
     """
     Create a composer window.
 
@@ -858,5 +900,6 @@ def create_composer(mode: str = "new",
         "edit": ComposerMode.EDIT,
     }
     composer_mode = mode_map.get(mode, ComposerMode.NEW)
-    return ComposerWindow(mode=composer_mode,
-                          original_message=original_message, **kwargs)
+    return ComposerWindow(
+        mode=composer_mode, original_message=original_message, **kwargs
+    )

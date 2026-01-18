@@ -30,14 +30,18 @@ logger = logging.getLogger(__name__)
 class SendMessageRequest(BaseModel):
     """Request model for sending a new message."""
 
-    to: list[EmailStr] = Field(..., min_length=1,
-                               description="Recipient addresses")
+    to: list[EmailStr] = Field(
+        ..., min_length=1, description="Recipient addresses"
+    )
     cc: list[EmailStr] = Field(
-        default_factory=list, description="CC addresses")
+        default_factory=list, description="CC addresses"
+    )
     bcc: list[EmailStr] = Field(
-        default_factory=list, description="BCC addresses")
-    subject: str = Field(default="", max_length=998,
-                         description="Message subject")
+        default_factory=list, description="BCC addresses"
+    )
+    subject: str = Field(
+        default="", max_length=998, description="Message subject"
+    )
     body_text: Optional[str] = Field(None, description="Plain text body")
     body_html: Optional[str] = Field(None, description="HTML body")
     priority: str = Field(default="normal", description="Message priority")
@@ -45,7 +49,8 @@ class SendMessageRequest(BaseModel):
         default_factory=list, description="Attachment metadata"
     )
     save_draft: bool = Field(
-        default=False, description="Save as draft instead of sending")
+        default=False, description="Save as draft instead of sending"
+    )
 
 
 class UpdateMessageRequest(BaseModel):
@@ -60,7 +65,8 @@ class ToggleStarRequest(BaseModel):
     """Request model for toggling star status."""
 
     starred: Optional[bool] = Field(
-        None, description="Set specific star state")
+        None, description="Set specific star state"
+    )
 
 
 class MarkReadRequest(BaseModel):
@@ -163,20 +169,27 @@ def create_messages_blueprint() -> Blueprint:
             # Search or filter
             if search:
                 messages = storage.search_messages(
-                    query=search, limit=per_page)
+                    query=search, limit=per_page
+                )
                 # Apply additional filters to search results
                 if user_id:
-                    messages = [m for m in messages if m.get(
-                        "user_id") == user_id]
+                    messages = [
+                        m for m in messages if m.get("user_id") == user_id
+                    ]
                 if folder_id:
-                    messages = [m for m in messages if m.get(
-                        "folder_id") == folder_id]
+                    messages = [
+                        m for m in messages if m.get("folder_id") == folder_id
+                    ]
                 if is_read is not None:
-                    messages = [m for m in messages if m.get(
-                        "is_read") == is_read]
+                    messages = [
+                        m for m in messages if m.get("is_read") == is_read
+                    ]
                 if is_starred is not None:
-                    messages = [m for m in messages if m.get(
-                        "is_starred") == is_starred]
+                    messages = [
+                        m
+                        for m in messages
+                        if m.get("is_starred") == is_starred
+                    ]
                 total = len(messages)
             else:
                 # Get messages with filters
@@ -199,24 +212,38 @@ def create_messages_blueprint() -> Blueprint:
                     is_starred=is_starred,
                 )
 
-            return jsonify({
-                "messages": [serialize_message(m) for m in messages],
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total": total,
-                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
-                    "has_next": page * per_page < total,
-                    "has_prev": page > 1,
-                },
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "messages": [serialize_message(m) for m in messages],
+                        "pagination": {
+                            "page": page,
+                            "per_page": per_page,
+                            "total": total,
+                            "total_pages": (
+                                (total + per_page - 1) // per_page
+                                if total > 0
+                                else 1
+                            ),
+                            "has_next": page * per_page < total,
+                            "has_prev": page > 1,
+                        },
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"List messages error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching messages",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching messages",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<message_id>", methods=["GET"])
     @require_auth
@@ -235,27 +262,42 @@ def create_messages_blueprint() -> Blueprint:
             message = storage.get_message(message_id)
 
             if not message:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             user_id = getattr(g, "user_id", None)
             if message.get("user_id") and message.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             return jsonify(serialize_message(message)), 200
 
         except Exception as e:
             logger.error(f"Get message error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while fetching the message",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while fetching the message",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("", methods=["POST"])
     @bp.route("/", methods=["POST"])
@@ -280,19 +322,29 @@ def create_messages_blueprint() -> Blueprint:
             Created message details.
         """
         if not request.is_json:
-            return jsonify({
-                "error": "Invalid request",
-                "message": "Request must be JSON",
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid request",
+                        "message": "Request must be JSON",
+                    }
+                ),
+                400,
+            )
 
         try:
             data = SendMessageRequest(**request.get_json())
         except ValidationError as e:
-            return jsonify({
-                "error": "Validation error",
-                "message": "Invalid request data",
-                "details": e.errors(),
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Validation error",
+                        "message": "Invalid request data",
+                        "details": e.errors(),
+                    }
+                ),
+                400,
+            )
 
         try:
             storage = get_storage()
@@ -304,8 +356,11 @@ def create_messages_blueprint() -> Blueprint:
 
             # Validate priority
             valid_priorities = ["low", "normal", "high", "urgent"]
-            priority = data.priority.lower() if data.priority.lower(
-            ) in valid_priorities else "normal"
+            priority = (
+                data.priority.lower()
+                if data.priority.lower() in valid_priorities
+                else "normal"
+            )
 
             # Determine folder and status
             if data.save_draft:
@@ -346,20 +401,25 @@ def create_messages_blueprint() -> Blueprint:
             # If not a draft, add to queue for sending
             if not data.save_draft:
                 all_recipients = (
-                    [str(addr) for addr in data.to] +
-                    [str(addr) for addr in data.cc] +
-                    [str(addr) for addr in data.bcc]
+                    [str(addr) for addr in data.to]
+                    + [str(addr) for addr in data.cc]
+                    + [str(addr) for addr in data.bcc]
                 )
                 for recipient in all_recipients:
-                    queue_priority = 50 if priority == "high" else (
-                        100 if priority == "urgent" else 0)
-                    storage.create_queue_item({
-                        "message_id": message["id"],
-                        "user_id": user_id,
-                        "recipient": recipient,
-                        "status": "pending",
-                        "priority": queue_priority,
-                    })
+                    queue_priority = (
+                        50
+                        if priority == "high"
+                        else (100 if priority == "urgent" else 0)
+                    )
+                    storage.create_queue_item(
+                        {
+                            "message_id": message["id"],
+                            "user_id": user_id,
+                            "recipient": recipient,
+                            "status": "pending",
+                            "priority": queue_priority,
+                        }
+                    )
 
             logger.info(
                 "Message created",
@@ -370,17 +430,27 @@ def create_messages_blueprint() -> Blueprint:
                 },
             )
 
-            return jsonify({
-                "message": serialize_message(message),
-                "queued": not data.save_draft,
-            }), 201
+            return (
+                jsonify(
+                    {
+                        "message": serialize_message(message),
+                        "queued": not data.save_draft,
+                    }
+                ),
+                201,
+            )
 
         except Exception as e:
             logger.error(f"Send message error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while sending the message",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while sending the message",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<message_id>", methods=["PUT"])
     @require_auth
@@ -401,19 +471,29 @@ def create_messages_blueprint() -> Blueprint:
         """
         try:
             if not request.is_json:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": "Request must be JSON",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": "Request must be JSON",
+                        }
+                    ),
+                    400,
+                )
 
             try:
                 data = UpdateMessageRequest(**request.get_json())
             except ValidationError as e:
-                return jsonify({
-                    "error": "Validation error",
-                    "message": "Invalid request data",
-                    "details": e.errors(),
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Validation error",
+                            "message": "Invalid request data",
+                            "details": e.errors(),
+                        }
+                    ),
+                    400,
+                )
 
             storage = get_storage()
             user_id = getattr(g, "user_id", None)
@@ -422,17 +502,27 @@ def create_messages_blueprint() -> Blueprint:
             message = storage.get_message(message_id)
 
             if not message:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if message.get("user_id") and message.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Build update data
             update_data = {}
@@ -441,10 +531,15 @@ def create_messages_blueprint() -> Blueprint:
                 # Verify folder exists
                 folder = storage.get_folder_by_id(data.folder_id)
                 if not folder:
-                    return jsonify({
-                        "error": "Invalid folder",
-                        "message": "Folder not found",
-                    }), 400
+                    return (
+                        jsonify(
+                            {
+                                "error": "Invalid folder",
+                                "message": "Folder not found",
+                            }
+                        ),
+                        400,
+                    )
                 update_data["folder_id"] = data.folder_id
 
             if data.is_read is not None:
@@ -454,10 +549,15 @@ def create_messages_blueprint() -> Blueprint:
                 update_data["is_starred"] = data.is_starred
 
             if not update_data:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": "No valid fields to update",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": "No valid fields to update",
+                        }
+                    ),
+                    400,
+                )
 
             # Update message
             message = storage.update_message(message_id, update_data)
@@ -466,10 +566,15 @@ def create_messages_blueprint() -> Blueprint:
 
         except Exception as e:
             logger.error(f"Update message error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while updating the message",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while updating the message",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<message_id>", methods=["DELETE"])
     @require_auth
@@ -487,8 +592,9 @@ def create_messages_blueprint() -> Blueprint:
             Success message.
         """
         try:
-            permanent = request.args.get(
-                "permanent", "false").lower() == "true"
+            permanent = (
+                request.args.get("permanent", "false").lower() == "true"
+            )
 
             storage = get_storage()
             user_id = getattr(g, "user_id", None)
@@ -497,17 +603,27 @@ def create_messages_blueprint() -> Blueprint:
             message = storage.get_message(message_id)
 
             if not message:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if message.get("user_id") and message.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             if permanent:
                 # Permanently delete
@@ -528,17 +644,27 @@ def create_messages_blueprint() -> Blueprint:
                     # No trash folder or error, permanently delete
                     storage.delete_message(message_id)
 
-            return jsonify({
-                "message": "Message deleted successfully",
-                "permanent": permanent,
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Message deleted successfully",
+                        "permanent": permanent,
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Delete message error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while deleting the message",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while deleting the message",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<message_id>/star", methods=["POST"])
     @require_auth
@@ -563,39 +689,60 @@ def create_messages_blueprint() -> Blueprint:
             message = storage.get_message(message_id)
 
             if not message:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if message.get("user_id") and message.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check if specific value was provided
             data = request.get_json(silent=True) or {}
             if "starred" in data:
                 new_starred = bool(data["starred"])
                 message = storage.update_message(
-                    message_id, {"is_starred": new_starred})
+                    message_id, {"is_starred": new_starred}
+                )
             else:
                 # Toggle
                 message = storage.toggle_starred(message_id)
 
-            return jsonify({
-                "id": message["id"],
-                "is_starred": message.get("is_starred", False),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "id": message["id"],
+                        "is_starred": message.get("is_starred", False),
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Toggle star error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while updating starred status",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while updating starred status",
+                    }
+                ),
+                500,
+            )
 
     @bp.route("/<message_id>/read", methods=["POST"])
     @require_auth
@@ -614,19 +761,29 @@ def create_messages_blueprint() -> Blueprint:
         """
         try:
             if not request.is_json:
-                return jsonify({
-                    "error": "Invalid request",
-                    "message": "Request must be JSON",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Invalid request",
+                            "message": "Request must be JSON",
+                        }
+                    ),
+                    400,
+                )
 
             try:
                 data = MarkReadRequest(**request.get_json())
             except ValidationError as e:
-                return jsonify({
-                    "error": "Validation error",
-                    "message": "Invalid request data",
-                    "details": e.errors(),
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "error": "Validation error",
+                            "message": "Invalid request data",
+                            "details": e.errors(),
+                        }
+                    ),
+                    400,
+                )
 
             storage = get_storage()
             user_id = getattr(g, "user_id", None)
@@ -635,17 +792,27 @@ def create_messages_blueprint() -> Blueprint:
             message = storage.get_message(message_id)
 
             if not message:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Check ownership
             if message.get("user_id") and message.get("user_id") != user_id:
-                return jsonify({
-                    "error": "Not found",
-                    "message": "Message not found",
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "error": "Not found",
+                            "message": "Message not found",
+                        }
+                    ),
+                    404,
+                )
 
             # Update read status
             if data.is_read:
@@ -653,17 +820,27 @@ def create_messages_blueprint() -> Blueprint:
             else:
                 message = storage.mark_as_unread(message_id)
 
-            return jsonify({
-                "id": message["id"],
-                "is_read": message.get("is_read", False),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "id": message["id"],
+                        "is_read": message.get("is_read", False),
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             logger.error(f"Mark read error: {e}")
-            return jsonify({
-                "error": "Server error",
-                "message": "An error occurred while updating read status",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "error": "Server error",
+                        "message": "An error occurred while updating read status",
+                    }
+                ),
+                500,
+            )
 
     return bp
 

@@ -32,6 +32,7 @@ TEST_BODY = "This is the body of the test email."
 # Compose New Email Tests
 # =============================================================================
 
+
 class TestComposeNewEmail:
     """Tests for composing new emails."""
 
@@ -127,6 +128,7 @@ class TestComposeNewEmail:
 # Adding Recipients Tests
 # =============================================================================
 
+
 class TestAddRecipients:
     """Tests for adding recipients to emails."""
 
@@ -217,7 +219,9 @@ class TestAddRecipients:
         compose_page.page = authenticated_page
         await compose_page.goto()
 
-        await compose_page.add_recipients_to([TEST_RECIPIENT, TEST_RECIPIENT_2])
+        await compose_page.add_recipients_to(
+            [TEST_RECIPIENT, TEST_RECIPIENT_2]
+        )
 
         initial_count = await compose_page.get_to_recipient_count()
 
@@ -253,8 +257,7 @@ class TestAddRecipients:
         """Test recipient autocomplete from contacts."""
         # Create a contact first
         _contact = await api_client.create_test_contact(  # noqa: F841
-            name="John Doe",
-            email="john.doe@example.com"
+            name="John Doe", email="john.doe@example.com"
         )
 
         compose_page.page = authenticated_page
@@ -279,12 +282,16 @@ class TestAddRecipients:
 # Attachments Tests
 # =============================================================================
 
+
 class TestAttachments:
     """Tests for email attachments."""
 
     @pytest.mark.asyncio
     async def test_attach_single_file(
-        self, authenticated_page: Page, compose_page: ComposePage, temp_file: str
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        temp_file: str,
     ):
         """Test attaching a single file."""
         compose_page.page = authenticated_page
@@ -297,7 +304,10 @@ class TestAttachments:
 
     @pytest.mark.asyncio
     async def test_attach_multiple_files(
-        self, authenticated_page: Page, compose_page: ComposePage, temp_files: list
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        temp_files: list,
     ):
         """Test attaching multiple files."""
         compose_page.page = authenticated_page
@@ -310,7 +320,10 @@ class TestAttachments:
 
     @pytest.mark.asyncio
     async def test_remove_attachment(
-        self, authenticated_page: Page, compose_page: ComposePage, temp_file: str
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        temp_file: str,
     ):
         """Test removing an attachment."""
         compose_page.page = authenticated_page
@@ -327,7 +340,10 @@ class TestAttachments:
 
     @pytest.mark.asyncio
     async def test_attachment_shows_filename(
-        self, authenticated_page: Page, compose_page: ComposePage, temp_file: str
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        temp_file: str,
     ):
         """Test that attachment shows filename."""
         compose_page.page = authenticated_page
@@ -337,12 +353,16 @@ class TestAttachments:
 
         # Check filename is displayed
         import os
+
         filename = os.path.basename(temp_file)
         await compose_page.assert_attachment_added(filename)
 
     @pytest.mark.asyncio
     async def test_attachment_via_drag_drop(
-        self, authenticated_page: Page, compose_page: ComposePage, temp_file: str
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        temp_file: str,
     ):
         """Test attaching file via drag and drop."""
         compose_page.page = authenticated_page
@@ -370,6 +390,7 @@ class TestAttachments:
 # Save Draft Tests
 # =============================================================================
 
+
 class TestSaveDraft:
     """Tests for saving email drafts."""
 
@@ -394,7 +415,10 @@ class TestSaveDraft:
 
     @pytest.mark.asyncio
     async def test_draft_appears_in_drafts_folder(
-        self, authenticated_page: Page, compose_page: ComposePage, inbox_page: InboxPage
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        inbox_page: InboxPage,
     ):
         """Test that saved draft appears in Drafts folder."""
         compose_page.page = authenticated_page
@@ -420,7 +444,10 @@ class TestSaveDraft:
 
     @pytest.mark.asyncio
     async def test_edit_draft(
-        self, authenticated_page: Page, compose_page: ComposePage, inbox_page: InboxPage
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        inbox_page: InboxPage,
     ):
         """Test editing a saved draft."""
         compose_page.page = authenticated_page
@@ -451,8 +478,11 @@ class TestSaveDraft:
 
     @pytest.mark.asyncio
     async def test_draft_preserves_attachments(
-        self, authenticated_page: Page, compose_page: ComposePage,
-        inbox_page: InboxPage, temp_file: str
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        inbox_page: InboxPage,
+        temp_file: str,
     ):
         """Test that draft preserves attachments."""
         compose_page.page = authenticated_page
@@ -502,6 +532,7 @@ class TestSaveDraft:
 # Send Email Tests
 # =============================================================================
 
+
 class TestSendEmail:
     """Tests for sending emails."""
 
@@ -545,7 +576,10 @@ class TestSendEmail:
 
     @pytest.mark.asyncio
     async def test_send_email_with_attachment(
-        self, authenticated_page: Page, compose_page: ComposePage, temp_file: str
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        temp_file: str,
     ):
         """Test sending email with attachment."""
         compose_page.page = authenticated_page
@@ -563,7 +597,10 @@ class TestSendEmail:
 
     @pytest.mark.asyncio
     async def test_send_email_appears_in_sent(
-        self, authenticated_page: Page, compose_page: ComposePage, inbox_page: InboxPage
+        self,
+        authenticated_page: Page,
+        compose_page: ComposePage,
+        inbox_page: InboxPage,
     ):
         """Test that sent email appears in Sent folder."""
         compose_page.page = authenticated_page
@@ -623,6 +660,7 @@ class TestSendEmail:
 # =============================================================================
 # Rich Text Formatting Tests
 # =============================================================================
+
 
 class TestRichTextFormatting:
     """Tests for rich text email composition."""
@@ -691,13 +729,17 @@ class TestRichTextFormatting:
 # Reply and Forward Tests
 # =============================================================================
 
+
 class TestReplyAndForward:
     """Tests for reply and forward functionality."""
 
     @pytest.mark.asyncio
     async def test_reply_prefills_recipient(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        compose_page: ComposePage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        compose_page: ComposePage,
+        api_client,
     ):
         """Test that reply prefills the original sender as recipient."""
         # Create test email
@@ -714,6 +756,7 @@ class TestReplyAndForward:
 
         # Click reply
         from pages import EmailReaderPage
+
         reader = EmailReaderPage(authenticated_page)
         await reader.reply()
 
@@ -722,8 +765,11 @@ class TestReplyAndForward:
 
     @pytest.mark.asyncio
     async def test_reply_includes_quoted_text(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        compose_page: ComposePage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        compose_page: ComposePage,
+        api_client,
     ):
         """Test that reply includes quoted original message."""
         _test_email = await api_client.create_test_email(  # noqa: F841
@@ -738,17 +784,23 @@ class TestReplyAndForward:
         await inbox_page.click_email_by_subject("Quote Test")
 
         from pages import EmailReaderPage
+
         reader = EmailReaderPage(authenticated_page)
         await reader.reply()
 
         # Body should contain quoted text
-        _body_text = await compose_page.body_editor.text_content()  # noqa: F841
+        _body_text = (  # noqa: F841
+            await compose_page.body_editor.text_content()
+        )
         # Document expected quote format
 
     @pytest.mark.asyncio
     async def test_forward_prefills_subject(
-        self, authenticated_page: Page, inbox_page: InboxPage,
-        compose_page: ComposePage, api_client
+        self,
+        authenticated_page: Page,
+        inbox_page: InboxPage,
+        compose_page: ComposePage,
+        api_client,
     ):
         """Test that forward prefills subject with Fwd: prefix."""
         _test_email = await api_client.create_test_email(  # noqa: F841
@@ -762,6 +814,7 @@ class TestReplyAndForward:
         await inbox_page.click_email_by_subject("Forward Test")
 
         from pages import EmailReaderPage
+
         reader = EmailReaderPage(authenticated_page)
         await reader.forward()
 
@@ -772,6 +825,7 @@ class TestReplyAndForward:
 # =============================================================================
 # Accessibility Tests
 # =============================================================================
+
 
 class TestComposeAccessibility:
     """Accessibility tests for compose functionality."""
@@ -802,7 +856,9 @@ class TestComposeAccessibility:
 
         # Check for labels or aria-labels on key fields
         to_label = await compose_page.to_input.get_attribute("aria-label")
-        to_placeholder = await compose_page.to_input.get_attribute("placeholder")
+        to_placeholder = await compose_page.to_input.get_attribute(
+            "placeholder"
+        )
 
         assert to_label or to_placeholder  # Should have some label
 
@@ -815,5 +871,7 @@ class TestComposeAccessibility:
         await compose_page.goto()
 
         # Send button might be disabled without recipient
-        _is_disabled = await compose_page.send_button.is_disabled()  # noqa: F841
+        _is_disabled = (  # noqa: F841
+            await compose_page.send_button.is_disabled()
+        )
         # Document expected button state behavior

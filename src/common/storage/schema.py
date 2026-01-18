@@ -20,6 +20,7 @@ from enum import Enum
 
 class FolderType(str, Enum):
     """Email folder types."""
+
     INBOX = "inbox"
     SENT = "sent"
     DRAFTS = "drafts"
@@ -31,6 +32,7 @@ class FolderType(str, Enum):
 
 class MessageStatus(str, Enum):
     """Email message status."""
+
     DRAFT = "draft"
     QUEUED = "queued"
     SENDING = "sending"
@@ -42,6 +44,7 @@ class MessageStatus(str, Enum):
 
 class MessagePriority(str, Enum):
     """Email message priority levels."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -231,15 +234,27 @@ CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
 END;
 
 CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
-    INSERT INTO messages_fts(messages_fts, rowid, subject, body_text, from_address, to_addresses)
-    VALUES ('delete', OLD.rowid, OLD.subject, OLD.body_text, OLD.from_address, OLD.to_addresses);
+    INSERT INTO messages_fts(
+        messages_fts, rowid, subject, body_text, from_address, to_addresses
+    ) VALUES (
+        'delete', OLD.rowid, OLD.subject, OLD.body_text,
+        OLD.from_address, OLD.to_addresses
+    );
 END;
 
 CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
-    INSERT INTO messages_fts(messages_fts, rowid, subject, body_text, from_address, to_addresses)
-    VALUES ('delete', OLD.rowid, OLD.subject, OLD.body_text, OLD.from_address, OLD.to_addresses);
-    INSERT INTO messages_fts(rowid, subject, body_text, from_address, to_addresses)
-    VALUES (NEW.rowid, NEW.subject, NEW.body_text, NEW.from_address, NEW.to_addresses);
+    INSERT INTO messages_fts(
+        messages_fts, rowid, subject, body_text, from_address, to_addresses
+    ) VALUES (
+        'delete', OLD.rowid, OLD.subject, OLD.body_text,
+        OLD.from_address, OLD.to_addresses
+    );
+    INSERT INTO messages_fts(
+        rowid, subject, body_text, from_address, to_addresses
+    ) VALUES (
+        NEW.rowid, NEW.subject, NEW.body_text,
+        NEW.from_address, NEW.to_addresses
+    );
 END;
 """
 
@@ -278,15 +293,18 @@ CREATE INDEX IF NOT EXISTS idx_contacts_frequency ON contacts(contact_frequency 
 
 -- Queue indexes
 CREATE INDEX IF NOT EXISTS idx_queue_status ON queue(status);
-CREATE INDEX IF NOT EXISTS idx_queue_priority ON queue(priority DESC, created_at);
-CREATE INDEX IF NOT EXISTS idx_queue_next_attempt ON queue(next_attempt_at) WHERE next_attempt_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_queue_priority
+    ON queue(priority DESC, created_at);
+CREATE INDEX IF NOT EXISTS idx_queue_next_attempt
+    ON queue(next_attempt_at) WHERE next_attempt_at IS NOT NULL;
 
 -- Config indexes
 CREATE INDEX IF NOT EXISTS idx_config_user_key ON config(user_id, key);
 
 -- Token blacklist indexes
 CREATE INDEX IF NOT EXISTS idx_token_blacklist_jti ON token_blacklist(jti);
-CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at ON token_blacklist(expires_at);
+CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at
+    ON token_blacklist(expires_at);
 """
 
 # Default system folders

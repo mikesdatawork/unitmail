@@ -429,7 +429,8 @@ class ComposePage(BasePage):
         await expect(attachment.first).to_be_visible()
 
     async def assert_validation_error(
-            self, error_text: Optional[str] = None) -> None:
+        self, error_text: Optional[str] = None
+    ) -> None:
         """Assert that validation error is shown."""
         await expect(self.validation_errors.first).to_be_visible()
         if error_text:

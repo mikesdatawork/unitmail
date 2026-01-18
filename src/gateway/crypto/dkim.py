@@ -19,7 +19,10 @@ import dns.resolver
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import (
+    RSAPrivateKey,
+    RSAPublicKey,
+)
 
 from src.common.exceptions import CryptoError, DNSLookupError, SignatureError
 
@@ -217,7 +220,8 @@ class DKIMSigner:
             )
 
             logger.info(
-                "Generated new DKIM key pair with %d-bit RSA", key_size)
+                "Generated new DKIM key pair with %d-bit RSA", key_size
+            )
 
             return DKIMKeyPair(
                 private_key=private_key,
@@ -247,8 +251,7 @@ class DKIMSigner:
         lines = pem_str.strip().split("\n")
         # Remove header and footer lines
         key_data = "".join(
-            line for line in lines
-            if not line.startswith("-----")
+            line for line in lines if not line.startswith("-----")
         )
 
         # Format as DKIM DNS record
@@ -357,7 +360,8 @@ class DKIMSigner:
             # Determine headers to sign
             if signed_headers is None:
                 signed_headers = [
-                    h.lower() for h in self.DEFAULT_SIGNED_HEADERS
+                    h.lower()
+                    for h in self.DEFAULT_SIGNED_HEADERS
                     if h.lower() in [k.lower() for k in msg.keys()]
                 ]
             else:
@@ -392,7 +396,8 @@ class DKIMSigner:
 
             # Build header string to sign (without b= value)
             sig_header_value = sig.to_header().replace(
-                f"b={sig.signature}", "b=")
+                f"b={sig.signature}", "b="
+            )
 
             # Canonicalize headers
             headers_to_sign = []
@@ -539,8 +544,9 @@ class DKIMVerifier:
             elif tag == "s":
                 sig.selector = value
             elif tag == "h":
-                sig.signed_headers = [h.strip().lower()
-                                      for h in value.split(":")]
+                sig.signed_headers = [
+                    h.strip().lower() for h in value.split(":")
+                ]
             elif tag == "bh":
                 sig.body_hash = value.replace(" ", "").replace("\t", "")
             elif tag == "b":
@@ -563,7 +569,8 @@ class DKIMVerifier:
             raise SignatureError("Missing body hash (bh=) in DKIM signature")
         if not sig.signed_headers:
             raise SignatureError(
-                "Missing signed headers (h=) in DKIM signature")
+                "Missing signed headers (h=) in DKIM signature"
+            )
         if "from" not in sig.signed_headers:
             raise SignatureError("'From' header must be signed")
 
@@ -589,11 +596,13 @@ class DKIMVerifier:
         try:
             answers = self._resolver.resolve(dkim_domain, "TXT")
         except dns.resolver.NXDOMAIN:
-            raise DNSLookupError(dkim_domain, "TXT", {
-                                 "reason": "Domain not found"})
+            raise DNSLookupError(
+                dkim_domain, "TXT", {"reason": "Domain not found"}
+            )
         except dns.resolver.NoAnswer:
-            raise DNSLookupError(dkim_domain, "TXT", {
-                                 "reason": "No TXT record"})
+            raise DNSLookupError(
+                dkim_domain, "TXT", {"reason": "No TXT record"}
+            )
         except dns.resolver.Timeout:
             raise DNSLookupError(dkim_domain, "TXT", {"reason": "Timeout"})
         except Exception as e:
@@ -615,7 +624,8 @@ class DKIMVerifier:
 
         if not key_data:
             raise SignatureError(
-                f"No public key (p=) in DKIM record for {dkim_domain}")
+                f"No public key (p=) in DKIM record for {dkim_domain}"
+            )
 
         if key_data == "":
             raise SignatureError(f"DKIM key revoked for {dkim_domain}")
@@ -725,7 +735,7 @@ class DKIMVerifier:
 
             # Apply body length limit if specified
             if sig.body_length is not None:
-                body = body[:sig.body_length]
+                body = body[: sig.body_length]
 
             # Verify body hash
             canonical_body = self._canonicalize_body(body, body_canon)
@@ -826,26 +836,30 @@ def generate_dkim_keys(
     """
     key_pair = DKIMSigner.generate_key_pair(key_size)
     dns_record = DKIMSigner.generate_dns_record(
-        key_pair.public_key_pem, selector)
+        key_pair.public_key_pem, selector
+    )
 
     if output_dir:
         import os
+
         os.makedirs(output_dir, exist_ok=True)
 
         private_key_path = os.path.join(
-            output_dir, f"{selector}.{domain}.private.pem")
+            output_dir, f"{selector}.{domain}.private.pem"
+        )
         public_key_path = os.path.join(
-            output_dir, f"{selector}.{domain}.public.pem")
+            output_dir, f"{selector}.{domain}.public.pem"
+        )
         dns_record_path = os.path.join(
-            output_dir, f"{selector}.{domain}.dns.txt")
+            output_dir, f"{selector}.{domain}.dns.txt"
+        )
 
         with open(private_key_path, "wb") as f:
             f.write(key_pair.private_key_pem)
         with open(public_key_path, "wb") as f:
             f.write(key_pair.public_key_pem)
         with open(dns_record_path, "w") as f:
-            f.write(
-                f"{selector}._domainkey.{domain} IN TXT \"{dns_record}\"\n")
+            f.write(f'{selector}._domainkey.{domain} IN TXT "{dns_record}"\n')
 
         logger.info("Saved DKIM keys to %s", output_dir)
 

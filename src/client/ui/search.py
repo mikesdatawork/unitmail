@@ -136,7 +136,8 @@ class SearchDialog(Adw.Window):
         # Data stores
         self._folder_store: Gio.ListStore = Gio.ListStore.new(FolderItem)
         self._saved_search_store: Gio.ListStore = Gio.ListStore.new(
-            SavedSearchItem)
+            SavedSearchItem
+        )
 
         # Build UI
         self._build_ui()
@@ -248,7 +249,8 @@ class SearchDialog(Adw.Window):
             title="Subject contains",
         )
         self._subject_entry.connect(
-            "entry-activated", self._on_entry_activated)
+            "entry-activated", self._on_entry_activated
+        )
         content_group.add(self._subject_entry)
 
         self._body_entry = Adw.EntryRow(
@@ -315,8 +317,12 @@ class SearchDialog(Adw.Window):
             spacing=8,
             valign=Gtk.Align.CENTER,
         )
-        for label, days in [("Today", 0), ("Week", 7),
-                            ("Month", 30), ("Year", 365)]:
+        for label, days in [
+            ("Today", 0),
+            ("Week", 7),
+            ("Month", 30),
+            ("Year", 365),
+        ]:
             btn = Gtk.Button(
                 label=label,
                 css_classes=["flat"],
@@ -469,8 +475,9 @@ class SearchDialog(Adw.Window):
         )
 
         selection_model = Gtk.SingleSelection(model=self._saved_search_store)
-        selection_model.connect("selection-changed",
-                                self._on_saved_search_selected)
+        selection_model.connect(
+            "selection-changed", self._on_saved_search_selected
+        )
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_saved_search_item_setup)
@@ -563,7 +570,11 @@ class SearchDialog(Adw.Window):
             children.append(child)
             child = child.get_next_sibling()
 
-        _icon, content_box, delete_button = children[0], children[1], children[2]  # noqa: F841
+        _icon, content_box, delete_button = (  # noqa: F841
+            children[0],
+            children[1],
+            children[2],
+        )
 
         content_children = []
         child = content_box.get_first_child()
@@ -628,7 +639,8 @@ class SearchDialog(Adw.Window):
             css_classes=["boxed-list"],
         )
         self._history_list.connect(
-            "row-activated", self._on_history_row_activated)
+            "row-activated", self._on_history_row_activated
+        )
 
         scrolled.set_child(self._history_list)
         box.append(scrolled)
@@ -787,7 +799,8 @@ class SearchDialog(Adw.Window):
         calendar.connect(
             "day-selected",
             lambda cal: self._on_calendar_date_selected(
-                cal, popover, callback),
+                cal, popover, callback
+            ),
         )
 
         popover.set_child(calendar)
@@ -802,7 +815,8 @@ class SearchDialog(Adw.Window):
         """Handle calendar date selection."""
         date = calendar.get_date()
         selected_date = datetime(
-            date.get_year(), date.get_month(), date.get_day_of_month())
+            date.get_year(), date.get_month(), date.get_day_of_month()
+        )
         callback(selected_date)
         popover.popdown()
 
@@ -835,8 +849,9 @@ class SearchDialog(Adw.Window):
         now = datetime.now()
         if days == 0:
             # Today
-            self._set_date_from(now.replace(
-                hour=0, minute=0, second=0, microsecond=0))
+            self._set_date_from(
+                now.replace(hour=0, minute=0, second=0, microsecond=0)
+            )
             self._set_date_to(now)
         else:
             # Past N days
@@ -870,8 +885,11 @@ class SearchDialog(Adw.Window):
             title=f"Search '{name}' saved",
             timeout=2,
         )
-        self.get_root().add_toast(toast) if hasattr(
-            self.get_root(), 'add_toast') else None
+        (
+            self.get_root().add_toast(toast)
+            if hasattr(self.get_root(), "add_toast")
+            else None
+        )
 
     def _on_saved_search_selected(
         self,
@@ -995,7 +1013,8 @@ class SearchDialog(Adw.Window):
 
         # Status switches
         self._attachments_row.set_active(
-            criteria.get("has_attachments", False))
+            criteria.get("has_attachments", False)
+        )
         self._starred_row.set_active(criteria.get("is_starred", False))
         self._unread_row.set_active(criteria.get("is_unread", False))
         self._encrypted_row.set_active(criteria.get("is_encrypted", False))

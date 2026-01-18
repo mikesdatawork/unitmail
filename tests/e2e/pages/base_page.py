@@ -30,7 +30,8 @@ class BasePage:
     def main_content(self) -> Locator:
         """Main content area."""
         return self.page.locator(
-            "main, [data-testid='main-content'], .main-content")
+            "main, [data-testid='main-content'], .main-content"
+        )
 
     @property
     def loading_indicator(self) -> Locator:
@@ -104,14 +105,17 @@ class BasePage:
     async def wait_for_loading_complete(self, timeout: int = 30000) -> None:
         """Wait for loading indicator to disappear."""
         try:
-            await self.loading_indicator.wait_for(state="hidden", timeout=timeout)
+            await self.loading_indicator.wait_for(
+                state="hidden", timeout=timeout
+            )
         except Exception:
             # Loading indicator might not exist, which is fine
             pass
 
     # Common interaction methods
-    async def click_and_wait(self, locator: Locator,
-                             timeout: int = 5000) -> None:
+    async def click_and_wait(
+        self, locator: Locator, timeout: int = 5000
+    ) -> None:
         """Click an element and wait for navigation/network."""
         await locator.click()
         await self.page.wait_for_load_state("networkidle", timeout=timeout)
@@ -132,8 +136,9 @@ class BasePage:
         """Select an option from a dropdown."""
         await locator.select_option(value)
 
-    async def check_checkbox(self, locator: Locator,
-                             check: bool = True) -> None:
+    async def check_checkbox(
+        self, locator: Locator, check: bool = True
+    ) -> None:
         """Check or uncheck a checkbox."""
         if check:
             await locator.check()
@@ -165,21 +170,25 @@ class BasePage:
         """Assert that element contains specific text."""
         await expect(locator).to_contain_text(text)
 
-    async def assert_has_class(self, locator: Locator,
-                               class_name: str) -> None:
+    async def assert_has_class(
+        self, locator: Locator, class_name: str
+    ) -> None:
         """Assert that element has a specific class."""
         await expect(locator).to_have_class(f"*{class_name}*")
 
     # Toast/notification helpers
     async def wait_for_toast(
-            self, text: Optional[str] = None, timeout: int = 5000) -> None:
+        self, text: Optional[str] = None, timeout: int = 5000
+    ) -> None:
         """Wait for a toast notification to appear."""
         if text:
-            await expect(self.toast_notification.filter(has_text=text)).to_be_visible(
+            await expect(
+                self.toast_notification.filter(has_text=text)
+            ).to_be_visible(timeout=timeout)
+        else:
+            await expect(self.toast_notification.first).to_be_visible(
                 timeout=timeout
             )
-        else:
-            await expect(self.toast_notification.first).to_be_visible(timeout=timeout)
 
     async def dismiss_toast(self) -> None:
         """Dismiss any visible toast notification."""

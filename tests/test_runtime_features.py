@@ -11,9 +11,9 @@ import os
 import logging
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -23,8 +23,9 @@ def test_application_initialization():
 
     try:
         import gi
-        gi.require_version('Gtk', '4.0')
-        gi.require_version('Adw', '1')
+
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
         from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
@@ -40,6 +41,7 @@ def test_application_initialization():
     except Exception as e:
         logger.error(f"✗ Application initialization failed: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -50,8 +52,9 @@ def test_main_window_creation():
 
     try:
         import gi
-        gi.require_version('Gtk', '4.0')
-        gi.require_version('Adw', '1')
+
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
         from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
@@ -63,13 +66,13 @@ def test_main_window_creation():
         logger.info("✓ Main window created successfully")
 
         # Verify window components
-        assert hasattr(window, '_folder_store')
+        assert hasattr(window, "_folder_store")
         logger.info("✓ Folder store initialized")
 
-        assert hasattr(window, '_message_store')
+        assert hasattr(window, "_message_store")
         logger.info("✓ Message store initialized")
 
-        assert hasattr(window, '_search_entry')
+        assert hasattr(window, "_search_entry")
         logger.info("✓ Search entry initialized")
 
         # Check that sample data loaded
@@ -82,6 +85,7 @@ def test_main_window_creation():
     except Exception as e:
         logger.error(f"✗ Main window creation failed: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -92,8 +96,9 @@ def test_message_operations():
 
     try:
         import gi
-        gi.require_version('Gtk', '4.0')
-        gi.require_version('Adw', '1')
+
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
         from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
@@ -114,7 +119,8 @@ def test_message_operations():
         # Test favorite toggle
         initial_starred = first_message.is_starred
         window._set_message_starred(
-            first_message.message_id, not initial_starred)
+            first_message.message_id, not initial_starred
+        )
         assert first_message.is_starred == (not initial_starred)
         logger.info("✓ Favorite toggle works")
 
@@ -134,6 +140,7 @@ def test_message_operations():
     except Exception as e:
         logger.error(f"✗ Message operations failed: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -144,8 +151,9 @@ def test_search_functionality():
 
     try:
         import gi
-        gi.require_version('Gtk', '4.0')
-        gi.require_version('Adw', '1')
+
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
         from gi.repository import Gtk, Adw, Gio  # noqa: F401
 
         from client.ui.application import UnitMailApplication
@@ -167,17 +175,22 @@ def test_search_functionality():
         window._filter_messages("alice")
         filtered_count = window._message_store.get_n_items()
         logger.info(f"✓ Filtered to {filtered_count} messages")
-        assert filtered_count <= initial_count, "Filtered count should be <= initial count"
+        assert (
+            filtered_count <= initial_count
+        ), "Filtered count should be <= initial count"
 
         # Clear search
         window._filter_messages("")
         restored_count = window._message_store.get_n_items()
-        assert restored_count == initial_count, f"Expected {initial_count}, got {restored_count}"
+        assert (
+            restored_count == initial_count
+        ), f"Expected {initial_count}, got {restored_count}"
         logger.info("✓ Search filter and clear works")
 
     except Exception as e:
         logger.error(f"✗ Search functionality failed: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -206,15 +219,16 @@ def test_view_theme_switching():
     except Exception as e:
         logger.error(f"✗ View theme switching failed: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
 
 def main():
     """Run all runtime tests."""
-    print("="*70)
+    print("=" * 70)
     print("Runtime Feature Testing".center(70))
-    print("="*70)
+    print("=" * 70)
 
     tests = [
         ("Application Initialization", test_application_initialization),
@@ -228,7 +242,7 @@ def main():
     for test_name, test_func in tests:
         print(f"\n{'='*70}")
         print(f"Running: {test_name}")
-        print('='*70)
+        print("=" * 70)
         try:
             test_func()
             results.append((test_name, True))
@@ -237,9 +251,9 @@ def main():
             results.append((test_name, False))
 
     # Summary
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("RUNTIME TEST SUMMARY".center(70))
-    print("="*70)
+    print("=" * 70)
 
     passed = sum(1 for _, result in results if result)
     failed = len(results) - passed
@@ -261,5 +275,5 @@ def main():
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

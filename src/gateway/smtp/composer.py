@@ -122,8 +122,9 @@ class EmailRecipient:
         """Convert to email.headerregistry.Address."""
         if self.display_name:
             # Parse display name for Address
-            return Address(display_name=self.display_name,
-                           addr_spec=self.email)
+            return Address(
+                display_name=self.display_name, addr_spec=self.email
+            )
         return Address(addr_spec=self.email)
 
     def to_string(self) -> str:
@@ -156,7 +157,9 @@ class EmailRecipient:
             display_name = parts[0].strip().strip('"').strip("'").strip()
             email = parts[1].rstrip(">").strip()
             return cls(
-                email=email, display_name=display_name if display_name else None)
+                email=email,
+                display_name=display_name if display_name else None,
+            )
 
         # Plain email address
         return cls(email=value)
@@ -173,7 +176,8 @@ class ComposedEmail:
     recipients: list[EmailRecipient]
     subject: str
     created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc))
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
     def get_envelope_from(self) -> str:
         """Get the envelope FROM address."""
@@ -378,7 +382,8 @@ class EmailComposer:
 
         if not body_text and not body_html:
             raise InvalidMessageError(
-                "Message body (text or HTML) is required")
+                "Message body (text or HTML) is required"
+            )
 
         # Parse addresses
         sender_recipient = self._parse_recipient(sender)
@@ -390,8 +395,11 @@ class EmailComposer:
         # Generate Message-ID if not provided
         if message_id is None:
             # Try to get domain from sender email
-            sender_domain = sender_recipient.email.split(
-                "@")[-1] if "@" in sender_recipient.email else None
+            sender_domain = (
+                sender_recipient.email.split("@")[-1]
+                if "@" in sender_recipient.email
+                else None
+            )
             message_id = self.generate_message_id(sender_domain)
 
         # Create the message structure
@@ -517,8 +525,10 @@ class EmailComposer:
                 content = base64.b64decode(att_data["content"])
             else:
                 # No content, skip
-                logger.warning("Attachment %s has no content",
-                               att_data.get("filename", "unknown"))
+                logger.warning(
+                    "Attachment %s has no content",
+                    att_data.get("filename", "unknown"),
+                )
                 continue
 
             attachments.append(
@@ -526,7 +536,8 @@ class EmailComposer:
                     filename=att_data.get("filename", "attachment"),
                     content=content,
                     content_type=att_data.get(
-                        "content_type", "application/octet-stream"),
+                        "content_type", "application/octet-stream"
+                    ),
                     content_id=att_data.get("content_id"),
                 )
             )
@@ -580,9 +591,11 @@ class EmailComposer:
             sender_email = self._parse_recipient(sender).email.lower()
             additional = [
                 str(addr)
-                for addr in original_message.to_addresses + original_message.cc_addresses
+                for addr in original_message.to_addresses
+                + original_message.cc_addresses
                 if str(addr).lower() != sender_email
-                and str(addr).lower() != str(original_message.from_address).lower()
+                and str(addr).lower()
+                != str(original_message.from_address).lower()
             ]
             if additional:
                 cc = additional
@@ -611,7 +624,8 @@ class EmailComposer:
                             filename=att_data.get("filename", "attachment"),
                             content=content,
                             content_type=att_data.get(
-                                "content_type", "application/octet-stream"),
+                                "content_type", "application/octet-stream"
+                            ),
                         )
                     )
 
@@ -691,7 +705,8 @@ class EmailComposer:
                             filename=att_data.get("filename", "attachment"),
                             content=content,
                             content_type=att_data.get(
-                                "content_type", "application/octet-stream"),
+                                "content_type", "application/octet-stream"
+                            ),
                         )
                     )
 
@@ -715,7 +730,8 @@ class EmailComposer:
         ]
         if message.cc_addresses:
             lines.append(
-                f"Cc: {', '.join(str(a) for a in message.cc_addresses)}")
+                f"Cc: {', '.join(str(a) for a in message.cc_addresses)}"
+            )
         lines.append("-" * 40)
         return "\n".join(lines)
 

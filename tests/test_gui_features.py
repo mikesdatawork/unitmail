@@ -18,7 +18,8 @@ Test Coverage:
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from datetime import datetime
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ from common.local_storage import get_local_storage
 @dataclass
 class FeatureTestResult:
     """Test result container."""
+
     name: str
     expected: str
     actual: str
@@ -83,7 +85,7 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Composer Reply Mode Setup",
             expected="Subject prefixed with 'Re:', recipient set to original sender",
-            actual=""
+            actual="",
         )
 
         try:
@@ -114,7 +116,9 @@ class GUIFeatureTests:
                 test.actual = f"Reply subject: '{reply_subject[:40]}...', recipient: '{original_sender}'"
             else:
                 test.status = "FAIL"
-                test.actual = f"Subject OK: {correct_subject}, Sender OK: {has_sender}"
+                test.actual = (
+                    f"Subject OK: {correct_subject}, Sender OK: {has_sender}"
+                )
 
         except Exception as e:
             test.status = "FAIL"
@@ -127,7 +131,7 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Composer Forward Mode Setup",
             expected="Subject prefixed with 'Fwd:'",
-            actual=""
+            actual="",
         )
 
         try:
@@ -165,7 +169,7 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Composer New Mode Setup",
             expected="Empty subject, no recipients pre-filled",
-            actual=""
+            actual="",
         )
 
         # In new mode, composer starts with empty fields
@@ -175,7 +179,9 @@ class GUIFeatureTests:
 
         if new_mode_subject == "" and len(new_mode_recipients) == 0:
             test.status = "PASS"
-            test.actual = "New mode starts with empty subject and no recipients"
+            test.actual = (
+                "New mode starts with empty subject and no recipients"
+            )
         else:
             test.status = "FAIL"
             test.actual = "New mode has unexpected pre-filled values"
@@ -187,7 +193,7 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Message Pop-out Data",
             expected="Pop-out window receives subject, sender, date, body",
-            actual=""
+            actual="",
         )
 
         try:
@@ -205,7 +211,9 @@ class GUIFeatureTests:
             full_msg = self.storage.get_message(msg_id)
 
             has_subject = "subject" in full_msg and full_msg["subject"]
-            has_sender = "from_address" in full_msg and full_msg["from_address"]
+            has_sender = (
+                "from_address" in full_msg and full_msg["from_address"]
+            )
             has_date = "received_at" in full_msg and full_msg["received_at"]
             has_body = "body_text" in full_msg and full_msg["body_text"]
 
@@ -238,7 +246,7 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Search Filter Logic",
             expected="Filter matches in from_address, subject, and body_text",
-            actual=""
+            actual="",
         )
 
         try:
@@ -247,35 +255,44 @@ class GUIFeatureTests:
             # Test search by sender
             search_term = "alice"
             filtered_by_sender = [
-                m for m in all_messages
+                m
+                for m in all_messages
                 if search_term.lower() in m.get("from_address", "").lower()
             ]
 
             # Test search by subject
             search_term2 = "meeting"
             filtered_by_subject = [
-                m for m in all_messages
+                m
+                for m in all_messages
                 if search_term2.lower() in m.get("subject", "").lower()
             ]
 
             # Test search by body
             search_term3 = "budget"
             filtered_by_body = [
-                m for m in all_messages
+                m
+                for m in all_messages
                 if search_term3.lower() in m.get("body_text", "").lower()
             ]
 
             # Test combined filter (how the main_window does it)
             search_term4 = "project"
             combined_filter = [
-                m for m in all_messages
-                if (search_term4.lower() in m.get("from_address", "").lower() or
-                    search_term4.lower() in m.get("subject", "").lower() or
-                    search_term4.lower() in m.get("body_text", "").lower())
+                m
+                for m in all_messages
+                if (
+                    search_term4.lower() in m.get("from_address", "").lower()
+                    or search_term4.lower() in m.get("subject", "").lower()
+                    or search_term4.lower() in m.get("body_text", "").lower()
+                )
             ]
 
-            results_ok = len(filtered_by_sender) > 0 or len(
-                filtered_by_subject) > 0 or len(filtered_by_body) > 0
+            results_ok = (
+                len(filtered_by_sender) > 0
+                or len(filtered_by_subject) > 0
+                or len(filtered_by_body) > 0
+            )
 
             if results_ok:
                 test.status = "PASS"
@@ -299,7 +316,7 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Folder Unread Counts",
             expected="Unread counts match actual unread messages in each folder",
-            actual=""
+            actual="",
         )
 
         try:
@@ -313,17 +330,21 @@ class GUIFeatureTests:
                 # Count actual unread
                 messages = self.storage.get_messages_by_folder(folder_name)
                 actual_unread = len(
-                    [m for m in messages if not m.get("is_read", False)])
+                    [m for m in messages if not m.get("is_read", False)]
+                )
 
                 if reported_unread != actual_unread:
                     mismatches.append(
-                        f"{folder_name}: reported={reported_unread}, actual={actual_unread}")
+                        f"{folder_name}: reported={reported_unread}, actual={actual_unread}"
+                    )
 
             if not mismatches:
                 test.status = "PASS"
                 test.actual = "All folder unread counts are accurate"
                 test.notes = [
-                    f"{f['name']}: {f.get('unread_count', 0)} unread" for f in folders]
+                    f"{f['name']}: {f.get('unread_count', 0)} unread"
+                    for f in folders
+                ]
             else:
                 test.status = "FAIL"
                 test.actual = f"Mismatches: {'; '.join(mismatches)}"
@@ -339,13 +360,14 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Attachment Data Available",
             expected="Messages with attachments have attachment list with filename, size, type",
-            actual=""
+            actual="",
         )
 
         try:
             all_messages = self.storage.get_all_messages()
             messages_with_attachments = [
-                m for m in all_messages if m.get("attachments")]
+                m for m in all_messages if m.get("attachments")
+            ]
 
             if not messages_with_attachments:
                 test.status = "SKIP"
@@ -388,7 +410,7 @@ class GUIFeatureTests:
         test = FeatureTestResult(
             name="Starred/Favorite Indicator",
             expected="Messages can be starred/unstarred, state persists",
-            actual=""
+            actual="",
         )
 
         try:
@@ -396,7 +418,8 @@ class GUIFeatureTests:
 
             # Count starred messages
             starred_count = len(
-                [m for m in all_messages if m.get("is_starred", False)])
+                [m for m in all_messages if m.get("is_starred", False)]
+            )
 
             # Test toggle on a message
             test_msg = all_messages[0]
@@ -405,13 +428,15 @@ class GUIFeatureTests:
 
             # Toggle
             self.storage.update_message(
-                msg_id, {"is_starred": not original_starred})
+                msg_id, {"is_starred": not original_starred}
+            )
             after_toggle = self.storage.get_message(msg_id)
             toggled_starred = after_toggle.get("is_starred", False)
 
             # Restore
             self.storage.update_message(
-                msg_id, {"is_starred": original_starred})
+                msg_id, {"is_starred": original_starred}
+            )
 
             toggle_worked = toggled_starred == (not original_starred)
 
@@ -450,7 +475,10 @@ class GUIFeatureTests:
         print(f"Failed: {failed}")
         print(f"Skipped: {skipped}")
         print(
-            f"Pass Rate: {(passed/(total-skipped))*100:.1f}%" if (total-skipped) > 0 else "N/A")
+            f"Pass Rate: {(passed/(total-skipped))*100:.1f}%"
+            if (total - skipped) > 0
+            else "N/A"
+        )
 
 
 if __name__ == "__main__":

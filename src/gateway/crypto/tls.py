@@ -19,7 +19,9 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
+from cryptography.hazmat.primitives.asymmetric.ec import (
+    EllipticCurvePrivateKey,
+)
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
@@ -109,7 +111,8 @@ class TLSConfig:
     # Cipher configuration
     ciphers: list[str] = field(default_factory=lambda: TLS_1_2_CIPHERS.copy())
     ciphersuites: list[str] = field(
-        default_factory=lambda: TLS_1_3_CIPHERS.copy())
+        default_factory=lambda: TLS_1_3_CIPHERS.copy()
+    )
 
     # Verification settings
     verify_mode: ssl.VerifyMode = ssl.CERT_REQUIRED
@@ -124,7 +127,8 @@ class TLSConfig:
 
     # ALPN protocols
     alpn_protocols: list[str] = field(
-        default_factory=lambda: ["h2", "http/1.1"])
+        default_factory=lambda: ["h2", "http/1.1"]
+    )
 
     # SNI callback
     sni_callback: Optional[callable] = None
@@ -182,7 +186,8 @@ class CertificateManager:
 
         except Exception as e:
             raise CryptoError(
-                f"Failed to load certificate from {cert_path}: {e}")
+                f"Failed to load certificate from {cert_path}: {e}"
+            )
 
     def load_private_key(
         self,
@@ -216,7 +221,8 @@ class CertificateManager:
 
         except Exception as e:
             raise CryptoError(
-                f"Failed to load private key from {key_path}: {e}")
+                f"Failed to load private key from {key_path}: {e}"
+            )
 
     def get_certificate_info(
         self,
@@ -333,25 +339,30 @@ class CertificateManager:
                     if isinstance(private_key, rsa.RSAPrivateKey):
                         if not isinstance(cert_public_key, rsa.RSAPublicKey):
                             issues.append(
-                                "Private key type does not match certificate")
+                                "Private key type does not match certificate"
+                            )
                         elif (
                             private_key.public_key().public_numbers()
                             != cert_public_key.public_numbers()
                         ):
                             issues.append(
-                                "Private key does not match certificate")
+                                "Private key does not match certificate"
+                            )
 
                     elif isinstance(private_key, ec.EllipticCurvePrivateKey):
-                        if not isinstance(cert_public_key,
-                                          ec.EllipticCurvePublicKey):
+                        if not isinstance(
+                            cert_public_key, ec.EllipticCurvePublicKey
+                        ):
                             issues.append(
-                                "Private key type does not match certificate")
+                                "Private key type does not match certificate"
+                            )
                         elif (
                             private_key.public_key().public_numbers()
                             != cert_public_key.public_numbers()
                         ):
                             issues.append(
-                                "Private key does not match certificate")
+                                "Private key does not match certificate"
+                            )
 
                 except CryptoError as e:
                     issues.append(f"Failed to load private key: {e}")
@@ -359,8 +370,9 @@ class CertificateManager:
         except CryptoError as e:
             issues.append(f"Failed to load certificate: {e}")
 
-        is_valid = len(
-            [i for i in issues if "expires in" not in i.lower()]) == 0
+        is_valid = (
+            len([i for i in issues if "expires in" not in i.lower()]) == 0
+        )
         return is_valid, issues
 
     def generate_self_signed_certificate(
@@ -404,11 +416,13 @@ class CertificateManager:
             )
 
         # Build subject
-        subject = x509.Name([
-            x509.NameAttribute(NameOID.COUNTRY_NAME, country),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
-            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        ])
+        subject = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COUNTRY_NAME, country),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
+                x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+            ]
+        )
 
         # Build SAN extension
         san_names = [x509.DNSName(common_name)]
@@ -450,17 +464,20 @@ class CertificateManager:
                 critical=True,
             )
             .add_extension(
-                x509.ExtendedKeyUsage([
-                    ExtendedKeyUsageOID.SERVER_AUTH,
-                    ExtendedKeyUsageOID.CLIENT_AUTH,
-                ]),
+                x509.ExtendedKeyUsage(
+                    [
+                        ExtendedKeyUsageOID.SERVER_AUTH,
+                        ExtendedKeyUsageOID.CLIENT_AUTH,
+                    ]
+                ),
                 critical=False,
             )
         )
 
         # Sign certificate
         certificate = cert_builder.sign(
-            private_key, hashes.SHA256(), default_backend())
+            private_key, hashes.SHA256(), default_backend()
+        )
 
         # Serialize to PEM
         cert_pem = certificate.public_bytes(serialization.Encoding.PEM)
@@ -801,7 +818,8 @@ class TLSContextFactory:
                 context.set_ciphersuites(self.config.get_ciphersuites_string())
             except ssl.SSLError as e:
                 logger.warning(
-                    "Failed to set TLS 1.3 ciphersuites: %s", str(e))
+                    "Failed to set TLS 1.3 ciphersuites: %s", str(e)
+                )
 
         # Disable compression (CRIME attack mitigation)
         context.options |= ssl.OP_NO_COMPRESSION

@@ -65,7 +65,9 @@ class SMTPAuthenticator:
         """
         try:
             username = auth_data.login.decode("utf-8", errors="replace")
-            _password = auth_data.password.decode("utf-8", errors="replace")  # noqa: F841 - TODO: verify password
+            _password = auth_data.password.decode(  # noqa: F841 - verify password
+                "utf-8", errors="replace"
+            )
 
             logger.debug("Authentication attempt for user: %s", username)
 
@@ -74,17 +76,23 @@ class SMTPAuthenticator:
             if not user:
                 # Try getting default user if email matches local domain
                 default_user = self._storage.get_default_user()
-                if default_user and username.lower() == default_user.get("email", "").lower():
+                if (
+                    default_user
+                    and username.lower()
+                    == default_user.get("email", "").lower()
+                ):
                     user = default_user
 
             if not user:
                 logger.warning(
-                    "Authentication failed: user not found: %s", username)
+                    "Authentication failed: user not found: %s", username
+                )
                 return AuthResult(success=False, handled=True)
 
             if not user.get("is_active", True):
                 logger.warning(
-                    "Authentication failed: user inactive: %s", username)
+                    "Authentication failed: user inactive: %s", username
+                )
                 return AuthResult(success=False, handled=True)
 
             # TODO: Implement proper password verification
@@ -199,7 +207,8 @@ class SMTPHandler:
                             size,
                             self.MAX_MESSAGE_SIZE,
                         )
-                        return f"552 5.3.4 Message size exceeds limit of {self.MAX_MESSAGE_SIZE} bytes"
+                        limit = self.MAX_MESSAGE_SIZE
+                        return f"552 5.3.4 Size exceeds {limit} bytes"
                 except ValueError:
                     pass
 
@@ -242,7 +251,9 @@ class SMTPHandler:
                     logger.warning(
                         "Relay attempt without authentication to %s", address
                     )
-                    return "550 5.7.1 Relaying denied. Authentication required."
+                    return (
+                        "550 5.7.1 Relaying denied. Authentication required."
+                    )
 
         # Check if recipient exists in our system (synchronous SQLite call)
         recipient_user = self._storage.get_user_by_email(address)
@@ -252,7 +263,11 @@ class SMTPHandler:
             if default_user:
                 recipient_user = default_user
 
-        if not recipient_user and self._allowed_domains and domain in self._allowed_domains:
+        if (
+            not recipient_user
+            and self._allowed_domains
+            and domain in self._allowed_domains
+        ):
             logger.warning("Recipient not found: %s", address)
             return "550 5.1.1 User not found"
 
@@ -285,7 +300,8 @@ class SMTPHandler:
                     len(content),
                     self.MAX_MESSAGE_SIZE,
                 )
-                return f"552 5.3.4 Message size exceeds limit of {self.MAX_MESSAGE_SIZE} bytes"
+                limit = self.MAX_MESSAGE_SIZE
+                return f"552 5.3.4 Size exceeds {limit} bytes"
 
             # Parse the email message
             try:
@@ -297,8 +313,9 @@ class SMTPHandler:
             # Validate parsed message
             validation_errors = self._parser.validate_message(parsed)
             if validation_errors:
-                logger.warning("Message validation failed: %s",
-                               validation_errors)
+                logger.warning(
+                    "Message validation failed: %s", validation_errors
+                )
                 return f"550 5.6.0 Message rejected: {validation_errors[0]}"
 
             # Store message for each recipient
@@ -484,7 +501,8 @@ class SMTPReceiver:
 
     @classmethod
     def from_settings(
-            cls, settings: Optional[SMTPSettings] = None) -> "SMTPReceiver":
+        cls, settings: Optional[SMTPSettings] = None
+    ) -> "SMTPReceiver":
         """
         Create an SMTPReceiver from application settings.
 
@@ -511,15 +529,17 @@ class SMTPReceiver:
         """Create TLS context for STARTTLS support."""
         if not self.tls_cert_file or not self.tls_key_file:
             logger.warning(
-                "TLS certificate or key not configured, STARTTLS disabled")
+                "TLS certificate or key not configured, STARTTLS disabled"
+            )
             return None
 
         cert_path = Path(self.tls_cert_file)
         key_path = Path(self.tls_key_file)
 
         if not cert_path.exists():
-            logger.error("TLS certificate file not found: %s",
-                         self.tls_cert_file)
+            logger.error(
+                "TLS certificate file not found: %s", self.tls_cert_file
+            )
             return None
 
         if not key_path.exists():
@@ -575,7 +595,8 @@ class SMTPReceiver:
                 port=self.port,
                 server_hostname=self.hostname,
                 tls_context=self._tls_context,
-                require_starttls=self.require_starttls and self._tls_context is not None,
+                require_starttls=self.require_starttls
+                and self._tls_context is not None,
                 auth_require_tls=True,
                 authenticator=authenticator,
                 auth_required=False,  # Auth optional for receiving mail
@@ -621,8 +642,9 @@ class SMTPReceiver:
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any,
-                        exc_tb: Any) -> None:
+    async def __aexit__(
+        self, exc_type: Any, exc_val: Any, exc_tb: Any
+    ) -> None:
         """Async context manager exit."""
         await self.stop()
 

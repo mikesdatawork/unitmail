@@ -76,7 +76,8 @@ class VerticalBarChart(Gtk.DrawingArea):
         bar_spacing = 8
         available_width = width - (2 * padding)
         bar_width = max(
-            10, (available_width - (bar_spacing * (bar_count - 1))) / bar_count)
+            10, (available_width - (bar_spacing * (bar_count - 1))) / bar_count
+        )
         chart_height = height - 35  # Leave room for labels
 
         # Auto-scale max value if needed
@@ -102,8 +103,13 @@ class VerticalBarChart(Gtk.DrawingArea):
                 radius = min(4, bar_width / 2)
                 cr.move_to(x + radius, y)
                 cr.line_to(x + bar_width - radius, y)
-                cr.arc(x + bar_width - radius, y +
-                       radius, radius, -0.5 * 3.14159, 0)
+                cr.arc(
+                    x + bar_width - radius,
+                    y + radius,
+                    radius,
+                    -0.5 * 3.14159,
+                    0,
+                )
                 cr.line_to(x + bar_width, height - 30)
                 cr.line_to(x, height - 30)
                 cr.line_to(x, y + radius)
@@ -118,8 +124,7 @@ class VerticalBarChart(Gtk.DrawingArea):
             style = area.get_style_context()
             text_color = style.get_color()
             cr.set_source_rgba(
-                text_color.red, text_color.green,
-                text_color.blue, 0.7
+                text_color.red, text_color.green, text_color.blue, 0.7
             )
             cr.select_font_face("Sans", 0, 0)  # NORMAL slant and weight
             cr.set_font_size(9)
@@ -140,8 +145,9 @@ class VerticalBarChart(Gtk.DrawingArea):
             )
         return (0.2, 0.5, 0.9)
 
-    def update_data(self, data: list[tuple[str, float]],
-                    max_value: float = None) -> None:
+    def update_data(
+        self, data: list[tuple[str, float]], max_value: float = None
+    ) -> None:
         """Update chart data and redraw."""
         self._data = data
         if max_value is not None:
@@ -207,7 +213,8 @@ class SettingsWindow(Adw.Window):
         # Header bar
         header = Adw.HeaderBar()
         header.set_title_widget(
-            Gtk.Label(label="Settings", css_classes=["title"]))
+            Gtk.Label(label="Settings", css_classes=["title"])
+        )
         main_box.append(header)
 
         # Paned layout for sidebar + content
@@ -261,8 +268,11 @@ class SettingsWindow(Adw.Window):
             ("server", "Server", "network-server-symbolic"),
             ("security", "Security", "security-high-symbolic"),
             ("appearance", "Appearance", "applications-graphics-symbolic"),
-            ("notifications", "Notifications",
-             "preferences-system-notifications-symbolic"),
+            (
+                "notifications",
+                "Notifications",
+                "preferences-system-notifications-symbolic",
+            ),
             ("database", "Database", "drive-harddisk-symbolic"),
             ("advanced", "Advanced", "preferences-other-symbolic"),
         ]
@@ -276,8 +286,9 @@ class SettingsWindow(Adw.Window):
 
         return sidebar_box
 
-    def _create_category_row(self, cat_id: str, label: str,
-                             icon_name: str) -> Gtk.ListBoxRow:
+    def _create_category_row(
+        self, cat_id: str, label: str, icon_name: str
+    ) -> Gtk.ListBoxRow:
         """Create a sidebar category row."""
         row = Gtk.ListBoxRow()
         row.set_name(cat_id)
@@ -300,8 +311,9 @@ class SettingsWindow(Adw.Window):
         row.set_child(box)
         return row
 
-    def _on_category_selected(self, listbox: Gtk.ListBox,
-                              row: Gtk.ListBoxRow) -> None:
+    def _on_category_selected(
+        self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow
+    ) -> None:
         """Handle category selection."""
         if row:
             cat_id = row.get_name()
@@ -327,7 +339,8 @@ class SettingsWindow(Adw.Window):
         return stack
 
     def _create_page_container(
-            self, title: str, subtitle: str = "") -> tuple[Gtk.Box, Gtk.Box]:
+        self, title: str, subtitle: str = ""
+    ) -> tuple[Gtk.Box, Gtk.Box]:
         """Create a standard page container with title and scrollable content."""
         page_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -456,7 +469,8 @@ class SettingsWindow(Adw.Window):
             bottom_margin=8,
         )
         self._signature_text.get_buffer().connect(
-            "changed", self._on_signature_changed)
+            "changed", self._on_signature_changed
+        )
         scrolled.set_child(self._signature_text)
         signature_frame.set_child(scrolled)
 
@@ -559,7 +573,8 @@ class SettingsWindow(Adw.Window):
         )
         change_password_row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
         change_password_row.connect(
-            "activated", self._on_change_password_clicked)
+            "activated", self._on_change_password_clicked
+        )
         password_group.add(change_password_row)
 
         self._2fa_row = Adw.SwitchRow(
@@ -582,7 +597,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Automatically encrypt when recipient has a public key",
         )
         self._auto_encrypt_row.connect(
-            "notify::active", self._on_security_changed)
+            "notify::active", self._on_security_changed
+        )
         pgp_settings_group.add(self._auto_encrypt_row)
 
         self._auto_sign_row = Adw.SwitchRow(
@@ -590,7 +606,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Digitally sign all outgoing messages",
         )
         self._auto_sign_row.connect(
-            "notify::active", self._on_security_changed)
+            "notify::active", self._on_security_changed
+        )
         pgp_settings_group.add(self._auto_sign_row)
 
         self._remember_passphrase_row = Adw.SwitchRow(
@@ -598,16 +615,19 @@ class SettingsWindow(Adw.Window):
             subtitle="Cache passphrase for a limited time",
         )
         self._remember_passphrase_row.connect(
-            "notify::active", self._on_security_changed)
+            "notify::active", self._on_security_changed
+        )
         pgp_settings_group.add(self._remember_passphrase_row)
 
         self._passphrase_timeout_row = Adw.SpinRow.new_with_range(1, 60, 1)
         self._passphrase_timeout_row.set_title("Passphrase Timeout")
         self._passphrase_timeout_row.set_subtitle(
-            "Minutes to remember passphrase")
+            "Minutes to remember passphrase"
+        )
         self._passphrase_timeout_row.set_value(5)
         self._passphrase_timeout_row.connect(
-            "notify::value", self._on_security_changed)
+            "notify::value", self._on_security_changed
+        )
         pgp_settings_group.add(self._passphrase_timeout_row)
 
         content_box.append(pgp_settings_group)
@@ -660,11 +680,13 @@ class SettingsWindow(Adw.Window):
             activatable=True,
         )
         system_row.add_prefix(
-            Gtk.Image(icon_name="preferences-desktop-appearance-symbolic"))
+            Gtk.Image(icon_name="preferences-desktop-appearance-symbolic")
+        )
         self._theme_buttons["system"] = Gtk.CheckButton()
         self._theme_buttons["system"].set_active(True)
         self._theme_buttons["system"].connect(
-            "toggled", self._on_theme_radio_toggled, "system")
+            "toggled", self._on_theme_radio_toggled, "system"
+        )
         system_row.add_suffix(self._theme_buttons["system"])
         system_row.set_activatable_widget(self._theme_buttons["system"])
         theme_group.add(system_row)
@@ -679,7 +701,8 @@ class SettingsWindow(Adw.Window):
         self._theme_buttons["light"] = Gtk.CheckButton()
         self._theme_buttons["light"].set_group(self._theme_buttons["system"])
         self._theme_buttons["light"].connect(
-            "toggled", self._on_theme_radio_toggled, "light")
+            "toggled", self._on_theme_radio_toggled, "light"
+        )
         light_row.add_suffix(self._theme_buttons["light"])
         light_row.set_activatable_widget(self._theme_buttons["light"])
         theme_group.add(light_row)
@@ -691,11 +714,13 @@ class SettingsWindow(Adw.Window):
             activatable=True,
         )
         dark_row.add_prefix(
-            Gtk.Image(icon_name="weather-clear-night-symbolic"))
+            Gtk.Image(icon_name="weather-clear-night-symbolic")
+        )
         self._theme_buttons["dark"] = Gtk.CheckButton()
         self._theme_buttons["dark"].set_group(self._theme_buttons["system"])
         self._theme_buttons["dark"].connect(
-            "toggled", self._on_theme_radio_toggled, "dark")
+            "toggled", self._on_theme_radio_toggled, "dark"
+        )
         dark_row.add_suffix(self._theme_buttons["dark"])
         dark_row.set_activatable_widget(self._theme_buttons["dark"])
         theme_group.add(dark_row)
@@ -719,7 +744,8 @@ class SettingsWindow(Adw.Window):
         self._density_buttons["standard"] = Gtk.CheckButton()
         self._density_buttons["standard"].set_active(True)
         self._density_buttons["standard"].connect(
-            "toggled", self._on_density_toggled, "standard")
+            "toggled", self._on_density_toggled, "standard"
+        )
         standard_row.add_suffix(self._density_buttons["standard"])
         standard_row.set_activatable_widget(self._density_buttons["standard"])
         density_group.add(standard_row)
@@ -732,9 +758,11 @@ class SettingsWindow(Adw.Window):
         minimal_row.add_prefix(Gtk.Image(icon_name="view-continuous-symbolic"))
         self._density_buttons["minimal"] = Gtk.CheckButton()
         self._density_buttons["minimal"].set_group(
-            self._density_buttons["standard"])
+            self._density_buttons["standard"]
+        )
         self._density_buttons["minimal"].connect(
-            "toggled", self._on_density_toggled, "minimal")
+            "toggled", self._on_density_toggled, "minimal"
+        )
         minimal_row.add_suffix(self._density_buttons["minimal"])
         minimal_row.set_activatable_widget(self._density_buttons["minimal"])
         density_group.add(minimal_row)
@@ -772,7 +800,8 @@ class SettingsWindow(Adw.Window):
             selected=2,
         )
         self._date_format_row.connect(
-            "notify::selected", self._on_date_format_changed)
+            "notify::selected", self._on_date_format_changed
+        )
         date_format_group.add(self._date_format_row)
 
         # Preview label
@@ -793,7 +822,8 @@ class SettingsWindow(Adw.Window):
         self._font_size_row.set_title("Font Size")
         self._font_size_row.set_value(12)
         self._font_size_row.connect(
-            "notify::value", self._on_appearance_changed)
+            "notify::value", self._on_appearance_changed
+        )
         text_group.add(self._font_size_row)
 
         content_box.append(text_group)
@@ -806,7 +836,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Reduce spacing in the interface",
         )
         self._compact_mode_row.connect(
-            "notify::active", self._on_appearance_changed)
+            "notify::active", self._on_appearance_changed
+        )
         layout_group.add(self._compact_mode_row)
 
         self._show_avatars_row = Adw.SwitchRow(
@@ -814,16 +845,19 @@ class SettingsWindow(Adw.Window):
             subtitle="Display sender avatars in message list",
         )
         self._show_avatars_row.connect(
-            "notify::active", self._on_appearance_changed)
+            "notify::active", self._on_appearance_changed
+        )
         layout_group.add(self._show_avatars_row)
 
         self._preview_lines_row = Adw.SpinRow.new_with_range(0, 5, 1)
         self._preview_lines_row.set_title("Preview Lines")
         self._preview_lines_row.set_subtitle(
-            "Lines of message preview to show")
+            "Lines of message preview to show"
+        )
         self._preview_lines_row.set_value(2)
         self._preview_lines_row.connect(
-            "notify::value", self._on_appearance_changed)
+            "notify::value", self._on_appearance_changed
+        )
         layout_group.add(self._preview_lines_row)
 
         content_box.append(layout_group)
@@ -844,7 +878,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Show desktop notifications for new messages",
         )
         self._desktop_notif_row.connect(
-            "notify::active", self._on_notifications_changed)
+            "notify::active", self._on_notifications_changed
+        )
         general_group.add(self._desktop_notif_row)
 
         self._notif_preview_row = Adw.SwitchRow(
@@ -852,7 +887,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Include message preview in notifications",
         )
         self._notif_preview_row.connect(
-            "notify::active", self._on_notifications_changed)
+            "notify::active", self._on_notifications_changed
+        )
         general_group.add(self._notif_preview_row)
 
         content_box.append(general_group)
@@ -865,7 +901,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Play a sound for new messages",
         )
         self._sound_row.connect(
-            "notify::active", self._on_notifications_changed)
+            "notify::active", self._on_notifications_changed
+        )
         sound_group.add(self._sound_row)
 
         sound_file_row = Adw.ActionRow(
@@ -893,7 +930,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Notify when new messages arrive",
         )
         self._notify_new_mail_row.connect(
-            "notify::active", self._on_notifications_changed)
+            "notify::active", self._on_notifications_changed
+        )
         events_group.add(self._notify_new_mail_row)
 
         self._notify_send_row = Adw.SwitchRow(
@@ -901,7 +939,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Notify when messages are sent successfully",
         )
         self._notify_send_row.connect(
-            "notify::active", self._on_notifications_changed)
+            "notify::active", self._on_notifications_changed
+        )
         events_group.add(self._notify_send_row)
 
         self._notify_error_row = Adw.SwitchRow(
@@ -909,7 +948,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Notify when errors occur",
         )
         self._notify_error_row.connect(
-            "notify::active", self._on_notifications_changed)
+            "notify::active", self._on_notifications_changed
+        )
         events_group.add(self._notify_error_row)
 
         content_box.append(events_group)
@@ -1029,78 +1069,6 @@ class SettingsWindow(Adw.Window):
 
         content_box.append(stats_group)
 
-        # Size chart group
-        size_chart_group = Adw.PreferencesGroup(
-            title="Storage Growth",
-            description="Database size over the last 6 months",
-        )
-
-        chart_frame = Gtk.Frame(
-            margin_top=8,
-            margin_bottom=8,
-        )
-        self._size_chart = VerticalBarChart(
-            data=[],
-            max_value=0,
-            bar_color="#3584e4",
-            height=140,
-        )
-        chart_frame.set_child(self._size_chart)
-        size_chart_group.add(chart_frame)
-
-        content_box.append(size_chart_group)
-
-        # Volume chart group
-        volume_chart_group = Adw.PreferencesGroup(
-            title="Email Volume",
-            description="Received vs Sent emails (last 30 days)",
-        )
-
-        # Received bar
-        received_box = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=12,
-            margin_top=8,
-            margin_bottom=4,
-        )
-        received_label = Gtk.Label(label="Received", xalign=0, width_chars=10)
-        received_box.append(received_label)
-        self._received_bar = Gtk.LevelBar(
-            min_value=0,
-            max_value=100,
-            value=0,
-            hexpand=True,
-        )
-        self._received_bar.add_css_class("received-bar")
-        received_box.append(self._received_bar)
-        self._received_count_label = Gtk.Label(
-            label="0", width_chars=6, xalign=1)
-        received_box.append(self._received_count_label)
-        volume_chart_group.add(received_box)
-
-        # Sent bar
-        sent_box = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=12,
-            margin_top=4,
-            margin_bottom=8,
-        )
-        sent_label = Gtk.Label(label="Sent", xalign=0, width_chars=10)
-        sent_box.append(sent_label)
-        self._sent_bar = Gtk.LevelBar(
-            min_value=0,
-            max_value=100,
-            value=0,
-            hexpand=True,
-        )
-        self._sent_bar.add_css_class("sent-bar")
-        sent_box.append(self._sent_bar)
-        self._sent_count_label = Gtk.Label(label="0", width_chars=6, xalign=1)
-        sent_box.append(self._sent_count_label)
-        volume_chart_group.add(sent_box)
-
-        content_box.append(volume_chart_group)
-
         # Load initial stats
         GLib.idle_add(self._load_database_stats)
 
@@ -1116,7 +1084,8 @@ class SettingsWindow(Adw.Window):
 
             # Update storage type
             self._storage_type_row.set_subtitle(
-                stats.get("storage_type", "Unknown"))
+                stats.get("storage_type", "Unknown")
+            )
 
             # Update database size
             size_bytes = stats.get("database_size_bytes", 0)
@@ -1130,36 +1099,20 @@ class SettingsWindow(Adw.Window):
             total_att = stats.get("total_attachments", 0)
             att_size = stats.get("attachment_size_bytes", 0)
             self._attachments_label.set_label(
-                f"{total_att:,} ({self._format_size(att_size)})")
+                f"{total_att:,} ({self._format_size(att_size)})"
+            )
 
             # Get daily stats
             daily_stats = storage.get_daily_email_stats(30)
             self._daily_received_label.set_label(
-                f"{daily_stats['received_avg']:.1f}")
+                f"{daily_stats['received_avg']:.1f}"
+            )
             self._daily_sent_label.set_label(f"{daily_stats['sent_avg']:.1f}")
 
             # Get disk space
             disk_info = storage.get_disk_space_info()
             free_space = disk_info.get("free", 0)
             self._disk_space_label.set_label(self._format_size(free_space))
-
-            # Update size chart
-            monthly_stats = storage.get_monthly_size_stats(6)
-            max_size = max((size for _, size in monthly_stats), default=1)
-            self._size_chart.update_data(monthly_stats, max_size)
-
-            # Update volume bars
-            received_total = daily_stats.get("received_total", 0)
-            sent_total = daily_stats.get("sent_total", 0)
-            max_volume = max(received_total, sent_total, 1)
-
-            self._received_bar.set_max_value(max_volume)
-            self._received_bar.set_value(received_total)
-            self._received_count_label.set_label(f"{received_total:,}")
-
-            self._sent_bar.set_max_value(max_volume)
-            self._sent_bar.set_value(sent_total)
-            self._sent_count_label.set_label(f"{sent_total:,}")
 
         except Exception as e:
             logger.error(f"Failed to load database stats: {e}")
@@ -1182,16 +1135,19 @@ class SettingsWindow(Adw.Window):
         self._sync_interval_row.set_subtitle("Seconds between automatic syncs")
         self._sync_interval_row.set_value(300)
         self._sync_interval_row.connect(
-            "notify::value", self._on_advanced_changed)
+            "notify::value", self._on_advanced_changed
+        )
         sync_group.add(self._sync_interval_row)
 
         self._max_connections_row = Adw.SpinRow.new_with_range(1, 10, 1)
         self._max_connections_row.set_title("Max Connections")
         self._max_connections_row.set_subtitle(
-            "Maximum concurrent server connections")
+            "Maximum concurrent server connections"
+        )
         self._max_connections_row.set_value(4)
         self._max_connections_row.connect(
-            "notify::value", self._on_advanced_changed)
+            "notify::value", self._on_advanced_changed
+        )
         sync_group.add(self._max_connections_row)
 
         content_box.append(sync_group)
@@ -1204,7 +1160,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Cache messages locally for faster access",
         )
         self._cache_enabled_row.connect(
-            "notify::active", self._on_advanced_changed)
+            "notify::active", self._on_advanced_changed
+        )
         cache_group.add(self._cache_enabled_row)
 
         self._cache_size_row = Adw.SpinRow.new_with_range(100, 5000, 100)
@@ -1212,7 +1169,8 @@ class SettingsWindow(Adw.Window):
         self._cache_size_row.set_subtitle("Maximum cache storage")
         self._cache_size_row.set_value(500)
         self._cache_size_row.connect(
-            "notify::value", self._on_advanced_changed)
+            "notify::value", self._on_advanced_changed
+        )
         cache_group.add(self._cache_size_row)
 
         # Cache usage
@@ -1256,7 +1214,8 @@ class SettingsWindow(Adw.Window):
             subtitle="Display storage usage in the main window",
         )
         self._show_quota_row.connect(
-            "notify::active", self._on_advanced_changed)
+            "notify::active", self._on_advanced_changed
+        )
         quota_group.add(self._show_quota_row)
 
         content_box.append(quota_group)
@@ -1273,7 +1232,8 @@ class SettingsWindow(Adw.Window):
             selected=1,
         )
         self._log_level_row.connect(
-            "notify::selected", self._on_advanced_changed)
+            "notify::selected", self._on_advanced_changed
+        )
         logging_group.add(self._log_level_row)
 
         open_logs_row = Adw.ActionRow(
@@ -1361,7 +1321,8 @@ class SettingsWindow(Adw.Window):
         self._auto_sign_row.set_active(security.auto_sign)
         self._remember_passphrase_row.set_active(security.remember_passphrase)
         self._passphrase_timeout_row.set_value(
-            security.passphrase_timeout // 60)
+            security.passphrase_timeout // 60
+        )
 
         # Appearance settings
         appearance = self._settings.appearance
@@ -1401,7 +1362,8 @@ class SettingsWindow(Adw.Window):
         advanced = self._settings.advanced
         self._sync_interval_row.set_value(advanced.sync_interval_seconds)
         self._max_connections_row.set_value(
-            advanced.max_concurrent_connections)
+            advanced.max_concurrent_connections
+        )
         self._cache_enabled_row.set_active(advanced.cache_enabled)
         self._cache_size_row.set_value(advanced.cache_size_mb)
         self._show_quota_row.set_active(advanced.show_quota)
@@ -1409,7 +1371,8 @@ class SettingsWindow(Adw.Window):
         log_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
         if advanced.log_level in log_levels:
             self._log_level_row.set_selected(
-                log_levels.index(advanced.log_level))
+                log_levels.index(advanced.log_level)
+            )
 
         self._update_cache_usage()
 
@@ -1444,7 +1407,8 @@ class SettingsWindow(Adw.Window):
         """Load avatar image from path."""
         try:
             pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                path, 48, 48, True)
+                path, 48, 48, True
+            )
             self._avatar_image.set_from_pixbuf(pixbuf)
         except Exception as e:
             logger.warning(f"Failed to load avatar: {e}")
@@ -1455,7 +1419,8 @@ class SettingsWindow(Adw.Window):
         cache_size = self._settings.advanced.cache_size_mb
         used = 0  # Would come from actual cache
         self._cache_usage_bar.set_value(
-            (used / cache_size) * 100 if cache_size > 0 else 0)
+            (used / cache_size) * 100 if cache_size > 0 else 0
+        )
         self._cache_usage_label.set_label(f"{used} MB / {cache_size} MB")
 
     def _format_size(self, size: int) -> str:
@@ -1498,7 +1463,8 @@ class SettingsWindow(Adw.Window):
         """Handle signature text change."""
         start, end = buffer.get_bounds()
         self._settings.update_account(
-            signature=buffer.get_text(start, end, False))
+            signature=buffer.get_text(start, end, False)
+        )
 
     def _on_change_avatar_clicked(self, button: Gtk.Button) -> None:
         """Handle change avatar button click."""
@@ -1579,8 +1545,8 @@ class SettingsWindow(Adw.Window):
             auto_encrypt=self._auto_encrypt_row.get_active(),
             auto_sign=self._auto_sign_row.get_active(),
             remember_passphrase=self._remember_passphrase_row.get_active(),
-            passphrase_timeout=int(
-                self._passphrase_timeout_row.get_value()) * 60,
+            passphrase_timeout=int(self._passphrase_timeout_row.get_value())
+            * 60,
         )
 
     def _on_2fa_toggled(self, row: Adw.SwitchRow, *args) -> None:
@@ -1594,7 +1560,8 @@ class SettingsWindow(Adw.Window):
             dialog.add_response("cancel", "Cancel")
             dialog.add_response("setup", "Set Up")
             dialog.set_response_appearance(
-                "setup", Adw.ResponseAppearance.SUGGESTED)
+                "setup", Adw.ResponseAppearance.SUGGESTED
+            )
             dialog.connect("response", self._on_2fa_setup_response)
             dialog.present()
 
@@ -1633,6 +1600,7 @@ class SettingsWindow(Adw.Window):
             self._settings.update_appearance(view_density=density)
             # Use ViewThemeManager to change theme and notify main window
             from client.ui.view_theme import ViewTheme, get_view_theme_manager
+
             theme_map = {
                 "standard": ViewTheme.STANDARD,
                 "minimal": ViewTheme.MINIMAL,
@@ -1734,7 +1702,8 @@ class SettingsWindow(Adw.Window):
                 path = file.get_path()
                 self._sound_path_label.set_label(Path(path).name)
                 self._settings.update_notifications(
-                    notification_sound_path=path)
+                    notification_sound_path=path
+                )
         except GLib.Error as e:
             if e.code != Gtk.DialogError.DISMISSED:
                 logger.error(f"Error selecting sound: {e}")
@@ -1747,7 +1716,8 @@ class SettingsWindow(Adw.Window):
         self._settings.update_advanced(
             sync_interval_seconds=int(self._sync_interval_row.get_value()),
             max_concurrent_connections=int(
-                self._max_connections_row.get_value()),
+                self._max_connections_row.get_value()
+            ),
             cache_enabled=self._cache_enabled_row.get_active(),
             cache_size_mb=int(self._cache_size_row.get_value()),
             show_quota=self._show_quota_row.get_active(),
@@ -1764,7 +1734,8 @@ class SettingsWindow(Adw.Window):
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("clear", "Clear Cache")
         dialog.set_response_appearance(
-            "clear", Adw.ResponseAppearance.DESTRUCTIVE)
+            "clear", Adw.ResponseAppearance.DESTRUCTIVE
+        )
         dialog.connect("response", self._on_clear_cache_response)
         dialog.present()
 
@@ -1824,12 +1795,15 @@ class SettingsWindow(Adw.Window):
         def do_export():
             try:
                 # Export logic would go here
-                export_file = path / \
-                    f"unitmail_export_{
+                export_file = (
+                    path
+                    / f"unitmail_export_{
                         datetime.now().strftime('%Y%m%d_%H%M%S')}.mbox"
+                )
                 export_file.write_text("# MBOX Export\n")
-                GLib.idle_add(self._show_export_success,
-                              export_file, progress_dialog)
+                GLib.idle_add(
+                    self._show_export_success, export_file, progress_dialog
+                )
             except Exception as e:
                 GLib.idle_add(self._show_export_error, str(e), progress_dialog)
             return False
@@ -1871,9 +1845,11 @@ class SettingsWindow(Adw.Window):
         def do_export():
             try:
                 storage = get_local_storage()
-                export_file = path / \
-                    f"unitmail_export_{
+                export_file = (
+                    path
+                    / f"unitmail_export_{
                         datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                )
 
                 data = {
                     "export_date": datetime.now().isoformat(),
@@ -1884,16 +1860,18 @@ class SettingsWindow(Adw.Window):
                 with open(export_file, "w") as f:
                     json.dump(data, f, indent=2, default=str)
 
-                GLib.idle_add(self._show_export_success,
-                              export_file, progress_dialog)
+                GLib.idle_add(
+                    self._show_export_success, export_file, progress_dialog
+                )
             except Exception as e:
                 GLib.idle_add(self._show_export_error, str(e), progress_dialog)
             return False
 
         GLib.timeout_add(100, do_export)
 
-    def _show_export_success(self, path: Path,
-                             progress_dialog: Adw.MessageDialog) -> bool:
+    def _show_export_success(
+        self, path: Path, progress_dialog: Adw.MessageDialog
+    ) -> bool:
         """Show export success dialog."""
         progress_dialog.close()
 
@@ -1905,7 +1883,8 @@ class SettingsWindow(Adw.Window):
         success_dialog.add_response("close", "Close")
         success_dialog.add_response("open", "Open Folder")
         success_dialog.connect(
-            "response", self._on_export_success_response, path)
+            "response", self._on_export_success_response, path
+        )
         success_dialog.present()
         return False
 
@@ -1919,12 +1898,14 @@ class SettingsWindow(Adw.Window):
         if response == "open":
             try:
                 Gio.AppInfo.launch_default_for_uri(
-                    f"file://{path.parent}", None)
+                    f"file://{path.parent}", None
+                )
             except GLib.Error as e:
                 logger.error(f"Failed to open folder: {e}")
 
-    def _show_export_error(self, error: str,
-                           progress_dialog: Adw.MessageDialog) -> bool:
+    def _show_export_error(
+        self, error: str, progress_dialog: Adw.MessageDialog
+    ) -> bool:
         """Show export error dialog."""
         progress_dialog.close()
 
@@ -1942,12 +1923,16 @@ class SettingsWindow(Adw.Window):
         dialog = Adw.MessageDialog(
             transient_for=self,
             heading="Reset Settings?",
-            body="This will restore all settings to their default values. This cannot be undone.",
+            body=(
+                "This will restore all settings to their default values. "
+                "This cannot be undone."
+            ),
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("reset", "Reset")
         dialog.set_response_appearance(
-            "reset", Adw.ResponseAppearance.DESTRUCTIVE)
+            "reset", Adw.ResponseAppearance.DESTRUCTIVE
+        )
         dialog.connect("response", self._on_reset_response)
         dialog.present()
 
@@ -2052,8 +2037,9 @@ class PasswordChangeDialog(Adw.Window):
         new = self._new_password.get_text()
         confirm = self._confirm_password.get_text()
 
-        valid = bool(current and new and confirm and new ==
-                     confirm and len(new) >= 8)
+        valid = bool(
+            current and new and confirm and new == confirm and len(new) >= 8
+        )
 
         if new != confirm and confirm:
             self._confirm_password.add_css_class("error")

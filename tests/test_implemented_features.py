@@ -14,14 +14,15 @@ import logging
 from datetime import datetime
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
 class FeatureTestResults:
     """Track test results."""
+
     def __init__(self):
         self.passed = []
         self.failed = []
@@ -48,10 +49,10 @@ def test_imports(results: FeatureTestResults):
 
     # Core modules
     modules_to_test = [
-        ('client.ui.main_window', ['MainWindow', 'MessageItem', 'FolderItem']),
-        ('client.ui.view_theme', ['ViewTheme', 'get_view_theme_manager']),
-        ('client.ui.application', ['UnitMailApplication']),
-        ('client.ui.composer', ['ComposerWindow', 'ComposerMode']),
+        ("client.ui.main_window", ["MainWindow", "MessageItem", "FolderItem"]),
+        ("client.ui.view_theme", ["ViewTheme", "get_view_theme_manager"]),
+        ("client.ui.application", ["UnitMailApplication"]),
+        ("client.ui.composer", ["ComposerWindow", "ComposerMode"]),
     ]
 
     for module_name, expected_classes in modules_to_test:
@@ -61,10 +62,13 @@ def test_imports(results: FeatureTestResults):
             missing = [c for c in expected_classes if not hasattr(module, c)]
             if missing:
                 results.add_fail(
-                    f"Import {module_name}", f"Missing classes: {missing}")
+                    f"Import {module_name}", f"Missing classes: {missing}"
+                )
             else:
                 results.add_pass(
-                    f"Import {module_name}", f"Classes: {', '.join(expected_classes)}")
+                    f"Import {module_name}",
+                    f"Classes: {', '.join(expected_classes)}",
+                )
         except Exception as e:
             results.add_fail(f"Import {module_name}", str(e))
 
@@ -75,9 +79,11 @@ def test_widget_instantiation(results: FeatureTestResults):
 
     try:
         import gi
-        gi.require_version('Gtk', '4.0')
-        gi.require_version('Adw', '1')
+
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
         from gi.repository import Gtk, Adw, Gio  # noqa: F401
+
         results.add_pass("GTK4 initialization", "GTK4 and Adwaita available")
     except Exception as e:
         results.add_fail("GTK4 initialization", str(e))
@@ -86,6 +92,7 @@ def test_widget_instantiation(results: FeatureTestResults):
     # Test MessageItem
     try:
         from client.ui.main_window import MessageItem
+
         msg = MessageItem(
             message_id="test1",
             from_address="test@example.com",
@@ -97,14 +104,16 @@ def test_widget_instantiation(results: FeatureTestResults):
         )
         assert msg.message_id == "test1"
         assert msg.from_address == "test@example.com"
-        results.add_pass("MessageItem instantiation",
-                         f"Created with ID: {msg.message_id}")
+        results.add_pass(
+            "MessageItem instantiation", f"Created with ID: {msg.message_id}"
+        )
     except Exception as e:
         results.add_fail("MessageItem instantiation", str(e))
 
     # Test FolderItem
     try:
         from client.ui.main_window import FolderItem
+
         folder = FolderItem(
             folder_id="inbox",
             name="Inbox",
@@ -113,8 +122,9 @@ def test_widget_instantiation(results: FeatureTestResults):
         )
         assert folder.folder_id == "inbox"
         assert folder.name == "Inbox"
-        results.add_pass("FolderItem instantiation",
-                         f"Created folder: {folder.name}")
+        results.add_pass(
+            "FolderItem instantiation", f"Created folder: {folder.name}"
+        )
     except Exception as e:
         results.add_fail("FolderItem instantiation", str(e))
 
@@ -132,16 +142,21 @@ def test_feature_implementation(results: FeatureTestResults):
         methods = inspect.getmembers(MainWindow, predicate=inspect.isfunction)
         method_names = [m[0] for m in methods]
 
-        required_methods = ['_on_mark_starred',
-                            '_on_unstar_message', '_set_message_starred']
+        required_methods = [
+            "_on_mark_starred",
+            "_on_unstar_message",
+            "_set_message_starred",
+        ]
         missing = [m for m in required_methods if m not in method_names]
 
         if missing:
-            results.add_fail("Favorite toggle feature",
-                             f"Missing methods: {missing}")
+            results.add_fail(
+                "Favorite toggle feature", f"Missing methods: {missing}"
+            )
         else:
-            results.add_pass("Favorite toggle feature",
-                             "All required methods present")
+            results.add_pass(
+                "Favorite toggle feature", "All required methods present"
+            )
     except Exception as e:
         results.add_fail("Favorite toggle feature", str(e))
 
@@ -153,12 +168,14 @@ def test_feature_implementation(results: FeatureTestResults):
         methods = inspect.getmembers(MainWindow, predicate=inspect.isfunction)
         method_names = [m[0] for m in methods]
 
-        if '_on_delete_message' in method_names:
-            results.add_pass("Delete message feature",
-                             "Delete handler implemented")
+        if "_on_delete_message" in method_names:
+            results.add_pass(
+                "Delete message feature", "Delete handler implemented"
+            )
         else:
-            results.add_fail("Delete message feature",
-                             "Missing _on_delete_message handler")
+            results.add_fail(
+                "Delete message feature", "Missing _on_delete_message handler"
+            )
     except Exception as e:
         results.add_fail("Delete message feature", str(e))
 
@@ -170,15 +187,17 @@ def test_feature_implementation(results: FeatureTestResults):
         methods = inspect.getmembers(MainWindow, predicate=inspect.isfunction)
         method_names = [m[0] for m in methods]
 
-        required_methods = ['_on_message_double_click', '_open_message_popout']
+        required_methods = ["_on_message_double_click", "_open_message_popout"]
         missing = [m for m in required_methods if m not in method_names]
 
         if missing:
-            results.add_fail("Double-click pop-out feature",
-                             f"Missing methods: {missing}")
+            results.add_fail(
+                "Double-click pop-out feature", f"Missing methods: {missing}"
+            )
         else:
-            results.add_pass("Double-click pop-out feature",
-                             "Pop-out handlers implemented")
+            results.add_pass(
+                "Double-click pop-out feature", "Pop-out handlers implemented"
+            )
     except Exception as e:
         results.add_fail("Double-click pop-out feature", str(e))
 
@@ -189,12 +208,16 @@ def test_feature_implementation(results: FeatureTestResults):
 
         source = inspect.getsource(MainWindow._create_message_list_pane)
 
-        if '_column_headers' in source and 'margin_start=12' in source:
-            results.add_pass("Header alignment feature",
-                             "Column headers with proper margins")
+        if "_column_headers" in source and "margin_start=12" in source:
+            results.add_pass(
+                "Header alignment feature",
+                "Column headers with proper margins",
+            )
         else:
-            results.add_warning("Header alignment feature",
-                                "Column headers may need margin adjustment")
+            results.add_warning(
+                "Header alignment feature",
+                "Column headers may need margin adjustment",
+            )
     except Exception as e:
         results.add_fail("Header alignment feature", str(e))
 
@@ -206,12 +229,14 @@ def test_feature_implementation(results: FeatureTestResults):
         methods = inspect.getmembers(MainWindow, predicate=inspect.isfunction)
         method_names = [m[0] for m in methods]
 
-        if '_on_search_focus' in method_names:
-            results.add_pass("Search focus feature",
-                             "Search focus handler implemented")
+        if "_on_search_focus" in method_names:
+            results.add_pass(
+                "Search focus feature", "Search focus handler implemented"
+            )
         else:
-            results.add_fail("Search focus feature",
-                             "Missing _on_search_focus handler")
+            results.add_fail(
+                "Search focus feature", "Missing _on_search_focus handler"
+            )
     except Exception as e:
         results.add_fail("Search focus feature", str(e))
 
@@ -223,12 +248,16 @@ def test_feature_implementation(results: FeatureTestResults):
         source = inspect.getsource(MainWindow._load_sample_data)
 
         # Check for threaded conversation markers
-        if 'thread1-1' in source and 'Project Planning' in source:
-            results.add_pass("Threaded messages feature",
-                             "Sample threaded conversation present")
+        if "thread1-1" in source and "Project Planning" in source:
+            results.add_pass(
+                "Threaded messages feature",
+                "Sample threaded conversation present",
+            )
         else:
-            results.add_fail("Threaded messages feature",
-                             "Threaded conversation not found in sample data")
+            results.add_fail(
+                "Threaded messages feature",
+                "Threaded conversation not found in sample data",
+            )
     except Exception as e:
         results.add_fail("Threaded messages feature", str(e))
 
@@ -238,19 +267,24 @@ def test_view_theme_manager(results: FeatureTestResults):
     logger.info("\n=== Testing View Theme Manager ===")
 
     try:
-        from client.ui.view_theme import ViewTheme, ViewThemeManager, get_view_theme_manager  # noqa: F401
+        from client.ui.view_theme import (  # noqa: F401
+            ViewTheme,
+            ViewThemeManager,
+            get_view_theme_manager,
+        )
 
         # Test enum values exist
-        assert hasattr(ViewTheme, 'STANDARD')
-        assert hasattr(ViewTheme, 'MINIMAL')
+        assert hasattr(ViewTheme, "STANDARD")
+        assert hasattr(ViewTheme, "MINIMAL")
         results.add_pass("ViewTheme enum", "All theme values defined")
 
         # Test singleton
         manager1 = get_view_theme_manager()
         manager2 = get_view_theme_manager()
         assert manager1 is manager2
-        results.add_pass("ViewThemeManager singleton",
-                         "Singleton pattern working")
+        results.add_pass(
+            "ViewThemeManager singleton", "Singleton pattern working"
+        )
 
         # Test theme switching
         manager1.set_theme(ViewTheme.MINIMAL)
@@ -259,15 +293,17 @@ def test_view_theme_manager(results: FeatureTestResults):
 
     except Exception as e:
         import traceback
-        results.add_fail("View theme manager",
-                         f"{str(e)}\n{traceback.format_exc()}")
+
+        results.add_fail(
+            "View theme manager", f"{str(e)}\n{traceback.format_exc()}"
+        )
 
 
 def generate_report(results: FeatureTestResults):
     """Generate test report."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST AUTOMATION REPORT".center(70))
-    print("="*70)
+    print("=" * 70)
 
     # Import Tests
     print("\n## Import Tests")
@@ -345,8 +381,9 @@ def generate_report(results: FeatureTestResults):
     # Summary
     print("\n## Summary")
     total_tests = len(results.passed) + len(results.failed)
-    pass_rate = (len(results.passed) / total_tests *
-                 100) if total_tests > 0 else 0
+    pass_rate = (
+        (len(results.passed) / total_tests * 100) if total_tests > 0 else 0
+    )
 
     print(f"- Total Tests: {total_tests}")
     print(f"- Passed: {len(results.passed)}")
@@ -363,9 +400,9 @@ def generate_report(results: FeatureTestResults):
     else:
         print("✗ **FAIL** - Critical issues found that need resolution")
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Route to change-coordinator for status report.")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     return len(results.failed) == 0
 
@@ -374,9 +411,9 @@ def main():
     """Run all tests."""
     results = FeatureTestResults()
 
-    print("="*70)
+    print("=" * 70)
     print("Starting Test Automation".center(70))
-    print("="*70)
+    print("=" * 70)
 
     # Run tests
     test_imports(results)
@@ -391,5 +428,5 @@ def main():
     sys.exit(0 if success else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

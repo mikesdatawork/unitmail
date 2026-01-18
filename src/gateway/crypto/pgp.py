@@ -18,7 +18,12 @@ try:
 except ImportError:
     gnupg = None  # type: ignore
 
-from src.common.exceptions import CryptoError, DecryptionError, EncryptionError, SignatureError
+from src.common.exceptions import (
+    CryptoError,
+    DecryptionError,
+    EncryptionError,
+    SignatureError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +77,7 @@ class PGPKey:
         """Extract email from primary UID."""
         uid = self.primary_uid
         if "<" in uid and ">" in uid:
-            return uid[uid.index("<") + 1:uid.index(">")]
+            return uid[uid.index("<") + 1 : uid.index(">")]
         return None
 
 
@@ -306,7 +311,8 @@ class PGPManager:
         if key_data.get("expires"):
             try:
                 expiration_date = datetime.fromtimestamp(
-                    int(key_data["expires"]))
+                    int(key_data["expires"])
+                )
             except (ValueError, TypeError):
                 pass
 
@@ -361,8 +367,9 @@ class PGPManager:
             if success:
                 logger.info("Deleted key %s", key_id)
             else:
-                logger.warning("Failed to delete key %s: %s",
-                               key_id, result.status)
+                logger.warning(
+                    "Failed to delete key %s: %s", key_id, result.status
+                )
 
             return success
 
@@ -633,9 +640,7 @@ class PGPManager:
             )
 
             if not encrypted.ok:
-                raise EncryptionError(
-                    f"Encryption failed: {encrypted.status}"
-                )
+                raise EncryptionError(f"Encryption failed: {encrypted.status}")
 
             logger.debug(
                 "Encrypted data for %d recipient(s)",
@@ -685,9 +690,7 @@ class PGPManager:
             )
 
             if not decrypted.ok:
-                raise DecryptionError(
-                    f"Decryption failed: {decrypted.status}"
-                )
+                raise DecryptionError(f"Decryption failed: {decrypted.status}")
 
             # Check for signature
             signature_valid = None
@@ -815,7 +818,8 @@ class PGPManager:
             if verified.timestamp:
                 try:
                     timestamp = datetime.fromtimestamp(
-                        float(verified.timestamp))
+                        float(verified.timestamp)
+                    )
                 except (ValueError, TypeError):
                     pass
 
@@ -826,8 +830,11 @@ class PGPManager:
                 timestamp=timestamp,
                 username=verified.username,
                 status=verified.status,
-                trust_level=verified.trust_level if hasattr(
-                    verified, 'trust_level') else "unknown",
+                trust_level=(
+                    verified.trust_level
+                    if hasattr(verified, "trust_level")
+                    else "unknown"
+                ),
             )
 
             if result.valid:
@@ -952,7 +959,7 @@ class PGPManager:
                 key_id,
                 trust_values[trust_level],
             )
-            return result.ok if hasattr(result, 'ok') else True
+            return result.ok if hasattr(result, "ok") else True
 
         except Exception as e:
             logger.error(

@@ -343,8 +343,9 @@ class BackupDialog(Adw.Window):
             strength += 1
         if len(password) >= 12:
             strength += 1
-        if any(c.isupper() for c in password) and any(c.islower()
-                                                      for c in password):
+        if any(c.isupper() for c in password) and any(
+            c.islower() for c in password
+        ):
             strength += 1
         if any(c.isdigit() for c in password):
             strength += 0.5
@@ -378,9 +379,7 @@ class BackupDialog(Adw.Window):
         dialog.set_title("Select Backup Destination")
 
         # Default to user's documents or home
-        initial_folder = Gio.File.new_for_path(
-            str(Path.home() / "Documents")
-        )
+        initial_folder = Gio.File.new_for_path(str(Path.home() / "Documents"))
         if not initial_folder.query_exists(None):
             initial_folder = Gio.File.new_for_path(str(Path.home()))
 
@@ -412,12 +411,16 @@ class BackupDialog(Adw.Window):
             dialog = Adw.MessageDialog(
                 transient_for=self,
                 heading="Cancel Backup?",
-                body="The backup is still in progress. Are you sure you want to cancel?",
+                body=(
+                    "The backup is still in progress. "
+                    "Are you sure you want to cancel?"
+                ),
             )
             dialog.add_response("continue", "Continue Backup")
             dialog.add_response("cancel", "Cancel Backup")
             dialog.set_response_appearance(
-                "cancel", Adw.ResponseAppearance.DESTRUCTIVE)
+                "cancel", Adw.ResponseAppearance.DESTRUCTIVE
+            )
             dialog.connect("response", self._on_cancel_confirmed)
             dialog.present()
         else:
