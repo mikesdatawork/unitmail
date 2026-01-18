@@ -3114,26 +3114,58 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle delete message action.
+        """Handle delete message action for single or multiple messages.
 
         If the message is not in Trash, it moves to Trash.
         If the message is already in Trash, it is permanently deleted.
         """
-        if self._selected_message_id:
-            storage = get_storage()
+        storage = get_storage()
+        current_folder = self._get_selected_folder_name()
+        is_in_trash = current_folder.lower() == "trash"
 
-            # Check if we're currently viewing the Trash folder
-            current_folder = self._get_selected_folder_name()
-            is_in_trash = current_folder.lower() == "trash"
-
+        # Check for multi-selection first
+        if self._selected_messages:
+            message_ids = list(self._selected_messages)
             if is_in_trash:
-                # Permanently delete the message
+                logger.info(
+                    f"Bulk permanent delete: {len(message_ids)} messages"
+                )
+            else:
+                logger.info(
+                    f"Bulk move to trash: {len(message_ids)} messages"
+                )
+
+            for message_id in message_ids:
+                if is_in_trash:
+                    storage.permanent_delete(message_id)
+                else:
+                    storage.move_to_trash(message_id)
+
+                # Remove from message store
+                for i in range(self._message_store.get_n_items()):
+                    item = self._message_store.get_item(i)
+                    if item.message_id == message_id:
+                        self._message_store.remove(i)
+                        break
+
+                # Remove from _all_messages
+                self._all_messages = [
+                    m for m in self._all_messages
+                    if m.message_id != message_id
+                ]
+
+            self._selected_messages.clear()
+            self._selected_message_id = None
+            self._show_preview_placeholder()
+            self._update_message_count()
+
+        elif self._selected_message_id:
+            if is_in_trash:
                 logger.info(
                     f"Permanently deleting message: {self._selected_message_id}"
                 )
                 storage.permanent_delete(self._selected_message_id)
             else:
-                # Move to Trash instead of permanent delete
                 logger.info(
                     f"Moving message to Trash: {self._selected_message_id}"
                 )
@@ -3144,24 +3176,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
                 item = self._message_store.get_item(i)
                 if item.message_id == self._selected_message_id:
                     self._message_store.remove(i)
-                    # Also remove from _all_messages
                     self._all_messages = [
                         m
                         for m in self._all_messages
                         if m.message_id != self._selected_message_id
                     ]
-                    # Clear selection and preview
                     self._selected_message_id = None
                     self._show_preview_placeholder()
-                    if is_in_trash:
-                        logger.info(
-                            f"Permanently deleted message at index {i}"
-                        )
-                    else:
-                        logger.info(f"Moved message to Trash at index {i}")
                     break
 
-            # Update message count
             self._update_message_count()
 
     def _get_selected_message(self) -> Optional[MessageItem]:
@@ -3244,8 +3267,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle mark read action."""
-        if self._selected_message_id:
+        """Handle mark read action for single or multiple messages."""
+        if self._selected_messages:
+            logger.info(f"Bulk mark as read: {len(self._selected_messages)} messages")
+            for message_id in list(self._selected_messages):
+                self._set_message_read(message_id, True)
+        elif self._selected_message_id:
             logger.info(f"Mark as read: {self._selected_message_id}")
             self._set_message_read(self._selected_message_id, True)
 
@@ -3254,8 +3281,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle mark starred action."""
-        if self._selected_message_id:
+        """Handle mark starred action for single or multiple messages."""
+        if self._selected_messages:
+            logger.info(f"Bulk star: {len(self._selected_messages)} messages")
+            for message_id in list(self._selected_messages):
+                self._set_message_starred(message_id, True)
+        elif self._selected_message_id:
             logger.info(f"Star message: {self._selected_message_id}")
             self._set_message_starred(self._selected_message_id, True)
 
@@ -3264,8 +3295,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle unstar message action."""
-        if self._selected_message_id:
+        """Handle unstar message action for single or multiple messages."""
+        if self._selected_messages:
+            logger.info(f"Bulk unstar: {len(self._selected_messages)} messages")
+            for message_id in list(self._selected_messages):
+                self._set_message_starred(message_id, False)
+        elif self._selected_message_id:
             logger.info(f"Unstar message: {self._selected_message_id}")
             self._set_message_starred(self._selected_message_id, False)
 
@@ -3274,8 +3309,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle mark important action."""
-        if self._selected_message_id:
+        """Handle mark important action for single or multiple messages."""
+        if self._selected_messages:
+            logger.info(f"Bulk mark important: {len(self._selected_messages)} messages")
+            for message_id in list(self._selected_messages):
+                self._set_message_important(message_id, True)
+        elif self._selected_message_id:
             logger.info(f"Mark important: {self._selected_message_id}")
             self._set_message_important(self._selected_message_id, True)
 
@@ -3284,8 +3323,14 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle unmark important action."""
-        if self._selected_message_id:
+        """Handle unmark important action for single or multiple messages."""
+        if self._selected_messages:
+            logger.info(
+                f"Bulk unmark important: {len(self._selected_messages)} messages"
+            )
+            for message_id in list(self._selected_messages):
+                self._set_message_important(message_id, False)
+        elif self._selected_message_id:
             logger.info(f"Unmark important: {self._selected_message_id}")
             self._set_message_important(self._selected_message_id, False)
 
@@ -3294,8 +3339,12 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle mark unread action."""
-        if self._selected_message_id:
+        """Handle mark unread action for single or multiple messages."""
+        if self._selected_messages:
+            logger.info(f"Bulk mark as unread: {len(self._selected_messages)} messages")
+            for message_id in list(self._selected_messages):
+                self._set_message_read(message_id, False)
+        elif self._selected_message_id:
             logger.info(f"Mark unread: {self._selected_message_id}")
             self._set_message_read(self._selected_message_id, False)
 
@@ -3304,8 +3353,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle move to archive action."""
-        if self._selected_message_id:
+        """Handle move to archive action for single or multiple messages."""
+        if self._selected_messages:
+            message_ids = list(self._selected_messages)
+            logger.info(f"Bulk move to archive: {len(message_ids)} messages")
+            for message_id in message_ids:
+                self._move_message_to_folder(message_id, "Archive")
+            self._selected_messages.clear()
+            self._update_message_count()
+        elif self._selected_message_id:
             logger.info(f"Move to archive: {self._selected_message_id}")
             self._move_message_to_folder(self._selected_message_id, "Archive")
 
@@ -3314,8 +3370,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle move to spam action."""
-        if self._selected_message_id:
+        """Handle move to spam action for single or multiple messages."""
+        if self._selected_messages:
+            message_ids = list(self._selected_messages)
+            logger.info(f"Bulk move to spam: {len(message_ids)} messages")
+            for message_id in message_ids:
+                self._move_message_to_folder(message_id, "Spam")
+            self._selected_messages.clear()
+            self._update_message_count()
+        elif self._selected_message_id:
             logger.info(f"Move to spam: {self._selected_message_id}")
             self._move_message_to_folder(self._selected_message_id, "Spam")
 
@@ -3324,11 +3387,20 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Handle move to trash action."""
-        if self._selected_message_id:
+        """Handle move to trash action for single or multiple messages."""
+        # Check for multi-selection first
+        if self._selected_messages:
+            message_ids = list(self._selected_messages)
+            logger.info(f"Bulk move to trash: {len(message_ids)} messages")
+            for message_id in message_ids:
+                self._move_message_to_folder(message_id, "Trash")
+            self._selected_messages.clear()
+            self._selected_message_id = None
+            self._show_preview_placeholder()
+            self._update_message_count()
+        elif self._selected_message_id:
             logger.info(f"Move to trash: {self._selected_message_id}")
             self._move_message_to_folder(self._selected_message_id, "Trash")
-            # Clear preview after moving to trash
             self._selected_message_id = None
             self._show_preview_placeholder()
 
