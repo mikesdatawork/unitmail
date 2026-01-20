@@ -99,6 +99,15 @@ class NotificationSettings:
 
 
 @dataclass
+class BackupExportSettings:
+    """Backup and export settings."""
+
+    backup_folder: str = ""  # Last used backup folder
+    export_folder: str = ""  # Last used export folder
+    last_export_format: str = "txt"  # Last used export format
+
+
+@dataclass
 class AdvancedSettings:
     """Advanced settings."""
 
@@ -125,6 +134,9 @@ class Settings:
         default_factory=NotificationSettings
     )
     advanced: AdvancedSettings = field(default_factory=AdvancedSettings)
+    backup_export: BackupExportSettings = field(
+        default_factory=BackupExportSettings
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert settings to dictionary."""
@@ -135,6 +147,7 @@ class Settings:
             "appearance": asdict(self.appearance),
             "notifications": asdict(self.notifications),
             "advanced": asdict(self.advanced),
+            "backup_export": asdict(self.backup_export),
         }
 
     @classmethod
@@ -156,6 +169,8 @@ class Settings:
             )
         if "advanced" in data:
             settings.advanced = AdvancedSettings(**data["advanced"])
+        if "backup_export" in data:
+            settings.backup_export = BackupExportSettings(**data["backup_export"])
 
         return settings
 
@@ -239,6 +254,11 @@ class SettingsService(GObject.Object):
     def advanced(self) -> AdvancedSettings:
         """Get advanced settings."""
         return self._settings.advanced
+
+    @property
+    def backup_export(self) -> BackupExportSettings:
+        """Get backup and export settings."""
+        return self._settings.backup_export
 
     def load(self) -> bool:
         """
@@ -613,6 +633,23 @@ class SettingsService(GObject.Object):
 
         self._is_dirty = True
         self.emit("settings-changed", "advanced")
+
+    def update_backup_export(
+        self,
+        backup_folder: Optional[str] = None,
+        export_folder: Optional[str] = None,
+        last_export_format: Optional[str] = None,
+    ) -> None:
+        """Update backup and export settings."""
+        if backup_folder is not None:
+            self._settings.backup_export.backup_folder = backup_folder
+        if export_folder is not None:
+            self._settings.backup_export.export_folder = export_folder
+        if last_export_format is not None:
+            self._settings.backup_export.last_export_format = last_export_format
+
+        self._is_dirty = True
+        self.emit("settings-changed", "backup_export")
 
     def is_dirty(self) -> bool:
         """Check if settings have unsaved changes."""

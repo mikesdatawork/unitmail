@@ -88,7 +88,11 @@ class BackupMetadata:
 class BackupContents:
     """Contents included in a backup."""
 
+    # Database contains messages, contacts, folders
     database: bool = True
+    messages: bool = True
+    contacts: bool = True
+    folders: bool = True
     configuration: bool = True
     dkim_keys: bool = True
     pgp_keys: bool = True
@@ -298,7 +302,7 @@ class BackupService:
     def create_backup(
         self,
         output_path: Union[str, Path],
-        password: str,
+        password: Optional[str] = None,
         contents: Optional[BackupContents] = None,
     ) -> BackupMetadata:
         """
@@ -306,7 +310,7 @@ class BackupService:
 
         Args:
             output_path: Path for the backup file.
-            password: Encryption password.
+            password: Encryption password (optional). If None, backup is unencrypted.
             contents: What to include in backup.
 
         Returns:
@@ -324,8 +328,8 @@ class BackupService:
         self._report_progress("backup", "Initializing backup", 0, 100)
 
         try:
-            # Get database path from storage
-            db_path = self._storage.db_path
+            # Get database path from storage's database connection
+            db_path = self._storage._db.db_path
 
             # Create metadata
             metadata = BackupMetadata(
@@ -445,22 +449,30 @@ class BackupService:
                     json.dumps(metadata.to_dict(), indent=2),
                 )
 
-            # Encrypt the zip
-            self._report_progress(
-                "backup", "Encrypting backup", total_steps - 1, total_steps
-            )
+            # Encrypt the zip (if password provided) or write directly
             zip_buffer.seek(0)
-            encrypted_data = BackupEncryption.encrypt(
-                zip_buffer.read(), password
-            )
-
-            # Write to file
-            self._report_progress(
-                "backup", "Writing backup file", total_steps, total_steps
-            )
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "wb") as f:
-                f.write(encrypted_data)
+
+            if password:
+                self._report_progress(
+                    "backup", "Encrypting backup", total_steps - 1, total_steps
+                )
+                encrypted_data = BackupEncryption.encrypt(
+                    zip_buffer.read(), password
+                )
+                # Write encrypted file
+                self._report_progress(
+                    "backup", "Writing backup file", total_steps, total_steps
+                )
+                with open(output_path, "wb") as f:
+                    f.write(encrypted_data)
+            else:
+                # Write unencrypted zip file directly
+                self._report_progress(
+                    "backup", "Writing backup file", total_steps, total_steps
+                )
+                with open(output_path, "wb") as f:
+                    f.write(zip_buffer.read())
 
             self._last_backup_path = output_path
 

@@ -627,6 +627,20 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             action.connect("activate", callback)
             self.add_action(action)
 
+        # Add parameterized action for moving to any folder
+        move_action = Gio.SimpleAction.new(
+            "move-to-folder-direct", GLib.VariantType.new("s")
+        )
+        move_action.connect("activate", self._on_move_to_folder_direct)
+        self.add_action(move_action)
+
+        # Add parameterized action for restoring to any folder (from Trash)
+        restore_action = Gio.SimpleAction.new(
+            "restore-to-folder-direct", GLib.VariantType.new("s")
+        )
+        restore_action.connect("activate", self._on_restore_to_folder_direct)
+        self.add_action(restore_action)
+
         logger.debug("Window actions set up")
 
     def _build_ui(self) -> None:
@@ -2040,6 +2054,75 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         left_click_gesture.connect("pressed", self._on_message_left_click)
         list_view.add_controller(left_click_gesture)
 
+    def _build_move_submenu(
+        self,
+        exclude_folders: Optional[list[str]] = None,
+        is_trash_menu: bool = False,
+        max_folders: int = 10,
+    ) -> Gio.Menu:
+        """Build a dynamic 'Move to...' submenu with available folders.
+
+        Args:
+            exclude_folders: List of folder names to exclude from the menu.
+            is_trash_menu: If True, use restore actions instead of move actions.
+            max_folders: Maximum number of folders to show before 'Choose Folder...'.
+
+        Returns:
+            Configured Gio.Menu with folder options.
+        """
+        move_submenu = Gio.Menu()
+        exclude = set(exclude_folders or [])
+
+        # Get all folders from storage
+        storage = get_storage()
+        folders = storage.get_folders()
+
+        # Filter and sort folders - system folders first, then custom
+        system_order = ["Inbox", "Sent", "Drafts", "Archive", "Spam", "Trash"]
+        system_folders = []
+        custom_folders = []
+
+        for folder in folders:
+            name = folder.get("name", "")
+            if name in exclude:
+                continue
+            if name in system_order:
+                system_folders.append((system_order.index(name), name))
+            else:
+                custom_folders.append(name)
+
+        # Sort system folders by predefined order, custom folders alphabetically
+        system_folders.sort(key=lambda x: x[0])
+        custom_folders.sort()
+
+        # Combine lists
+        all_folders = [name for _, name in system_folders] + custom_folders
+
+        # Add up to max_folders
+        action_prefix = "restore-to-folder-direct" if is_trash_menu else "move-to-folder-direct"
+        folders_added = 0
+
+        for folder_name in all_folders:
+            if folders_added >= max_folders:
+                break
+            menu_item = Gio.MenuItem.new(
+                folder_name, f"win.{action_prefix}"
+            )
+            menu_item.set_action_and_target_value(
+                f"win.{action_prefix}",
+                GLib.Variant.new_string(folder_name),
+            )
+            move_submenu.append_item(menu_item)
+            folders_added += 1
+
+        # Always add "Choose Folder..." at the end
+        if is_trash_menu:
+            move_submenu.append("Choose Folder...", "win.restore-to-folder")
+        else:
+            move_submenu.append("Choose Folder...", "win.move-to-folder-dialog")
+
+        return move_submenu
+
     def _create_regular_context_menu(self) -> Gtk.PopoverMenu:
         """Create the regular context menu for non-Trash folders.
 
@@ -2073,14 +2156,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action_section.append("Forward", "win.forward")
         menu.append_section(None, action_section)
 
-        # Move section
+        # Move section - dynamically built with available folders
         move_section = Gio.Menu()
-        move_submenu = Gio.Menu()
-        move_submenu.append("Archive", "win.move-to-archive")
-        move_submenu.append("Spam", "win.move-to-spam")
-        move_submenu.append("Trash", "win.move-to-trash")
-        # Add separator and option to choose any folder
-        move_submenu.append("Choose Folder...", "win.move-to-folder-dialog")
+        move_submenu = self._build_move_submenu(
+            exclude_folders=[],  # Show all folders
+            is_trash_menu=False,
+            max_folders=10,
+        )
         move_section.append_submenu("Move to...", move_submenu)
         menu.append_section(None, move_section)
 
@@ -2097,31 +2179,48 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
     def _create_trash_context_menu(self) -> Gtk.PopoverMenu:
         """Create the Trash-specific context menu with restore options.
 
+        Menu structure matches regular context menu positioning:
+        1. Read/unread, 2. Favorites, 3. Important, 4. Actions, 5. Move, 6. Delete
+
         Returns:
             Configured PopoverMenu for Trash message actions.
         """
         menu = Gio.Menu()
 
-        # Restore section
-        restore_section = Gio.Menu()
-        restore_section.append("Restore to Inbox", "win.restore-to-inbox")
-
-        # Move to submenu (consistent with regular context menu)
-        move_submenu = Gio.Menu()
-        move_submenu.append("Archive", "win.restore-to-archive")
-        move_submenu.append("Sent", "win.restore-to-sent")
-        move_submenu.append("Drafts", "win.restore-to-drafts")
-        move_submenu.append("Choose Folder...", "win.restore-to-folder")
-        restore_section.append_submenu("Move to...", move_submenu)
-        menu.append_section(None, restore_section)
-
-        # Read/unread section
+        # Read/unread section (matches regular menu position 1)
         read_section = Gio.Menu()
         read_section.append("Mark as Read", "win.mark-read")
         read_section.append("Mark as Unread", "win.mark-unread")
         menu.append_section(None, read_section)
 
-        # Delete section (permanent)
+        # Favorite section (matches regular menu position 2)
+        favorite_section = Gio.Menu()
+        favorite_section.append("Add to Favorites", "win.mark-starred")
+        favorite_section.append("Remove from Favorites", "win.unstar-message")
+        menu.append_section(None, favorite_section)
+
+        # Important section (matches regular menu position 3)
+        important_section = Gio.Menu()
+        important_section.append("Mark as Important", "win.mark-important")
+        important_section.append("Remove Important", "win.unmark-important")
+        menu.append_section(None, important_section)
+
+        # Restore section (replaces Actions section at position 4)
+        restore_section = Gio.Menu()
+        restore_section.append("Restore to Inbox", "win.restore-to-inbox")
+        menu.append_section(None, restore_section)
+
+        # Move section (matches regular menu position 5) - dynamically built
+        move_section = Gio.Menu()
+        move_submenu = self._build_move_submenu(
+            exclude_folders=["Trash"],  # Exclude Trash since we're already there
+            is_trash_menu=True,
+            max_folders=10,
+        )
+        move_section.append_submenu("Move to...", move_submenu)
+        menu.append_section(None, move_section)
+
+        # Delete section (matches regular menu position 6)
         delete_section = Gio.Menu()
         delete_section.append("Delete Permanently", "win.permanent-delete")
         menu.append_section(None, delete_section)
@@ -2442,6 +2541,15 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action_bar.append(self._preview_important_button)
 
         action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        # Print button
+        print_button = Gtk.Button(
+            icon_name="printer-symbolic",
+            tooltip_text="Print email",
+            css_classes=["flat"],
+        )
+        print_button.connect("clicked", self._on_print_clicked)
+        action_bar.append(print_button)
 
         delete_button = Gtk.Button(
             icon_name="user-trash-symbolic",
@@ -3414,6 +3522,46 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             self._selected_message_id = None
             self._show_preview_placeholder()
 
+    def _on_move_to_folder_direct(
+        self,
+        action: Gio.SimpleAction,
+        param: GLib.Variant,
+    ) -> None:
+        """Handle move to a specific folder via parameterized action.
+
+        Args:
+            param: GLib.Variant containing the folder name as a string.
+        """
+        folder = param.get_string()
+        if self._selected_messages:
+            message_ids = list(self._selected_messages)
+            logger.info(f"Bulk move to {folder}: {len(message_ids)} messages")
+            for message_id in message_ids:
+                self._move_message_to_folder(message_id, folder)
+            self._selected_messages.clear()
+            self._selected_message_id = None
+            self._show_preview_placeholder()
+            self._update_message_count()
+        elif self._selected_message_id:
+            logger.info(f"Move to {folder}: {self._selected_message_id}")
+            self._move_message_to_folder(self._selected_message_id, folder)
+            self._selected_message_id = None
+            self._show_preview_placeholder()
+            self._update_message_count()
+
+    def _on_restore_to_folder_direct(
+        self,
+        action: Gio.SimpleAction,
+        param: GLib.Variant,
+    ) -> None:
+        """Handle restore to a specific folder via parameterized action (from Trash).
+
+        Args:
+            param: GLib.Variant containing the folder name as a string.
+        """
+        folder = param.get_string()
+        self._restore_to_specific_folder(folder)
+
     def _on_move_to_folder_dialog(
         self,
         action: Gio.SimpleAction,
@@ -3781,6 +3929,195 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
         # Update message in store and database
         self._set_message_important(self._selected_message_id, is_important)
+
+    def _on_print_clicked(self, button: Gtk.Button) -> None:
+        """Handle print button click - open print dialog for current message."""
+        if not self._selected_message_id:
+            return
+
+        storage = get_storage()
+        message = storage.get_message(self._selected_message_id)
+
+        if not message:
+            logger.warning(f"Message not found for printing: {self._selected_message_id}")
+            return
+
+        logger.info(f"Printing message: {self._selected_message_id}")
+
+        # Create print operation
+        print_op = Gtk.PrintOperation()
+        print_op.set_n_pages(1)
+
+        # Store message for drawing
+        self._print_message = message
+
+        print_op.connect("begin-print", self._on_begin_print)
+        print_op.connect("draw-page", self._on_draw_print_page)
+
+        try:
+            result = print_op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
+            if result == Gtk.PrintOperationResult.ERROR:
+                logger.error("Print operation failed")
+        except Exception as e:
+            logger.error(f"Print failed: {e}")
+
+    def _on_begin_print(
+        self,
+        operation: Gtk.PrintOperation,
+        context: Gtk.PrintContext,
+    ) -> None:
+        """Handle print begin - calculate number of pages if needed."""
+        pass
+
+    def _on_draw_print_page(
+        self,
+        operation: Gtk.PrintOperation,
+        context: Gtk.PrintContext,
+        page_nr: int,
+    ) -> None:
+        """Draw the print page matching the reading pane layout."""
+        msg = getattr(self, "_print_message", None)
+        if not msg:
+            return
+
+        cr = context.get_cairo_context()
+        width = context.get_width()
+        height = context.get_height()
+
+        y = 50
+
+        # Draw header with subject
+        cr.select_font_face("Sans", 0, 1)  # Normal slant, Bold weight
+        cr.set_font_size(16)
+        cr.set_source_rgb(0, 0, 0)
+
+        subject = msg.get("subject", "(No Subject)")
+        cr.move_to(50, y)
+        cr.show_text(subject[:70])
+        y += 35
+
+        # Draw metadata section
+        cr.select_font_face("Sans", 0, 0)  # Normal weight
+        cr.set_font_size(11)
+
+        # From
+        cr.set_source_rgb(0.3, 0.3, 0.3)
+        cr.move_to(50, y)
+        cr.show_text("From:")
+        cr.set_source_rgb(0, 0, 0)
+        cr.move_to(100, y)
+        cr.show_text(msg.get("from_address", "Unknown"))
+        y += 20
+
+        # To
+        cr.set_source_rgb(0.3, 0.3, 0.3)
+        cr.move_to(50, y)
+        cr.show_text("To:")
+        cr.set_source_rgb(0, 0, 0)
+        cr.move_to(100, y)
+        to_addrs = msg.get("to_addresses", [])
+        if isinstance(to_addrs, list):
+            to_str = ", ".join(to_addrs)
+        elif isinstance(to_addrs, str):
+            try:
+                import json
+                to_list = json.loads(to_addrs)
+                to_str = ", ".join(to_list) if isinstance(to_list, list) else to_addrs
+            except (json.JSONDecodeError, TypeError):
+                to_str = to_addrs
+        else:
+            to_str = str(to_addrs)
+        cr.show_text(to_str[:60])
+        y += 20
+
+        # CC if present
+        cc_addrs = msg.get("cc_addresses", [])
+        if cc_addrs and cc_addrs != "[]":
+            cr.set_source_rgb(0.3, 0.3, 0.3)
+            cr.move_to(50, y)
+            cr.show_text("CC:")
+            cr.set_source_rgb(0, 0, 0)
+            cr.move_to(100, y)
+            if isinstance(cc_addrs, list):
+                cc_str = ", ".join(cc_addrs)
+            else:
+                cc_str = str(cc_addrs)
+            cr.show_text(cc_str[:60])
+            y += 20
+
+        # Date
+        cr.set_source_rgb(0.3, 0.3, 0.3)
+        cr.move_to(50, y)
+        cr.show_text("Date:")
+        cr.set_source_rgb(0, 0, 0)
+        cr.move_to(100, y)
+        received = msg.get("received_at", "")
+        try:
+            from datetime import datetime
+            dt = datetime.fromisoformat(received.replace("Z", "+00:00"))
+            date_str = dt.strftime("%B %d, %Y at %I:%M %p")
+        except (ValueError, AttributeError):
+            date_str = received[:19] if received else "Unknown"
+        cr.show_text(date_str)
+        y += 35
+
+        # Draw separator line
+        cr.set_line_width(0.5)
+        cr.set_source_rgb(0.7, 0.7, 0.7)
+        cr.move_to(50, y)
+        cr.line_to(width - 50, y)
+        cr.stroke()
+        y += 25
+
+        # Draw body
+        cr.set_source_rgb(0, 0, 0)
+        cr.set_font_size(10)
+
+        body = msg.get("body_text") or msg.get("body_html", "")
+        if msg.get("body_html") and not msg.get("body_text"):
+            # Simple HTML to text conversion
+            import re
+            body = re.sub(r"<script[^>]*>.*?</script>", "", body, flags=re.DOTALL)
+            body = re.sub(r"<style[^>]*>.*?</style>", "", body, flags=re.DOTALL)
+            body = re.sub(r"<br\s*/?>", "\n", body, flags=re.IGNORECASE)
+            body = re.sub(r"</p>", "\n\n", body, flags=re.IGNORECASE)
+            body = re.sub(r"<[^>]+>", "", body)
+            body = body.replace("&nbsp;", " ")
+            body = body.replace("&amp;", "&")
+            body = body.replace("&lt;", "<")
+            body = body.replace("&gt;", ">")
+
+        # Word wrap and draw body text
+        max_width = width - 100
+        lines = body.split("\n")
+
+        for line in lines:
+            if y > height - 50:
+                break
+
+            # Simple word wrapping
+            words = line.split()
+            current_line = ""
+
+            for word in words:
+                test_line = current_line + " " + word if current_line else word
+                extents = cr.text_extents(test_line)
+
+                if extents.width > max_width and current_line:
+                    cr.move_to(50, y)
+                    cr.show_text(current_line)
+                    y += 14
+                    current_line = word
+
+                    if y > height - 50:
+                        break
+                else:
+                    current_line = test_line
+
+            if current_line and y <= height - 50:
+                cr.move_to(50, y)
+                cr.show_text(current_line)
+                y += 14
 
     def _on_bulk_delete(
         self,

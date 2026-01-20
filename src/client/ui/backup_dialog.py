@@ -24,6 +24,7 @@ from client.services.backup_service import (
     BackupService,
     get_backup_service,
 )
+from client.services.settings_service import get_settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +72,14 @@ class BackupDialog(Adw.Window):
         self._user_id = user_id
         self._user_email = user_email
         self._backup_service = backup_service or get_backup_service()
+        self._settings_service = get_settings_service()
         self._output_path: Optional[Path] = None
         self._is_running = False
+
+        # Load saved backup folder from settings
+        saved_folder = self._settings_service.backup_export.backup_folder
+        if saved_folder and Path(saved_folder).exists():
+            self._output_path = Path(saved_folder)
 
         self._build_ui()
         self._connect_signals()
@@ -87,18 +94,7 @@ class BackupDialog(Adw.Window):
         # Header bar
         header = Adw.HeaderBar()
         header.add_css_class("flat")
-
-        cancel_button = Gtk.Button(label="Cancel")
-        cancel_button.connect("clicked", self._on_cancel_clicked)
-        header.pack_start(cancel_button)
-        self._cancel_button = cancel_button
-
-        backup_button = Gtk.Button(label="Create Backup")
-        backup_button.add_css_class("suggested-action")
-        backup_button.set_sensitive(False)
-        backup_button.connect("clicked", self._on_backup_clicked)
-        header.pack_end(backup_button)
-        self._backup_button = backup_button
+        header.set_title_widget(Gtk.Label(label="Create Backup"))
 
         main_box.append(header)
 
@@ -124,30 +120,37 @@ class BackupDialog(Adw.Window):
             description="Choose where to save the backup file",
         )
 
-        dest_row = Adw.ActionRow(
+        # Show full path as subtitle, or prompt to select
+        if self._output_path:
+            subtitle_text = str(self._output_path)
+        else:
+            subtitle_text = "No folder selected"
+
+        self._dest_row = Adw.ActionRow(
             title="Location",
-            subtitle="Select a folder to save the backup",
-            activatable=True,
+            subtitle=subtitle_text,
         )
 
-        self._dest_label = Gtk.Label(
-            label="Not selected",
-            css_classes=["dim-label"],
+        # Open folder button (only visible when folder is selected)
+        self._open_folder_button = Gtk.Button(
+            label="Open",
             valign=Gtk.Align.CENTER,
-            ellipsize=3,  # PANGO_ELLIPSIZE_END
-            max_width_chars=25,
+            tooltip_text="Open folder in file manager",
+            visible=self._output_path is not None,
         )
-        dest_row.add_suffix(self._dest_label)
+        self._open_folder_button.connect("clicked", self._on_open_folder_clicked)
+        self._dest_row.add_suffix(self._open_folder_button)
 
+        # Browse/Change button
         browse_button = Gtk.Button(
-            icon_name="folder-open-symbolic",
+            label="Browse",
             valign=Gtk.Align.CENTER,
-            tooltip_text="Browse",
+            tooltip_text="Select folder",
         )
         browse_button.connect("clicked", self._on_browse_clicked)
-        dest_row.add_suffix(browse_button)
+        self._dest_row.add_suffix(browse_button)
 
-        dest_group.add(dest_row)
+        dest_group.add(self._dest_row)
 
         # Filename
         self._filename_row = Adw.EntryRow(
@@ -159,27 +162,40 @@ class BackupDialog(Adw.Window):
 
         content.append(dest_group)
 
-        # Security group
+        # Security group (optional)
         security_group = Adw.PreferencesGroup(
-            title="Encryption",
-            description="Protect your backup with a password",
+            title="Security (Optional)",
+            description="Add password protection to your backup",
         )
 
+        # Encryption toggle
+        self._encrypt_switch = Adw.SwitchRow(
+            title="Enable Encryption",
+            subtitle="Protect backup with a password",
+            active=False,
+        )
+        self._encrypt_switch.connect("notify::active", self._on_encrypt_toggled)
+        security_group.add(self._encrypt_switch)
+
+        # Password fields (initially hidden)
         self._password_row = Adw.PasswordEntryRow(
             title="Password",
+            visible=False,
         )
         self._password_row.connect("changed", self._validate_form)
         security_group.add(self._password_row)
 
         self._confirm_password_row = Adw.PasswordEntryRow(
             title="Confirm Password",
+            visible=False,
         )
         self._confirm_password_row.connect("changed", self._validate_form)
         security_group.add(self._confirm_password_row)
 
-        # Password strength indicator
-        strength_row = Adw.ActionRow(
+        # Password strength indicator (initially hidden)
+        self._strength_row = Adw.ActionRow(
             title="Password Strength",
+            visible=False,
         )
         self._strength_bar = Gtk.LevelBar(
             min_value=0,
@@ -189,16 +205,16 @@ class BackupDialog(Adw.Window):
             hexpand=True,
         )
         self._strength_bar.set_size_request(150, -1)
-        strength_row.add_suffix(self._strength_bar)
+        self._strength_row.add_suffix(self._strength_bar)
 
         self._strength_label = Gtk.Label(
             label="",
             css_classes=["dim-label"],
             valign=Gtk.Align.CENTER,
         )
-        strength_row.add_suffix(self._strength_label)
+        self._strength_row.add_suffix(self._strength_label)
 
-        security_group.add(strength_row)
+        security_group.add(self._strength_row)
 
         content.append(security_group)
 
@@ -292,6 +308,31 @@ class BackupDialog(Adw.Window):
         scrolled.set_child(content)
         main_box.append(scrolled)
 
+        # Bottom button bar
+        button_bar = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
+            margin_start=24,
+            margin_end=24,
+            margin_top=12,
+            margin_bottom=24,
+            halign=Gtk.Align.END,
+        )
+
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", self._on_cancel_clicked)
+        self._cancel_button = cancel_button
+        button_bar.append(cancel_button)
+
+        backup_button = Gtk.Button(label="Create Backup")
+        backup_button.add_css_class("suggested-action")
+        backup_button.set_sensitive(False)
+        backup_button.connect("clicked", self._on_backup_clicked)
+        self._backup_button = backup_button
+        button_bar.append(backup_button)
+
+        main_box.append(button_bar)
+
     def _connect_signals(self) -> None:
         """Connect widget signals."""
         self.connect("close-request", self._on_close_request)
@@ -302,6 +343,20 @@ class BackupDialog(Adw.Window):
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"unitmail_backup_{timestamp}"
+
+    def _on_encrypt_toggled(self, switch: Adw.SwitchRow, param) -> None:
+        """Handle encryption toggle."""
+        is_encrypted = switch.get_active()
+        self._password_row.set_visible(is_encrypted)
+        self._confirm_password_row.set_visible(is_encrypted)
+        self._strength_row.set_visible(is_encrypted)
+
+        # Clear password fields when disabled
+        if not is_encrypted:
+            self._password_row.set_text("")
+            self._confirm_password_row.set_text("")
+
+        self._validate_form()
 
     def _validate_form(self, *args) -> None:
         """Validate form and enable/disable backup button."""
@@ -316,21 +371,22 @@ class BackupDialog(Adw.Window):
         if not filename:
             is_valid = False
 
-        # Check passwords
-        password = self._password_row.get_text()
-        confirm = self._confirm_password_row.get_text()
+        # Only check passwords if encryption is enabled
+        if self._encrypt_switch.get_active():
+            password = self._password_row.get_text()
+            confirm = self._confirm_password_row.get_text()
 
-        if len(password) < 8:
-            is_valid = False
-        elif password != confirm:
-            is_valid = False
-            if confirm:
-                self._confirm_password_row.add_css_class("error")
-        else:
-            self._confirm_password_row.remove_css_class("error")
+            if len(password) < 8:
+                is_valid = False
+            elif password != confirm:
+                is_valid = False
+                if confirm:
+                    self._confirm_password_row.add_css_class("error")
+            else:
+                self._confirm_password_row.remove_css_class("error")
 
-        # Update password strength
-        self._update_password_strength(password)
+            # Update password strength
+            self._update_password_strength(password)
 
         self._backup_button.set_sensitive(is_valid and not self._is_running)
 
@@ -378,10 +434,13 @@ class BackupDialog(Adw.Window):
         dialog = Gtk.FileDialog()
         dialog.set_title("Select Backup Destination")
 
-        # Default to user's documents or home
-        initial_folder = Gio.File.new_for_path(str(Path.home() / "Documents"))
-        if not initial_folder.query_exists(None):
-            initial_folder = Gio.File.new_for_path(str(Path.home()))
+        # Use saved folder if available, otherwise default to Documents/home
+        if self._output_path and self._output_path.exists():
+            initial_folder = Gio.File.new_for_path(str(self._output_path))
+        else:
+            initial_folder = Gio.File.new_for_path(str(Path.home() / "Documents"))
+            if not initial_folder.query_exists(None):
+                initial_folder = Gio.File.new_for_path(str(Path.home()))
 
         dialog.set_initial_folder(initial_folder)
         dialog.select_folder(self, None, self._on_folder_selected)
@@ -396,13 +455,30 @@ class BackupDialog(Adw.Window):
             folder = dialog.select_folder_finish(result)
             if folder:
                 self._output_path = Path(folder.get_path())
-                self._dest_label.set_label(self._output_path.name)
-                self._dest_label.set_tooltip_text(str(self._output_path))
+                self._dest_row.set_subtitle(str(self._output_path))
+                self._open_folder_button.set_visible(True)
+
+                # Save to settings
+                self._settings_service.update_backup_export(
+                    backup_folder=str(self._output_path)
+                )
+                self._settings_service.save()
+
                 self._validate_form()
 
         except GLib.Error as e:
             if e.code != Gtk.DialogError.DISMISSED:
                 logger.error("Failed to select folder: %s", e.message)
+
+    def _on_open_folder_clicked(self, button: Gtk.Button) -> None:
+        """Handle open folder button click."""
+        if self._output_path and self._output_path.exists():
+            import subprocess
+
+            try:
+                subprocess.run(["xdg-open", str(self._output_path)], check=False)
+            except Exception as e:
+                logger.warning(f"Could not open folder: {e}")
 
     def _on_cancel_clicked(self, button: Gtk.Button) -> None:
         """Handle cancel button click."""
@@ -438,9 +514,11 @@ class BackupDialog(Adw.Window):
 
     def _on_backup_clicked(self, button: Gtk.Button) -> None:
         """Handle backup button click."""
+        # Generate a default user ID if not provided
         if self._user_id is None:
-            self._show_error("No user ID provided")
-            return
+            from uuid import uuid4
+            self._user_id = uuid4()
+            logger.info(f"Generated default user ID: {self._user_id}")
 
         self._start_backup()
 
@@ -456,7 +534,12 @@ class BackupDialog(Adw.Window):
             filename += ".unitmail-backup"
 
         backup_path = self._output_path / filename
-        password = self._password_row.get_text()
+
+        # Only use password if encryption is enabled
+        if self._encrypt_switch.get_active():
+            password = self._password_row.get_text()
+        else:
+            password = None  # No encryption
 
         # Get contents selection
         contents = BackupContents(
@@ -475,24 +558,11 @@ class BackupDialog(Adw.Window):
 
         # Run backup in thread
         def run_backup():
-            import asyncio
-
-            async def do_backup():
-                return await self._backup_service.create_backup(
-                    output_path=backup_path,
-                    password=password,
-                    user_id=self._user_id,
-                    user_email=self._user_email,
-                    contents=contents,
-                    incremental=incremental,
-                )
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                return loop.run_until_complete(do_backup())
-            finally:
-                loop.close()
+            return self._backup_service.create_backup(
+                output_path=backup_path,
+                password=password,
+                contents=contents,
+            )
 
         def on_complete(metadata):
             GLib.idle_add(self._on_backup_complete, metadata, None)

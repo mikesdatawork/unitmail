@@ -273,6 +273,7 @@ class SettingsWindow(Adw.Window):
                 "Notifications",
                 "preferences-system-notifications-symbolic",
             ),
+            ("backup", "Backup & Export", "document-save-symbolic"),
             ("database", "Database", "drive-harddisk-symbolic"),
             ("advanced", "Advanced", "preferences-other-symbolic"),
         ]
@@ -333,6 +334,7 @@ class SettingsWindow(Adw.Window):
         stack.add_named(self._create_security_content(), "security")
         stack.add_named(self._create_appearance_content(), "appearance")
         stack.add_named(self._create_notifications_content(), "notifications")
+        stack.add_named(self._create_backup_export_content(), "backup")
         stack.add_named(self._create_database_content(), "database")
         stack.add_named(self._create_advanced_content(), "advanced")
 
@@ -955,6 +957,145 @@ class SettingsWindow(Adw.Window):
         content_box.append(events_group)
 
         return page_box
+
+    def _create_backup_export_content(self) -> Gtk.Widget:
+        """Create the backup and export settings content."""
+        page_box, content_box = self._create_page_container(
+            "Backup & Export", "Back up your data and export emails"
+        )
+
+        # Backup section
+        backup_group = Adw.PreferencesGroup(
+            title="Backup",
+            description="Create encrypted backups of your emails and settings",
+        )
+
+        backup_row = Adw.ActionRow(
+            title="Create Backup",
+            subtitle="Back up messages, contacts, folders, and settings",
+        )
+        backup_icon = Gtk.Image(
+            icon_name="drive-harddisk-symbolic",
+            valign=Gtk.Align.CENTER,
+        )
+        backup_row.add_prefix(backup_icon)
+
+        backup_button = Gtk.Button(
+            label="Backup...",
+            valign=Gtk.Align.CENTER,
+            css_classes=["suggested-action"],
+        )
+        backup_button.connect("clicked", self._on_backup_clicked)
+        backup_row.add_suffix(backup_button)
+        backup_group.add(backup_row)
+
+        restore_row = Adw.ActionRow(
+            title="Restore from Backup",
+            subtitle="Restore data from a previous backup file",
+        )
+        restore_icon = Gtk.Image(
+            icon_name="document-revert-symbolic",
+            valign=Gtk.Align.CENTER,
+        )
+        restore_row.add_prefix(restore_icon)
+
+        restore_button = Gtk.Button(
+            label="Restore...",
+            valign=Gtk.Align.CENTER,
+        )
+        restore_button.connect("clicked", self._on_restore_clicked)
+        restore_row.add_suffix(restore_button)
+        backup_group.add(restore_row)
+
+        content_box.append(backup_group)
+
+        # Export section
+        export_group = Adw.PreferencesGroup(
+            title="Export Emails",
+            description="Export emails in various formats for archiving or migration",
+        )
+
+        export_row = Adw.ActionRow(
+            title="Export Messages",
+            subtitle="Export to TXT, Markdown, PDF, MBOX, or EML formats",
+        )
+        export_icon = Gtk.Image(
+            icon_name="document-send-symbolic",
+            valign=Gtk.Align.CENTER,
+        )
+        export_row.add_prefix(export_icon)
+
+        export_button = Gtk.Button(
+            label="Export...",
+            valign=Gtk.Align.CENTER,
+            css_classes=["suggested-action"],
+        )
+        export_button.connect("clicked", self._on_export_clicked)
+        export_row.add_suffix(export_button)
+        export_group.add(export_row)
+
+        # Format info
+        formats_row = Adw.ExpanderRow(
+            title="Supported Formats",
+            subtitle="Click to see available export formats",
+        )
+
+        txt_row = Adw.ActionRow(
+            title="Plain Text (.txt)",
+            subtitle="Simple text format with headers and body",
+        )
+        formats_row.add_row(txt_row)
+
+        md_row = Adw.ActionRow(
+            title="Markdown (.md)",
+            subtitle="Formatted text with headers and tables",
+        )
+        formats_row.add_row(md_row)
+
+        pdf_row = Adw.ActionRow(
+            title="PDF (.pdf)",
+            subtitle="Print-ready format preserving layout",
+        )
+        formats_row.add_row(pdf_row)
+
+        mbox_row = Adw.ActionRow(
+            title="MBOX (.mbox)",
+            subtitle="Standard format for Thunderbird, Apple Mail, etc.",
+        )
+        formats_row.add_row(mbox_row)
+
+        eml_row = Adw.ActionRow(
+            title="EML (.eml)",
+            subtitle="Individual email files for any email client",
+        )
+        formats_row.add_row(eml_row)
+
+        export_group.add(formats_row)
+
+        content_box.append(export_group)
+
+        return page_box
+
+    def _on_backup_clicked(self, button: Gtk.Button) -> None:
+        """Handle backup button click."""
+        from .backup_dialog import BackupDialog
+
+        dialog = BackupDialog(parent=self)
+        dialog.present()
+
+    def _on_restore_clicked(self, button: Gtk.Button) -> None:
+        """Handle restore button click."""
+        from .restore_dialog import RestoreDialog
+
+        dialog = RestoreDialog(parent=self)
+        dialog.present()
+
+    def _on_export_clicked(self, button: Gtk.Button) -> None:
+        """Handle export button click."""
+        from .export_dialog import ExportDialog
+
+        dialog = ExportDialog(parent=self)
+        dialog.present()
 
     def _create_database_content(self) -> Gtk.Widget:
         """Create the database statistics content."""
