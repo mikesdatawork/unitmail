@@ -46,6 +46,7 @@ SYSTEM_FOLDERS = {
     FolderType.DRAFTS,
     FolderType.TRASH,
     FolderType.SPAM,
+    FolderType.ARCHIVE,
 }
 
 # Icon names for each folder type

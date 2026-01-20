@@ -616,6 +616,9 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             # Trash-specific actions
             "restore-to-inbox": self._on_restore_to_inbox,
             "restore-to-folder": self._on_restore_to_folder,
+            "restore-to-archive": self._on_restore_to_archive,
+            "restore-to-sent": self._on_restore_to_sent,
+            "restore-to-drafts": self._on_restore_to_drafts,
             "permanent-delete": self._on_permanent_delete,
         }
 
@@ -2102,7 +2105,14 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         # Restore section
         restore_section = Gio.Menu()
         restore_section.append("Restore to Inbox", "win.restore-to-inbox")
-        restore_section.append("Move to...", "win.restore-to-folder")
+
+        # Move to submenu (consistent with regular context menu)
+        move_submenu = Gio.Menu()
+        move_submenu.append("Archive", "win.restore-to-archive")
+        move_submenu.append("Sent", "win.restore-to-sent")
+        move_submenu.append("Drafts", "win.restore-to-drafts")
+        move_submenu.append("Choose Folder...", "win.restore-to-folder")
+        restore_section.append_submenu("Move to...", move_submenu)
         menu.append_section(None, restore_section)
 
         # Read/unread section
@@ -3465,38 +3475,120 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Restore a message from Trash to its original folder (or Inbox).
+        """Restore message(s) from Trash to original folder (or Inbox).
 
         Uses the restore_from_trash method which automatically restores
         to the original folder, or Inbox if the original is not available.
+        Handles both single and bulk message selections.
         """
-        if not self._selected_message_id:
-            return
-
         storage = get_storage()
-        result = storage.restore_from_trash(self._selected_message_id)
 
-        if result:
-            logger.info(
-                f"Restored message {self._selected_message_id} from Trash"
-            )
-            # Remove from current view
-            self._remove_message_from_view(self._selected_message_id)
+        # Handle bulk selection first
+        if self._selected_messages:
+            message_ids = list(self._selected_messages)
+            logger.info(f"Bulk restore from Trash: {len(message_ids)} messages")
+            for message_id in message_ids:
+                result = storage.restore_from_trash(message_id)
+                if result:
+                    self._remove_message_from_view(message_id)
+                else:
+                    logger.warning(f"Failed to restore message {message_id}")
+            self._selected_messages.clear()
             self._selected_message_id = None
             self._show_preview_placeholder()
             self._update_message_count()
-        else:
-            logger.warning(
-                f"Failed to restore message {self._selected_message_id}"
+        elif self._selected_message_id:
+            # Handle single selection
+            result = storage.restore_from_trash(self._selected_message_id)
+            if result:
+                logger.info(
+                    f"Restored message {self._selected_message_id} from Trash"
+                )
+                self._remove_message_from_view(self._selected_message_id)
+                self._selected_message_id = None
+                self._show_preview_placeholder()
+                self._update_message_count()
+            else:
+                logger.warning(
+                    f"Failed to restore message {self._selected_message_id}"
+                )
+
+    def _on_restore_to_archive(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Move message from Trash to Archive."""
+        self._restore_to_specific_folder("Archive")
+
+    def _on_restore_to_sent(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Move message from Trash to Sent."""
+        self._restore_to_specific_folder("Sent")
+
+    def _on_restore_to_drafts(
+        self,
+        action: Gio.SimpleAction,
+        param: Optional[GLib.Variant],
+    ) -> None:
+        """Move message from Trash to Drafts."""
+        self._restore_to_specific_folder("Drafts")
+
+    def _restore_to_specific_folder(self, folder: str) -> None:
+        """Move message(s) from Trash to a specific folder.
+
+        Handles both single and bulk message selections.
+
+        Args:
+            folder: Target folder name.
+        """
+        storage = get_storage()
+
+        # Handle bulk selection first
+        if self._selected_messages:
+            message_ids = list(self._selected_messages)
+            logger.info(
+                f"Bulk move from Trash to {folder}: {len(message_ids)} messages"
             )
+            for message_id in message_ids:
+                result = storage.move_to_folder(message_id, folder)
+                if result:
+                    self._remove_message_from_view(message_id)
+                else:
+                    logger.warning(
+                        f"Failed to move message {message_id} to {folder}"
+                    )
+            self._selected_messages.clear()
+            self._selected_message_id = None
+            self._show_preview_placeholder()
+            self._update_message_count()
+        elif self._selected_message_id:
+            # Handle single selection
+            result = storage.move_to_folder(self._selected_message_id, folder)
+            if result:
+                logger.info(
+                    f"Moved message {self._selected_message_id} from Trash to {folder}"
+                )
+                self._remove_message_from_view(self._selected_message_id)
+                self._selected_message_id = None
+                self._show_preview_placeholder()
+                self._update_message_count()
+            else:
+                logger.warning(
+                    f"Failed to move message {self._selected_message_id} to {folder}"
+                )
 
     def _on_restore_to_folder(
         self,
         action: Gio.SimpleAction,
         param: Optional[GLib.Variant],
     ) -> None:
-        """Show folder selection dialog to move message from Trash to chosen folder."""
-        if not self._selected_message_id:
+        """Show folder selection dialog to move message(s) from Trash to chosen folder."""
+        # Need either bulk selection or single selection
+        if not self._selected_messages and not self._selected_message_id:
             return
 
         # Create folder selection dialog, excluding Trash
@@ -3506,8 +3598,11 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
             exclude_folders=["Trash"],
         )
 
-        # Store message ID for use in response handler
-        dialog._message_id = self._selected_message_id
+        # Store message IDs for use in response handler
+        if self._selected_messages:
+            dialog._message_ids = list(self._selected_messages)
+        else:
+            dialog._message_ids = [self._selected_message_id]
 
         dialog.connect("response", self._on_folder_selection_response)
         dialog.present()
@@ -3517,28 +3612,31 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         dialog: FolderSelectionDialog,
         response: str,
     ) -> None:
-        """Handle folder selection dialog response."""
+        """Handle folder selection dialog response for single or bulk moves."""
         if response == "move":
             selected_folder = dialog.get_selected_folder()
-            message_id = getattr(dialog, "_message_id", None)
+            message_ids = getattr(dialog, "_message_ids", [])
 
-            if selected_folder and message_id:
+            if selected_folder and message_ids:
                 storage = get_storage()
-                result = storage.move_to_folder(message_id, selected_folder)
+                logger.info(
+                    f"Moving {len(message_ids)} message(s) to {selected_folder}"
+                )
 
-                if result:
-                    logger.info(
-                        f"Moved message {message_id} to {selected_folder}"
-                    )
-                    # Remove from current view
-                    self._remove_message_from_view(message_id)
-                    self._selected_message_id = None
-                    self._show_preview_placeholder()
-                    self._update_message_count()
-                else:
-                    logger.warning(
-                        f"Failed to move message {message_id} to {selected_folder}"
-                    )
+                for message_id in message_ids:
+                    result = storage.move_to_folder(message_id, selected_folder)
+                    if result:
+                        self._remove_message_from_view(message_id)
+                    else:
+                        logger.warning(
+                            f"Failed to move message {message_id} to {selected_folder}"
+                        )
+
+                # Clear selections and update UI
+                self._selected_messages.clear()
+                self._selected_message_id = None
+                self._show_preview_placeholder()
+                self._update_message_count()
 
         dialog.destroy()
 
