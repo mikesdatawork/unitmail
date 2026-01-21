@@ -12,7 +12,7 @@ unitMail is an independent, self-hosted email system that gives you complete con
 
 ### You Don't Own Your Email
 
-When you use Gmail, Outlook, Yahoo, or any cloud email provider, you're not a customer—you're the product. Your emails are:
+When you use Gmail, Outlook, Yahoo, or any cloud email provider, you're vulnerable to losing it all through lockouts. Your emails are:
 
 - **Scanned and analyzed** for advertising purposes
 - **Stored on servers you don't control** in jurisdictions you may not trust
