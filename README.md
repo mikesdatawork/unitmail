@@ -4,7 +4,7 @@
 
 unitMail is an independent, self-hosted email system that gives you complete control over your email infrastructure. No more relying on Gmail, Outlook, or other cloud providers who can lock you out at any moment.
 
-![unitMail Desktop Client](screenshots/main_message_view.png)
+![unitMail Desktop Client](screenshots/unitmail_main.png)
 
 ---
 
@@ -202,6 +202,57 @@ We're explicit: if you want zero-effort email, use Gmail. If you want **ownershi
 - **Multiple Deployment Models** - Self-host, VPS, or hybrid
 - **REST API** - Full API access for automation
 - **Setup Wizard** - Guided first-run configuration
+
+---
+
+## Screenshots
+
+### Compose Email
+Rich text editor with formatting toolbar, attachments, and signature support.
+
+![Compose Email](screenshots/unitmail_compose.png)
+
+### Settings
+
+#### Account Settings
+Configure your display name, email address, and signature.
+
+![Account Settings](screenshots/unitmail_settings_account.png)
+
+#### Server Settings
+Configure gateway URL, SMTP, and IMAP server connections.
+
+![Server Settings](screenshots/unitmail_settings_server.png)
+
+#### Security Settings
+PGP encryption, auto-sign, and two-factor authentication options.
+
+![Security Settings](screenshots/unitmail_settings_security.png)
+
+#### Appearance Settings
+Theme mode, view density, font size, and date format customization.
+
+![Appearance Settings](screenshots/unitmail_settings_appearance.png)
+
+#### Notification Settings
+Desktop notifications and sound alert configuration.
+
+![Notification Settings](screenshots/unitmail_settings_notifications.png)
+
+#### Backup & Export Settings
+Configure backup and export folder locations with encryption options.
+
+![Backup & Export Settings](screenshots/unitmail_settings_backup_export.png)
+
+#### Database Settings
+Database path, optimization, and maintenance options.
+
+![Database Settings](screenshots/unitmail_settings_database.png)
+
+#### Advanced Settings
+Cache, logging, sync interval, and debug mode configuration.
+
+![Advanced Settings](screenshots/unitmail_settings_advanced.png)
 
 ---
 

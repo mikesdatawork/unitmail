@@ -277,17 +277,19 @@ class ComposerWindow(Gtk.Window):
         return row
 
     def _create_formatting_toolbar(self, parent: Gtk.Box):
-        """Create the formatting toolbar."""
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        """Create the formatting toolbar with comprehensive controls in one row."""
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         toolbar.set_margin_start(12)
         toolbar.set_margin_end(12)
         toolbar.set_margin_top(8)
         toolbar.set_margin_bottom(8)
+        toolbar.add_css_class("toolbar")
 
         # Bold button
         self.bold_button = Gtk.ToggleButton()
         self.bold_button.set_icon_name("format-text-bold-symbolic")
         self.bold_button.set_tooltip_text("Bold (Ctrl+B)")
+        self.bold_button.add_css_class("flat")
         self.bold_button.connect("toggled", self._on_bold_toggled)
         toolbar.append(self.bold_button)
 
@@ -295,6 +297,7 @@ class ComposerWindow(Gtk.Window):
         self.italic_button = Gtk.ToggleButton()
         self.italic_button.set_icon_name("format-text-italic-symbolic")
         self.italic_button.set_tooltip_text("Italic (Ctrl+I)")
+        self.italic_button.add_css_class("flat")
         self.italic_button.connect("toggled", self._on_italic_toggled)
         toolbar.append(self.italic_button)
 
@@ -302,41 +305,311 @@ class ComposerWindow(Gtk.Window):
         self.underline_button = Gtk.ToggleButton()
         self.underline_button.set_icon_name("format-text-underline-symbolic")
         self.underline_button.set_tooltip_text("Underline (Ctrl+U)")
+        self.underline_button.add_css_class("flat")
         self.underline_button.connect("toggled", self._on_underline_toggled)
         toolbar.append(self.underline_button)
 
-        # Strikethrough button
-        self.strike_button = Gtk.ToggleButton()
-        self.strike_button.set_icon_name("format-text-strikethrough-symbolic")
-        self.strike_button.set_tooltip_text("Strikethrough")
-        self.strike_button.connect("toggled", self._on_strike_toggled)
-        toolbar.append(self.strike_button)
+        # More text formatting dropdown (Strikethrough, colors)
+        self.more_format_button = Gtk.MenuButton()
+        self.more_format_button.set_icon_name("format-text-strikethrough-symbolic")
+        self.more_format_button.set_tooltip_text("More formatting")
+        self.more_format_button.add_css_class("flat")
+        self._setup_more_format_menu(self.more_format_button)
+        toolbar.append(self.more_format_button)
 
         # Separator
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
-        # Font selector
-        self.font_button = Gtk.FontDialogButton()
-        font_dialog = Gtk.FontDialog()
-        font_dialog.set_title("Select Font")
-        self.font_button.set_dialog(font_dialog)
-        self.font_button.set_tooltip_text("Select font")
-        self.font_button.connect("notify::font-desc", self._on_font_changed)
-        toolbar.append(self.font_button)
+        # Font size dropdown
+        self.font_size_dropdown = Gtk.DropDown()
+        font_sizes = ["8", "9", "10", "11", "12", "14", "16", "18", "24", "36"]
+        size_model = Gtk.StringList()
+        for size in font_sizes:
+            size_model.append(size)
+        self.font_size_dropdown.set_model(size_model)
+        self.font_size_dropdown.set_selected(4)  # Default to 12
+        self.font_size_dropdown.set_tooltip_text("Font size")
+        self.font_size_dropdown.connect("notify::selected", self._on_font_size_changed)
+        toolbar.append(self.font_size_dropdown)
+
+        # Heading/Paragraph styles dropdown
+        self.heading_dropdown = Gtk.DropDown()
+        heading_model = Gtk.StringList()
+        headings = ["Normal", "H1", "H2", "H3"]
+        for h in headings:
+            heading_model.append(h)
+        self.heading_dropdown.set_model(heading_model)
+        self.heading_dropdown.set_selected(0)
+        self.heading_dropdown.set_tooltip_text("Paragraph style")
+        self.heading_dropdown.connect("notify::selected", self._on_heading_changed)
+        toolbar.append(self.heading_dropdown)
+
+        # Separator
+        toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        # Alignment dropdown
+        self.align_button = Gtk.MenuButton()
+        self.align_button.set_icon_name("format-justify-left-symbolic")
+        self.align_button.set_tooltip_text("Text alignment")
+        self.align_button.add_css_class("flat")
+        self._setup_alignment_menu(self.align_button)
+        toolbar.append(self.align_button)
+
+        # Lists dropdown
+        self.lists_button = Gtk.MenuButton()
+        self.lists_button.set_icon_name("view-list-bullet-symbolic")
+        self.lists_button.set_tooltip_text("Lists")
+        self.lists_button.add_css_class("flat")
+        self._setup_lists_menu(self.lists_button)
+        toolbar.append(self.lists_button)
+
+        # Separator
+        toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        # Decrease indent button
+        self.outdent_button = Gtk.Button()
+        self.outdent_button.set_icon_name("format-indent-less-symbolic")
+        self.outdent_button.set_tooltip_text("Decrease indent (Ctrl+[)")
+        self.outdent_button.add_css_class("flat")
+        self.outdent_button.connect("clicked", self._on_outdent_clicked)
+        toolbar.append(self.outdent_button)
+
+        # Increase indent button
+        self.indent_button = Gtk.Button()
+        self.indent_button.set_icon_name("format-indent-more-symbolic")
+        self.indent_button.set_tooltip_text("Increase indent (Ctrl+])")
+        self.indent_button.add_css_class("flat")
+        self.indent_button.connect("clicked", self._on_indent_clicked)
+        toolbar.append(self.indent_button)
+
+        # Separator
+        toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        # Insert dropdown
+        self.insert_button = Gtk.MenuButton()
+        self.insert_button.set_icon_name("list-add-symbolic")
+        self.insert_button.set_tooltip_text("Insert")
+        self.insert_button.add_css_class("flat")
+        self._setup_insert_menu(self.insert_button)
+        toolbar.append(self.insert_button)
+
+        # Clear formatting button
+        self.clear_format_button = Gtk.Button()
+        self.clear_format_button.set_icon_name("edit-clear-symbolic")
+        self.clear_format_button.set_tooltip_text("Clear formatting")
+        self.clear_format_button.add_css_class("flat")
+        self.clear_format_button.connect("clicked", self._on_clear_format_clicked)
+        toolbar.append(self.clear_format_button)
 
         # Spacer
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
         toolbar.append(spacer)
 
+        # Font selector
+        self.font_button = Gtk.FontDialogButton()
+        font_dialog = Gtk.FontDialog()
+        font_dialog.set_title("Select Font")
+        self.font_button.set_dialog(font_dialog)
+        self.font_button.set_tooltip_text("Font")
+        self.font_button.connect("notify::font-desc", self._on_font_changed)
+        toolbar.append(self.font_button)
+
         # Signature button
         signature_button = Gtk.Button()
         signature_button.set_icon_name("contact-new-symbolic")
         signature_button.set_tooltip_text("Insert signature")
+        signature_button.add_css_class("flat")
         signature_button.connect("clicked", self._on_signature_clicked)
         toolbar.append(signature_button)
 
         parent.append(toolbar)
+
+        # Initialize alignment buttons list for toggle behavior
+        self._align_buttons = []
+        self._current_alignment = "left"
+
+    def _setup_more_format_menu(self, button: Gtk.MenuButton):
+        """Setup the more formatting options menu."""
+        popover = Gtk.Popover()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+        box.set_margin_start(8)
+        box.set_margin_end(8)
+
+        # Strikethrough toggle
+        self.strike_button = Gtk.ToggleButton()
+        strike_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        strike_icon = Gtk.Image.new_from_icon_name("format-text-strikethrough-symbolic")
+        strike_label = Gtk.Label(label="Strikethrough")
+        strike_box.append(strike_icon)
+        strike_box.append(strike_label)
+        self.strike_button.set_child(strike_box)
+        self.strike_button.add_css_class("flat")
+        self.strike_button.connect("toggled", self._on_strike_toggled)
+        box.append(self.strike_button)
+
+        box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
+        # Text color section
+        color_label = Gtk.Label(label="Text Color", xalign=0)
+        color_label.add_css_class("dim-label")
+        box.append(color_label)
+
+        color_grid = self._create_color_grid(is_highlight=False, popover=popover)
+        box.append(color_grid)
+
+        box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
+        # Highlight color section
+        highlight_label = Gtk.Label(label="Highlight", xalign=0)
+        highlight_label.add_css_class("dim-label")
+        box.append(highlight_label)
+
+        highlight_grid = self._create_color_grid(is_highlight=True, popover=popover)
+        box.append(highlight_grid)
+
+        popover.set_child(box)
+        button.set_popover(popover)
+
+    def _create_color_grid(self, is_highlight: bool, popover: Gtk.Popover) -> Gtk.Grid:
+        """Create a color picker grid."""
+        color_grid = Gtk.Grid()
+        color_grid.set_row_spacing(2)
+        color_grid.set_column_spacing(2)
+
+        colors = [
+            ["#000000", "#FF0000", "#FF9900", "#FFFF00", "#00FF00", "#00FFFF", "#0000FF", "#9900FF"],
+            ["#FFFFFF", "#FFCCCC", "#FFE5CC", "#FFFFCC", "#CCFFCC", "#CCFFFF", "#CCCCFF", "#FFCCFF"],
+        ]
+
+        for row_idx, row in enumerate(colors):
+            for col_idx, color in enumerate(row):
+                color_btn = Gtk.Button()
+                color_btn.set_size_request(20, 20)
+
+                css_provider = Gtk.CssProvider()
+                css_provider.load_from_data(f"""
+                    button {{
+                        background-color: {color};
+                        min-width: 20px;
+                        min-height: 20px;
+                        padding: 0;
+                        border-radius: 2px;
+                    }}
+                """.encode())
+                color_btn.get_style_context().add_provider(
+                    css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+                )
+                color_btn.connect(
+                    "clicked",
+                    lambda btn, c=color, h=is_highlight: self._on_color_selected(c, h, popover)
+                )
+                color_grid.attach(color_btn, col_idx, row_idx, 1, 1)
+
+        return color_grid
+
+    def _setup_alignment_menu(self, button: Gtk.MenuButton):
+        """Setup the alignment options menu."""
+        popover = Gtk.Popover()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.set_margin_top(4)
+        box.set_margin_bottom(4)
+        box.set_margin_start(4)
+        box.set_margin_end(4)
+
+        alignments = [
+            ("format-justify-left-symbolic", "Align Left", "left"),
+            ("format-justify-center-symbolic", "Align Center", "center"),
+            ("format-justify-right-symbolic", "Align Right", "right"),
+            ("format-justify-fill-symbolic", "Justify", "justify"),
+        ]
+
+        for icon_name, label, align_type in alignments:
+            btn = Gtk.Button()
+            btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            btn_box.append(Gtk.Image.new_from_icon_name(icon_name))
+            btn_box.append(Gtk.Label(label=label))
+            btn.set_child(btn_box)
+            btn.add_css_class("flat")
+            btn.connect("clicked", lambda b, a=align_type, p=popover, i=icon_name: self._on_alignment_selected(a, p, i))
+            box.append(btn)
+
+        popover.set_child(box)
+        button.set_popover(popover)
+
+    def _on_alignment_selected(self, alignment: str, popover: Gtk.Popover, icon_name: str):
+        """Handle alignment selection from menu."""
+        popover.popdown()
+        self._current_alignment = alignment
+        self.align_button.set_icon_name(icon_name)
+        self._set_alignment(alignment)
+
+    def _setup_lists_menu(self, button: Gtk.MenuButton):
+        """Setup the lists options menu."""
+        popover = Gtk.Popover()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.set_margin_top(4)
+        box.set_margin_bottom(4)
+        box.set_margin_start(4)
+        box.set_margin_end(4)
+
+        # Bulleted list
+        bullet_btn = Gtk.Button()
+        bullet_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        bullet_box.append(Gtk.Image.new_from_icon_name("view-list-bullet-symbolic"))
+        bullet_box.append(Gtk.Label(label="Bulleted List"))
+        bullet_btn.set_child(bullet_box)
+        bullet_btn.add_css_class("flat")
+        bullet_btn.connect("clicked", lambda b: (popover.popdown(), self._on_bullet_list_clicked(None)))
+        box.append(bullet_btn)
+
+        # Numbered list
+        number_btn = Gtk.Button()
+        number_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        number_box.append(Gtk.Image.new_from_icon_name("view-list-ordered-symbolic"))
+        number_box.append(Gtk.Label(label="Numbered List"))
+        number_btn.set_child(number_box)
+        number_btn.add_css_class("flat")
+        number_btn.connect("clicked", lambda b: (popover.popdown(), self._on_numbered_list_clicked(None)))
+        box.append(number_btn)
+
+        popover.set_child(box)
+        button.set_popover(popover)
+
+    def _setup_insert_menu(self, button: Gtk.MenuButton):
+        """Setup the insert options menu."""
+        popover = Gtk.Popover()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.set_margin_top(4)
+        box.set_margin_bottom(4)
+        box.set_margin_start(4)
+        box.set_margin_end(4)
+
+        # Insert link
+        link_btn = Gtk.Button()
+        link_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        link_box.append(Gtk.Image.new_from_icon_name("insert-link-symbolic"))
+        link_box.append(Gtk.Label(label="Link (Ctrl+K)"))
+        link_btn.set_child(link_box)
+        link_btn.add_css_class("flat")
+        link_btn.connect("clicked", lambda b: (popover.popdown(), self._on_link_clicked(None)))
+        box.append(link_btn)
+
+        # Insert horizontal line
+        hr_btn = Gtk.Button()
+        hr_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        hr_box.append(Gtk.Image.new_from_icon_name("view-dual-symbolic"))
+        hr_box.append(Gtk.Label(label="Horizontal Line"))
+        hr_btn.set_child(hr_box)
+        hr_btn.add_css_class("flat")
+        hr_btn.connect("clicked", lambda b: (popover.popdown(), self._on_hr_clicked(None)))
+        box.append(hr_btn)
+
+        popover.set_child(box)
+        button.set_popover(popover)
+
 
     def _create_body_editor(self, parent: Gtk.Box):
         """Create the body text editor."""
@@ -395,6 +668,56 @@ class ComposerWindow(Gtk.Window):
         quote_tag.set_property("left-margin", 20)
         quote_tag.set_property("style", Pango.Style.ITALIC)
         tag_table.add(quote_tag)
+
+        # Alignment tags
+        align_left_tag = Gtk.TextTag(name="align-left")
+        align_left_tag.set_property("justification", Gtk.Justification.LEFT)
+        tag_table.add(align_left_tag)
+
+        align_center_tag = Gtk.TextTag(name="align-center")
+        align_center_tag.set_property("justification", Gtk.Justification.CENTER)
+        tag_table.add(align_center_tag)
+
+        align_right_tag = Gtk.TextTag(name="align-right")
+        align_right_tag.set_property("justification", Gtk.Justification.RIGHT)
+        tag_table.add(align_right_tag)
+
+        align_justify_tag = Gtk.TextTag(name="align-justify")
+        align_justify_tag.set_property("justification", Gtk.Justification.FILL)
+        tag_table.add(align_justify_tag)
+
+        # Heading tags
+        h1_tag = Gtk.TextTag(name="heading1")
+        h1_tag.set_property("weight", Pango.Weight.BOLD)
+        h1_tag.set_property("scale", 2.0)
+        tag_table.add(h1_tag)
+
+        h2_tag = Gtk.TextTag(name="heading2")
+        h2_tag.set_property("weight", Pango.Weight.BOLD)
+        h2_tag.set_property("scale", 1.5)
+        tag_table.add(h2_tag)
+
+        h3_tag = Gtk.TextTag(name="heading3")
+        h3_tag.set_property("weight", Pango.Weight.BOLD)
+        h3_tag.set_property("scale", 1.25)
+        tag_table.add(h3_tag)
+
+        h4_tag = Gtk.TextTag(name="heading4")
+        h4_tag.set_property("weight", Pango.Weight.BOLD)
+        h4_tag.set_property("scale", 1.1)
+        tag_table.add(h4_tag)
+
+        # Indent tags
+        for i in range(1, 6):
+            indent_tag = Gtk.TextTag(name=f"indent-{i}")
+            indent_tag.set_property("left-margin", 30 * i)
+            tag_table.add(indent_tag)
+
+        # Link tag
+        link_tag = Gtk.TextTag(name="link")
+        link_tag.set_property("foreground", "#0066CC")
+        link_tag.set_property("underline", Pango.Underline.SINGLE)
+        tag_table.add(link_tag)
 
     def _setup_actions(self):
         """Setup keyboard shortcuts and actions."""
@@ -594,6 +917,300 @@ class ComposerWindow(Gtk.Window):
                 # Set as default font for the view
                 self.body_view.override_font(font_desc)
 
+    def _on_font_size_changed(self, dropdown, pspec):
+        """Handle font size change."""
+        selected = dropdown.get_selected()
+        if selected == Gtk.INVALID_LIST_POSITION:
+            return
+
+        model = dropdown.get_model()
+        size_str = model.get_string(selected)
+        size = int(size_str)
+
+        bounds = self.body_buffer.get_selection_bounds()
+        if bounds:
+            start, end = bounds
+            tag_name = f"size-{size}"
+            tag_table = self.body_buffer.get_tag_table()
+
+            tag = tag_table.lookup(tag_name)
+            if not tag:
+                tag = Gtk.TextTag(name=tag_name)
+                tag.set_property("size-points", float(size))
+                tag_table.add(tag)
+
+            self.body_buffer.apply_tag(tag, start, end)
+
+    def _on_heading_changed(self, dropdown, pspec):
+        """Handle heading style change."""
+        selected = dropdown.get_selected()
+        if selected == Gtk.INVALID_LIST_POSITION:
+            return
+
+        # Get current line bounds
+        bounds = self.body_buffer.get_selection_bounds()
+        if bounds:
+            start, end = bounds
+        else:
+            cursor = self.body_buffer.get_insert()
+            start = self.body_buffer.get_iter_at_mark(cursor)
+            end = start.copy()
+
+        # Extend to full line
+        start.set_line_offset(0)
+        if not end.ends_line():
+            end.forward_to_line_end()
+
+        # Remove existing heading tags
+        for tag_name in ["heading1", "heading2", "heading3", "heading4"]:
+            self.body_buffer.remove_tag_by_name(tag_name, start, end)
+
+        # Apply new heading tag
+        heading_tags = {
+            1: "heading1",
+            2: "heading2",
+            3: "heading3",
+            4: "heading4",
+        }
+        if selected in heading_tags:
+            self.body_buffer.apply_tag_by_name(heading_tags[selected], start, end)
+
+    def _on_color_selected(self, color: str, is_highlight: bool, popover: Gtk.Popover):
+        """Handle color selection."""
+        popover.popdown()
+
+        bounds = self.body_buffer.get_selection_bounds()
+        if not bounds:
+            return
+
+        start, end = bounds
+        tag_table = self.body_buffer.get_tag_table()
+
+        if color is None:
+            # Remove color tags
+            prefix = "highlight-" if is_highlight else "color-"
+            # Remove all color tags in selection
+            tag = tag_table.get_child(0) if tag_table.get_size() > 0 else None
+            while tag:
+                if tag.get_property("name") and tag.get_property("name").startswith(prefix):
+                    self.body_buffer.remove_tag(tag, start, end)
+                tag = tag_table.get_child(tag_table.get_size() - 1) if tag_table.get_size() > 0 else None
+            return
+
+        # Create or get color tag
+        if is_highlight:
+            tag_name = f"highlight-{color}"
+            prop_name = "background"
+        else:
+            tag_name = f"color-{color}"
+            prop_name = "foreground"
+
+        tag = tag_table.lookup(tag_name)
+        if not tag:
+            tag = Gtk.TextTag(name=tag_name)
+            tag.set_property(prop_name, color)
+            tag_table.add(tag)
+
+        self.body_buffer.apply_tag(tag, start, end)
+
+    def _set_alignment(self, alignment: str):
+        """Set text alignment for current paragraph."""
+        # Get current line bounds
+        cursor = self.body_buffer.get_insert()
+        start = self.body_buffer.get_iter_at_mark(cursor)
+        end = start.copy()
+
+        start.set_line_offset(0)
+        if not end.ends_line():
+            end.forward_to_line_end()
+
+        # Remove existing alignment tags
+        for tag_name in ["align-left", "align-center", "align-right", "align-justify"]:
+            self.body_buffer.remove_tag_by_name(tag_name, start, end)
+
+        # Apply new alignment
+        self.body_buffer.apply_tag_by_name(f"align-{alignment}", start, end)
+
+
+    def _on_bullet_list_clicked(self, button):
+        """Insert a bullet point at current line."""
+        cursor = self.body_buffer.get_insert()
+        cursor_iter = self.body_buffer.get_iter_at_mark(cursor)
+
+        # Go to start of line
+        cursor_iter.set_line_offset(0)
+
+        # Insert bullet
+        self.body_buffer.insert(cursor_iter, "• ")
+
+    def _on_numbered_list_clicked(self, button):
+        """Insert a numbered list item at current line."""
+        cursor = self.body_buffer.get_insert()
+        cursor_iter = self.body_buffer.get_iter_at_mark(cursor)
+
+        # Go to start of line
+        line_start = cursor_iter.copy()
+        line_start.set_line_offset(0)
+
+        # Count previous numbered items to determine number
+        line_num = cursor_iter.get_line()
+        number = 1
+
+        # Check previous lines for numbered items
+        if line_num > 0:
+            prev_iter = self.body_buffer.get_iter_at_line(line_num - 1)
+            prev_end = prev_iter.copy()
+            prev_end.forward_to_line_end()
+            prev_text = self.body_buffer.get_text(prev_iter, prev_end, True)
+
+            # Try to extract number from previous line
+            import re
+            match = re.match(r'^(\d+)\.\s', prev_text)
+            if match:
+                number = int(match.group(1)) + 1
+
+        # Insert number
+        self.body_buffer.insert(line_start, f"{number}. ")
+
+    def _on_indent_clicked(self, button):
+        """Increase indent of current paragraph."""
+        cursor = self.body_buffer.get_insert()
+        start = self.body_buffer.get_iter_at_mark(cursor)
+        end = start.copy()
+
+        start.set_line_offset(0)
+        if not end.ends_line():
+            end.forward_to_line_end()
+
+        # Find current indent level
+        current_indent = 0
+        for i in range(1, 6):
+            tag = self.body_buffer.get_tag_table().lookup(f"indent-{i}")
+            if tag and start.has_tag(tag):
+                current_indent = i
+                break
+
+        # Remove current indent tag and apply next level
+        if current_indent > 0:
+            self.body_buffer.remove_tag_by_name(f"indent-{current_indent}", start, end)
+
+        if current_indent < 5:
+            self.body_buffer.apply_tag_by_name(f"indent-{current_indent + 1}", start, end)
+
+    def _on_outdent_clicked(self, button):
+        """Decrease indent of current paragraph."""
+        cursor = self.body_buffer.get_insert()
+        start = self.body_buffer.get_iter_at_mark(cursor)
+        end = start.copy()
+
+        start.set_line_offset(0)
+        if not end.ends_line():
+            end.forward_to_line_end()
+
+        # Find current indent level
+        current_indent = 0
+        for i in range(1, 6):
+            tag = self.body_buffer.get_tag_table().lookup(f"indent-{i}")
+            if tag and start.has_tag(tag):
+                current_indent = i
+                break
+
+        # Remove current indent tag and apply previous level
+        if current_indent > 0:
+            self.body_buffer.remove_tag_by_name(f"indent-{current_indent}", start, end)
+            if current_indent > 1:
+                self.body_buffer.apply_tag_by_name(f"indent-{current_indent - 1}", start, end)
+
+    def _on_link_clicked(self, button):
+        """Show insert link dialog."""
+        dialog = Gtk.Dialog(
+            title="Insert Link",
+            transient_for=self,
+            modal=True,
+        )
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Insert", Gtk.ResponseType.OK)
+        dialog.set_default_response(Gtk.ResponseType.OK)
+
+        content = dialog.get_content_area()
+        content.set_spacing(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        # Get selected text for display text default
+        bounds = self.body_buffer.get_selection_bounds()
+        selected_text = ""
+        if bounds:
+            start, end = bounds
+            selected_text = self.body_buffer.get_text(start, end, True)
+
+        # Display text entry
+        text_label = Gtk.Label(label="Display text:", xalign=0)
+        content.append(text_label)
+        text_entry = Gtk.Entry()
+        text_entry.set_text(selected_text)
+        text_entry.set_placeholder_text("Link text")
+        content.append(text_entry)
+
+        # URL entry
+        url_label = Gtk.Label(label="URL:", xalign=0)
+        content.append(url_label)
+        url_entry = Gtk.Entry()
+        url_entry.set_placeholder_text("https://example.com")
+        content.append(url_entry)
+
+        dialog.connect("response", self._on_link_dialog_response, text_entry, url_entry)
+        dialog.present()
+
+    def _on_link_dialog_response(self, dialog, response, text_entry, url_entry):
+        """Handle link dialog response."""
+        if response == Gtk.ResponseType.OK:
+            text = text_entry.get_text().strip()
+            url = url_entry.get_text().strip()
+
+            if url:
+                # Delete selection if any
+                bounds = self.body_buffer.get_selection_bounds()
+                if bounds:
+                    start, end = bounds
+                    self.body_buffer.delete(start, end)
+
+                # Insert linked text
+                cursor = self.body_buffer.get_insert()
+                cursor_iter = self.body_buffer.get_iter_at_mark(cursor)
+
+                display_text = text if text else url
+                start_mark = self.body_buffer.create_mark(None, cursor_iter, True)
+
+                self.body_buffer.insert(cursor_iter, display_text)
+
+                # Apply link tag
+                start_iter = self.body_buffer.get_iter_at_mark(start_mark)
+                end_iter = self.body_buffer.get_iter_at_mark(cursor)
+                self.body_buffer.apply_tag_by_name("link", start_iter, end_iter)
+
+        dialog.destroy()
+
+    def _on_hr_clicked(self, button):
+        """Insert horizontal rule."""
+        cursor = self.body_buffer.get_insert()
+        cursor_iter = self.body_buffer.get_iter_at_mark(cursor)
+
+        # Insert a visual horizontal line (using Unicode box drawing)
+        hr_text = "\n" + "─" * 50 + "\n"
+        self.body_buffer.insert(cursor_iter, hr_text)
+
+    def _on_clear_format_clicked(self, button):
+        """Clear all formatting from selection."""
+        bounds = self.body_buffer.get_selection_bounds()
+        if not bounds:
+            return
+
+        start, end = bounds
+        self.body_buffer.remove_all_tags(start, end)
+
     # --- CC/BCC Toggles ---
 
     def _on_cc_toggled(self, button):
@@ -717,6 +1334,7 @@ class ComposerWindow(Gtk.Window):
     def _on_key_pressed(self, controller, keyval, keycode, state):
         """Handle keyboard shortcuts."""
         ctrl = state & Gdk.ModifierType.CONTROL_MASK
+        shift = state & Gdk.ModifierType.SHIFT_MASK
 
         if ctrl:
             if keyval == Gdk.KEY_Return:
@@ -737,6 +1355,21 @@ class ComposerWindow(Gtk.Window):
                 self.underline_button.set_active(
                     not self.underline_button.get_active()
                 )
+                return True
+            elif keyval == Gdk.KEY_k:
+                self._on_link_clicked(None)
+                return True
+            elif keyval == Gdk.KEY_l and shift:
+                # Ctrl+Shift+L for bullet list
+                self._on_bullet_list_clicked(None)
+                return True
+            elif keyval == Gdk.KEY_bracketright:
+                # Ctrl+] for indent
+                self._on_indent_clicked(None)
+                return True
+            elif keyval == Gdk.KEY_bracketleft:
+                # Ctrl+[ for outdent
+                self._on_outdent_clicked(None)
                 return True
 
         return False
