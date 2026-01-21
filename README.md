@@ -116,10 +116,10 @@ unitMail provides a complete, self-contained email system where **you own everyt
 - Optional mesh network = Direct peer-to-peer email
 
 **No Vendor Lock-in:**
-- Open source (LGPL)
+- Open source (MIT License)
 - Standard protocols
-- Exportable data (mbox format)
-- Single-file database backup
+- Exportable data (MBOX, EML, PDF, Markdown, Plain Text)
+- Single-file database backup with encryption option
 
 ---
 
@@ -171,23 +171,37 @@ We're explicit: if you want zero-effort email, use Gmail. If you want **ownershi
 ## Features
 
 ### Core Functionality
-- **Email Composition** - Rich text editor with attachments (25MB per file)
-- **Folder Management** - Inbox, Sent, Drafts, Trash + custom folders
-- **Contact Management** - Address book with PGP key storage
-- **Search** - Full-text search (FTS5) across all messages
-- **Queue Monitoring** - See delivery status in real-time
+- **Email Composition** - Rich text editor with formatting, attachments (25MB per file)
+- **Message Reading** - Full reading pane with pop-out window, all text selectable
+- **Folder Management** - Inbox, Sent, Drafts, Trash, Spam, Archive + custom folders
+- **Contact Management** - Address book with PGP key storage and groups
+- **Search** - Full-text search (FTS5) with advanced filters, saved searches, search history
+- **Queue Monitoring** - Real-time delivery status with retry controls
+- **Multi-Select** - Bulk operations with CTRL+Click and SHIFT+Click support
+
+### Email Actions
+- **Reply/Reply All/Forward** - Full conversation support with quoting
+- **Print** - Print emails with formatting via system print dialog
+- **Export** - Export to Plain Text, Markdown, PDF, MBOX, or EML formats
+- **Backup & Restore** - Encrypted backups with password protection and restore wizard
 
 ### Security
 - **Transport Encryption** - TLS 1.2+ for all connections
 - **Storage** - Local SQLite database with optional encryption
-- **PGP Support** - End-to-end encryption (optional)
-- **DKIM/SPF/DMARC** - Automatic email authentication
+- **PGP Support** - End-to-end encryption with key management
+- **DKIM/SPF/DMARC** - Automatic email authentication and DNS verification
+
+### Customization
+- **Theme Support** - Light, Dark, or System theme
+- **View Density** - Compact, Standard, or Minimal layouts
+- **Date Formats** - Multiple date/time format options
+- **Column Widths** - Resizable and persistent column settings
 
 ### Advanced
-- **Mesh Networking** - Direct peer-to-peer via WireGuard
+- **Mesh Networking** - Direct peer-to-peer via WireGuard (optional)
 - **Multiple Deployment Models** - Self-host, VPS, or hybrid
-- **Backup/Restore** - Simple database file backup
-- **API Access** - REST API for automation
+- **REST API** - Full API access for automation
+- **Setup Wizard** - Guided first-run configuration
 
 ---
 
@@ -270,21 +284,24 @@ unitmail/
 │   └── TECHNICAL_SPECIFICATION.md
 ├── src/
 │   ├── client/          # GTK desktop application
-│   │   ├── ui/          # UI components
+│   │   ├── ui/          # UI components (main_window, composer, settings, etc.)
+│   │   │   └── widgets/ # Reusable widgets (folder_tree, search_bar, etc.)
 │   │   ├── models/      # Data models
-│   │   └── services/    # Business logic
+│   │   └── services/    # Business logic (backup, export, search, settings)
 │   ├── gateway/         # Gateway microservice
-│   │   ├── smtp/        # SMTP handling
-│   │   ├── api/         # REST API
-│   │   └── crypto/      # Encryption
+│   │   ├── smtp/        # SMTP send/receive, queue, parser
+│   │   ├── api/         # REST API routes
+│   │   ├── crypto/      # DKIM, PGP, TLS encryption
+│   │   └── dns/         # DNS verification (SPF, DKIM, DMARC)
 │   └── common/          # Shared code
-│       └── storage/     # SQLite storage module
+│       ├── storage/     # SQLite storage module with FTS5
+│       └── models.py    # Shared data models
 ├── tests/
 │   ├── e2e/             # Playwright E2E tests
 │   └── unit/            # pytest unit tests
 ├── config/              # Configuration templates
-├── scripts/             # CLI tools
-└── skills/              # Implementation documentation
+├── scripts/             # CLI tools (run_client.py, run_gateway.py)
+└── screenshots/         # Application screenshots
 ```
 
 ---
@@ -364,19 +381,26 @@ User A ◄──WireGuard──► User B ◄──WireGuard──► User C
 
 ## Roadmap
 
-### Phase 1: MVP (Current)
-- [x] GTK desktop client
-- [x] Gateway microservice
-- [x] SQLite database with FTS5
-- [x] Basic send/receive
-- [ ] Playwright E2E tests
-- [ ] First-run wizard
+### Phase 1: MVP (Complete)
+- [x] GTK desktop client with full UI
+- [x] Gateway microservice with SMTP send/receive
+- [x] SQLite database with FTS5 full-text search
+- [x] Email composition, reply, forward
+- [x] Folder management (system + custom)
+- [x] Contact management with PGP keys
+- [x] First-run setup wizard
+- [x] Backup and restore with encryption
+- [x] Export to multiple formats (TXT, MD, PDF, MBOX, EML)
+- [x] Print functionality
+- [x] Multi-select with bulk operations
+- [x] Advanced search with saved searches
 
-### Phase 2: Enhanced Features
-- [ ] End-to-end PGP encryption
-- [ ] WireGuard mesh networking
+### Phase 2: Enhanced Features (In Progress)
+- [x] PGP encryption support
+- [x] DKIM/SPF/DMARC authentication
+- [ ] WireGuard mesh networking (UI ready)
+- [ ] Playwright E2E tests
 - [ ] Mobile clients (Android/iOS)
-- [ ] Backup/restore tools
 
 ### Phase 3: Ecosystem
 - [ ] Plugin architecture
@@ -425,7 +449,7 @@ A: Your email is stored in a local SQLite database on your machine. The VPS gate
 A: unitMail includes Rspamd integration for spam scoring and filtering.
 
 **Q: How do I back up my email?**
-A: Simply copy the `~/.unitmail/data/unitmail.db` file. It's a standard SQLite database.
+A: Use the built-in Backup feature in Settings → Backup & Export. You can create encrypted backups with password protection, or simply copy the `~/.unitmail/data/unitmail.db` file directly.
 
 ---
 
