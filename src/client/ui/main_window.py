@@ -2591,12 +2591,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
 
         header_box.append(action_bar)
 
-        # Subject line
+        # Subject line (selectable)
         self._preview_subject = Gtk.Label(
             xalign=0,
             css_classes=["title-2"],
             wrap=True,
             wrap_mode=Pango.WrapMode.WORD_CHAR,
+            selectable=True,
         )
         header_box.append(self._preview_subject)
 
@@ -2614,7 +2615,11 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         )
         info_grid.attach(from_label, 0, 0, 1, 1)
 
-        self._preview_from = Gtk.Label(xalign=0, hexpand=True)
+        self._preview_from = Gtk.Label(
+            xalign=0,
+            hexpand=True,
+            selectable=True,
+        )
         info_grid.attach(self._preview_from, 1, 0, 1, 1)
 
         # To row
@@ -2625,7 +2630,13 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         )
         info_grid.attach(to_label, 0, 1, 1, 1)
 
-        self._preview_to = Gtk.Label(xalign=0, hexpand=True)
+        self._preview_to = Gtk.Label(
+            xalign=0,
+            hexpand=True,
+            selectable=True,
+            wrap=True,
+            wrap_mode=Pango.WrapMode.WORD_CHAR,
+        )
         info_grid.attach(self._preview_to, 1, 1, 1, 1)
 
         # Date row
@@ -2636,7 +2647,11 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         )
         info_grid.attach(date_label, 0, 2, 1, 1)
 
-        self._preview_date = Gtk.Label(xalign=0, hexpand=True)
+        self._preview_date = Gtk.Label(
+            xalign=0,
+            hexpand=True,
+            selectable=True,
+        )
         info_grid.attach(self._preview_date, 1, 2, 1, 1)
 
         header_box.append(info_grid)
@@ -4391,80 +4406,337 @@ class MainWindow(ColumnResizeMixin, Adw.ApplicationWindow):
         self._update_select_all_state()
 
     def _open_message_popout(self, message_item: "MessageItem") -> None:
-        """Open a message in a separate pop-out window."""
+        """Open a message in a separate pop-out window with full controls."""
+        # Get full message from storage
+        storage = get_storage()
+        db_message = storage.get_message(message_item.message_id)
+
         # Create a new window for the message
         popout_window = Adw.Window(
             title=message_item.subject or "(No subject)",
-            default_width=700,
-            default_height=600,
+            default_width=800,
+            default_height=700,
             transient_for=self,
         )
+
+        # Store message info on window for action handlers
+        popout_window._message_id = message_item.message_id
+        popout_window._message_item = message_item
 
         # Main content box
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        # Header bar
+        # Header bar with close button
         header_bar = Adw.HeaderBar()
         header_bar.set_title_widget(
             Gtk.Label(
                 label=message_item.subject or "(No subject)",
                 ellipsize=Pango.EllipsizeMode.END,
+                selectable=True,
             )
         )
         main_box.append(header_bar)
 
-        # Message info box
-        info_box = Gtk.Box(
+        # Content area
+        content_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=4,
+            spacing=8,
             margin_start=16,
             margin_end=16,
             margin_top=12,
             margin_bottom=12,
         )
 
-        from_label = Gtk.Label(
-            label=f"From: {message_item.from_address}",
-            xalign=0,
-            css_classes=["heading"],
+        # Action bar with all controls
+        action_bar = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=4,
         )
-        info_box.append(from_label)
 
-        date_label = Gtk.Label(
-            label=f"Date: {message_item.date_string}",
+        # Reply button
+        reply_button = Gtk.Button(
+            icon_name="mail-reply-sender-symbolic",
+            tooltip_text="Reply",
+        )
+        reply_button.connect(
+            "clicked",
+            lambda btn: self._on_popout_reply(popout_window, message_item),
+        )
+        action_bar.append(reply_button)
+
+        # Reply All button
+        reply_all_button = Gtk.Button(
+            icon_name="mail-reply-all-symbolic",
+            tooltip_text="Reply All",
+        )
+        reply_all_button.connect(
+            "clicked",
+            lambda btn: self._on_popout_reply_all(popout_window, message_item),
+        )
+        action_bar.append(reply_all_button)
+
+        # Forward button
+        forward_button = Gtk.Button(
+            icon_name="mail-forward-symbolic",
+            tooltip_text="Forward",
+        )
+        forward_button.connect(
+            "clicked",
+            lambda btn: self._on_popout_forward(popout_window, message_item),
+        )
+        action_bar.append(forward_button)
+
+        action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        # Favorite toggle button
+        favorite_button = Gtk.ToggleButton(
+            icon_name="starred-symbolic" if message_item.is_starred else "non-starred-symbolic",
+            tooltip_text="Add/Remove favorite",
+            css_classes=["flat", "favorite-toggle"],
+            active=message_item.is_starred,
+        )
+        favorite_button.connect(
+            "toggled",
+            lambda btn: self._on_popout_favorite_toggled(btn, message_item),
+        )
+        popout_window._favorite_button = favorite_button
+        action_bar.append(favorite_button)
+
+        # Important toggle button
+        important_button = Gtk.ToggleButton(
+            icon_name="dialog-warning-symbolic",
+            tooltip_text="Mark as Important",
+            css_classes=["flat", "important-toggle"],
+            active=message_item.is_important,
+        )
+        important_button.connect(
+            "toggled",
+            lambda btn: self._on_popout_important_toggled(btn, message_item),
+        )
+        popout_window._important_button = important_button
+        action_bar.append(important_button)
+
+        action_bar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        # Print button
+        print_button = Gtk.Button(
+            icon_name="printer-symbolic",
+            tooltip_text="Print email",
+            css_classes=["flat"],
+        )
+        print_button.connect(
+            "clicked",
+            lambda btn: self._on_popout_print(popout_window, message_item),
+        )
+        action_bar.append(print_button)
+
+        # Delete button
+        delete_button = Gtk.Button(
+            icon_name="user-trash-symbolic",
+            tooltip_text="Move to Trash",
+            css_classes=["destructive-action"],
+        )
+        delete_button.connect(
+            "clicked",
+            lambda btn: self._on_popout_delete(popout_window, message_item),
+        )
+        action_bar.append(delete_button)
+
+        # Spacer
+        spacer = Gtk.Box(hexpand=True)
+        action_bar.append(spacer)
+
+        # More actions menu
+        more_menu = Gio.Menu()
+
+        read_section = Gio.Menu()
+        read_section.append("Mark as Read", "win.mark-read")
+        read_section.append("Mark as Unread", "win.mark-unread")
+        more_menu.append_section(None, read_section)
+
+        move_section = Gio.Menu()
+        move_submenu = Gio.Menu()
+        move_submenu.append("Archive", "win.move-to-archive")
+        move_submenu.append("Spam", "win.move-to-spam")
+        move_submenu.append("Trash", "win.move-to-trash")
+        move_section.append_submenu("Move to...", move_submenu)
+        more_menu.append_section(None, move_section)
+
+        more_button = Gtk.MenuButton(
+            icon_name="view-more-symbolic",
+            tooltip_text="More actions",
+            menu_model=more_menu,
+        )
+        action_bar.append(more_button)
+
+        content_box.append(action_bar)
+
+        # Subject line (selectable)
+        subject_label = Gtk.Label(
+            label=message_item.subject or "(No subject)",
             xalign=0,
+            css_classes=["title-2"],
+            wrap=True,
+            wrap_mode=Pango.WrapMode.WORD_CHAR,
+            selectable=True,
+        )
+        content_box.append(subject_label)
+
+        # From/To/Date info grid
+        info_grid = Gtk.Grid(
+            row_spacing=4,
+            column_spacing=8,
+        )
+
+        # From row
+        from_label_title = Gtk.Label(
+            label="From:",
+            xalign=1,
             css_classes=["dim-label"],
         )
-        info_box.append(date_label)
+        info_grid.attach(from_label_title, 0, 0, 1, 1)
 
-        main_box.append(info_box)
+        from_label_value = Gtk.Label(
+            label=message_item.from_address,
+            xalign=0,
+            hexpand=True,
+            selectable=True,
+        )
+        info_grid.attach(from_label_value, 1, 0, 1, 1)
+
+        # To row
+        to_label_title = Gtk.Label(
+            label="To:",
+            xalign=1,
+            css_classes=["dim-label"],
+        )
+        info_grid.attach(to_label_title, 0, 1, 1, 1)
+
+        to_addresses = ""
+        if db_message:
+            to_list = db_message.get("to_addresses", [])
+            if to_list:
+                to_addresses = ", ".join(to_list) if isinstance(to_list, list) else str(to_list)
+        to_label_value = Gtk.Label(
+            label=to_addresses or "me@unitmail.local",
+            xalign=0,
+            hexpand=True,
+            selectable=True,
+            wrap=True,
+            wrap_mode=Pango.WrapMode.WORD_CHAR,
+        )
+        info_grid.attach(to_label_value, 1, 1, 1, 1)
+
+        # Date row
+        date_label_title = Gtk.Label(
+            label="Date:",
+            xalign=1,
+            css_classes=["dim-label"],
+        )
+        info_grid.attach(date_label_title, 0, 2, 1, 1)
+
+        # Format date properly
+        try:
+            from client.services.date_format_service import format_date_with_time
+            date_str = format_date_with_time(message_item._date)
+        except ImportError:
+            date_str = message_item.date_string
+
+        date_label_value = Gtk.Label(
+            label=date_str,
+            xalign=0,
+            hexpand=True,
+            selectable=True,
+        )
+        info_grid.attach(date_label_value, 1, 2, 1, 1)
+
+        content_box.append(info_grid)
+
+        main_box.append(content_box)
         main_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
-        # Scrollable message body
+        # Scrollable message body with full content
         scrolled = Gtk.ScrolledWindow(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
             vexpand=True,
         )
 
-        body_label = Gtk.Label(
-            label=message_item.preview or "(No content)",
-            xalign=0,
-            yalign=0,
-            wrap=True,
-            wrap_mode=Pango.WrapMode.WORD_CHAR,
-            margin_start=16,
-            margin_end=16,
-            margin_top=12,
-            margin_bottom=12,
-            selectable=True,
+        # Get full body text from database
+        body_text = ""
+        if db_message:
+            body_text = db_message.get("body_text", "") or db_message.get("body_html", "") or ""
+            # Strip HTML tags if we got HTML content
+            if db_message.get("body_html") and not db_message.get("body_text"):
+                import re
+                body_text = re.sub(r"<[^>]+>", "", body_text)
+                body_text = body_text.replace("&nbsp;", " ")
+                body_text = body_text.replace("&amp;", "&")
+                body_text = body_text.replace("&lt;", "<")
+                body_text = body_text.replace("&gt;", ">")
+
+        if not body_text:
+            body_text = message_item.preview or "(No content)"
+
+        # Use TextView for better text selection
+        body_text_view = Gtk.TextView(
+            editable=False,
+            cursor_visible=False,
+            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+            left_margin=16,
+            right_margin=16,
+            top_margin=12,
+            bottom_margin=12,
         )
-        scrolled.set_child(body_label)
+        body_buffer = body_text_view.get_buffer()
+        body_buffer.set_text(body_text)
+
+        scrolled.set_child(body_text_view)
         main_box.append(scrolled)
 
         popout_window.set_content(main_box)
         popout_window.present()
         logger.info(f"Opened message pop-out for: {message_item.message_id}")
+
+    def _on_popout_reply(self, window: Adw.Window, message_item: "MessageItem") -> None:
+        """Handle reply from pop-out window."""
+        self._selected_message_id = message_item.message_id
+        self._on_reply_action(None, None)
+
+    def _on_popout_reply_all(self, window: Adw.Window, message_item: "MessageItem") -> None:
+        """Handle reply all from pop-out window."""
+        self._selected_message_id = message_item.message_id
+        self._on_reply_all_action(None, None)
+
+    def _on_popout_forward(self, window: Adw.Window, message_item: "MessageItem") -> None:
+        """Handle forward from pop-out window."""
+        self._selected_message_id = message_item.message_id
+        self._on_forward_action(None, None)
+
+    def _on_popout_favorite_toggled(self, button: Gtk.ToggleButton, message_item: "MessageItem") -> None:
+        """Handle favorite toggle from pop-out window."""
+        is_starred = button.get_active()
+        icon_name = "starred-symbolic" if is_starred else "non-starred-symbolic"
+        button.set_icon_name(icon_name)
+        message_item.is_starred = is_starred
+        self._set_message_starred(message_item.message_id, is_starred)
+
+    def _on_popout_important_toggled(self, button: Gtk.ToggleButton, message_item: "MessageItem") -> None:
+        """Handle important toggle from pop-out window."""
+        is_important = button.get_active()
+        message_item.is_important = is_important
+        self._set_message_important(message_item.message_id, is_important)
+
+    def _on_popout_print(self, window: Adw.Window, message_item: "MessageItem") -> None:
+        """Handle print from pop-out window."""
+        self._selected_message_id = message_item.message_id
+        self._on_print_clicked(None)
+
+    def _on_popout_delete(self, window: Adw.Window, message_item: "MessageItem") -> None:
+        """Handle delete from pop-out window."""
+        self._selected_message_id = message_item.message_id
+        self._move_to_trash_action(None, None)
+        window.close()
 
     def _open_draft_for_editing(self, message_item: "MessageItem") -> None:
         """
